@@ -174,24 +174,24 @@
 }
 
 .gb-card.mod-card > div:first-child {
-  padding-bottom: 10px; /* ensures space before buttons */
+  padding-bottom: 15px; /* ensures space before buttons */
 }
 
 .gb-card.mod-card .gb-mod-actions {
+  display: flex;
+  gap: 10px;
   margin-top: 15px;
   padding-top: 15px;
   border-top: 1px solid var(--gb-border);
-  display: flex;
-  gap: 10px;
-  flex-wrap: wrap;
-  justify-content: space-between; /* pushes report button to right */
+  justify-content: space-between;
 }
 
 .gb-card.mod-card .gb-mod-actions a,
 .gb-card.mod-card .gb-mod-actions button {
-  flex: 1 1 auto; /* allows buttons to shrink if needed */
-  min-width: 100px; /* prevents them from becoming too narrow */
+  flex: 1 1 0;
+  min-width: 120px;
   text-align: center;
+  white-space: nowrap;
 }
     .gb-nav-item {
       color: var(--gb-text-muted);
@@ -485,7 +485,7 @@
     /* GameBanana Mod Grid - Responsive */
     .gb-mod-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+      grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
       gap: 30px;
       margin-top: 30px;
       align-items: stretch; /* ensures all cards have equal height */
@@ -603,6 +603,7 @@
     }
 
     .gb-mod-stats {
+      flex-wrap: nowrap;      /* keep stats on one line */
       display: flex;
       flex-wrap: wrap;
       gap: 15px;
@@ -972,7 +973,7 @@
       <div class="gb-footer-section">
         <h3>🎓 Baldi Mods Hub</h3>
         <p>The premier GameBanana-style platform for Baldi's Basics modding. Upload, share, and discover amazing mods in a secure, community-driven environment.</p>
-        <p style="margin-top: 20px; color: #00ff88;">⭐ Trust Score System • 2GB Uploads • Malware Scanning</p>
+        <p style="margin-top: 20px; color: #00ff88;">⭐ Trust Score System • 100MB Uploads • Malware Scanning</p>
       </div>
       
       <div class="gb-footer-section">
@@ -999,7 +1000,7 @@
       <div class="gb-footer-section">
         <h3>Security</h3>
         <ul>
-          <li><span style="color: #00ff88;">✅</span> 2GB Max File Size</li>
+          <li><span style="color: #00ff88;">✅</span> 100MB Max File Size</li>
           <li><span style="color: #00ff88;">✅</span> Malware Scanning</li>
           <li><span style="color: #00ff88;">✅</span> Moderated Uploads</li>
           <li><span style="color: #00ff88;">✅</span> Secure Downloads</li>

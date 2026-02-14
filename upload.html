@@ -9,7 +9,7 @@
   <meta http-equiv="Referrer-Policy" content="strict-origin-when-cross-origin">
   
   <title>Upload Mod - Baldi Mods Hub (GameBanana Style)</title>
-  <meta name="description" content="Upload your Baldi's Basics mod - 2GB max, malware scanning, moderator approval">
+  <meta name="description" content="Upload your Baldi's Basics mod - 100MB max, malware scanning, moderator approval">
   
   <!-- Favicon -->
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90' fill='%2300ff88'>🎓</text></svg>">
@@ -637,7 +637,7 @@
           <p>All files are automatically scanned for malware. Uploads require moderator approval.</p>
           <div class="gb-security-list">
             <div class="gb-security-item">
-              <span>✅</span> 2GB max file size
+              <span>✅</span> 100MB max file size
             </div>
             <div class="gb-security-item">
               <span>✅</span> ZIP, RAR, 7Z, .baldimod
@@ -751,7 +751,7 @@
           <h2><span>📦</span> File Upload</h2>
           
           <div class="gb-form-group">
-            <label for="file">Mod File <span>*</span> (up to 2GB)</label>
+            <label for="file">Mod File <span>*</span> (up to 100MB)</label>
             <input 
               type="file" 
               id="file" 
@@ -892,10 +892,10 @@
               <strong>Hash:</strong> Calculating...
             `;
 
-            // Check file size (2GB limit)
+            // Check file size (100MB ) limit)
             if (file.size > (window.ENV?.MAX_UPLOAD_SIZE || 2147483648)) {
               fileInfo.style.borderColor = '#ff4444';
-              fileInfo.innerHTML += '<br><span style="color: #ff4444;">❌ File exceeds 2GB limit!</span>';
+              fileInfo.innerHTML += '<br><span style="color: #ff4444;">❌ File exceeds 100MB limit!</span>';
               this.value = '';
             }
           } else {

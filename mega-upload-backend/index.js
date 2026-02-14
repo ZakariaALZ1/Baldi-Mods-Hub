@@ -7,12 +7,10 @@ const path = require('path');
 require('dotenv').config();
 
 const app = express();
-app.use(cors()); // Allow requests from your Vercel domain
+app.use(cors());
 
-// Configure multer to store files temporarily (diskStorage handles large files better)
-const upload = multer({ dest: '/tmp/' }); // Use /tmp on Railway/Render
+const upload = multer({ dest: '/tmp/' });
 
-// Mega.nz credentials from environment variables
 const MEGA_EMAIL = process.env.MEGA_EMAIL;
 const MEGA_PASSWORD = process.env.MEGA_PASSWORD;
 
@@ -21,6 +19,9 @@ if (!MEGA_EMAIL || !MEGA_PASSWORD) {
   process.exit(1);
 }
 
+// Helper to add random delay (1-4 seconds)
+const randomDelay = () => new Promise(resolve => setTimeout(resolve, Math.floor(Math.random() * 3000) + 1000));
+
 app.post('/upload', upload.fields([
   { name: 'mainScreenshot', maxCount: 1 },
   { name: 'screenshots', maxCount: 4 },
@@ -28,14 +29,18 @@ app.post('/upload', upload.fields([
 ]), async (req, res) => {
   try {
     console.log('Upload started...');
-    const storage = await new Storage({ email: MEGA_EMAIL, password: MEGA_PASSWORD }).ready;
+    
+    // Optional: delay before starting
+    await randomDelay();
 
-    // Create a unique folder for this upload
+    const storage = await new Storage({ email: MEGA_EMAIL, password: MEGA_PASSWORD }).ready;
     const folderName = `baldi_mod_${Date.now()}`;
     const uploadFolder = await storage.mkdir(folderName);
 
-    // Helper to upload a file from disk
     const uploadFile = async (file, prefix) => {
+      // Add delay before each file upload
+      await randomDelay();
+      
       const filePath = file.path;
       const fileName = `${prefix}_${Date.now()}_${file.originalname.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
       const stats = await require('fs').promises.stat(filePath);
@@ -47,24 +52,19 @@ app.post('/upload', upload.fields([
       return uploaded;
     };
 
-    // Upload main screenshot
     const mainFile = req.files['mainScreenshot'][0];
     const mainUpload = await uploadFile(mainFile, 'main');
 
-    // Upload additional screenshots
     const extraFiles = req.files['screenshots'] || [];
     const extraUploads = await Promise.all(extraFiles.map(f => uploadFile(f, 'extra')));
 
-    // Upload mod file
     const modFile = req.files['modFile'][0];
     const modUpload = await uploadFile(modFile, 'mod');
 
-    // Generate public links
     const mainLink = await mainUpload.link();
     const extraLinks = await Promise.all(extraUploads.map(f => f.link()));
     const modLink = await modUpload.link();
 
-    // Clean up temporary files
     const fs = require('fs');
     [mainFile, ...extraFiles, modFile].forEach(f => fs.unlink(f.path, () => {}));
 
