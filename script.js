@@ -25,7 +25,7 @@ const supabaseClient = window.__SUPABASE_CLIENT__;
 /* =========================
    MEGA BACKEND URL – REPLACE THIS!
 ========================= */
-const MEGA_BACKEND_URL = 'https://your-backend-url.com/upload'; // 🔁 Change to your Railway URL
+const MEGA_BACKEND_URL = 'https://railway.com/project/459ce13a-540a-416e-b2b4-acf9aff33916/service/92a4fced-eea2-48fd-acbc-f8d70b47e0c1?environmentId=a97df638-167b-4b0c-9589-7ad294a85e4ad';
 
 /* =========================
    GLOBAL STATE MANAGEMENT
