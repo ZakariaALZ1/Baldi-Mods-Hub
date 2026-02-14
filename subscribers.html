@@ -146,20 +146,20 @@
         const from = (page - 1) * limit;
         const to = from + limit - 1;
 
-        const { data: subscribers, error, count } = await supabaseClient
-          .from('subscriptions')
-.select(`
-  subscriber_id,
-  profiles (
-    username,
-    trust_score,
-    is_verified,
-    role
-  )
-`, { count: 'exact' })          
-.eq('target_id', targetUserId)
-          .range(from, to)
-          .order('created_at', { ascending: false });
+const { data: subscribers, error, count } = await supabaseClient
+  .from('subscriptions')
+  .select(`
+    subscriber_id,
+    profiles:subscriber_id (
+      username,
+      trust_score,
+      is_verified,
+      role
+    )
+  `, { count: 'exact' })
+  .eq('target_id', targetUserId)
+  .range(from, to)
+  .order('created_at', { ascending: false });
 
         if (error) {
           console.error(error);
