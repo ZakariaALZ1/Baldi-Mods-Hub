@@ -167,18 +167,20 @@
       padding: 10px 0;
       flex-wrap: wrap;
     }
-    .gb-card.mod-card {
-  display: flex;
-  flex-direction: column;
-  margin: 0;   /* prevent double stacking margins */
-  height: 100%;
+  .gb-card.mod-card {
+  background: linear-gradient(135deg, #1a1a1a 0%, #151515 100%);
+  border: 1px solid var(--gb-border);
+  border-radius: 16px;
+  overflow: hidden;
+  transition: transform 0.2s, border-color 0.2s;
 }
 
-.gb-card.mod-card > div:first-child {
-  padding-bottom: 25px; /* ensures space before buttons */
-}
 .gb-mod-actions {
   margin-top: auto;
+}
+
+.gb-mod-footer {
+margin-top: 20px;
 }
 
 .gb-card.mod-card .gb-mod-actions {
@@ -487,12 +489,11 @@
     }
 
     /* GameBanana Mod Grid - Responsive */
-  .gb-mod-grid {
+.gb-mod-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
-  gap: 40px; /* increased from 30px */
+  grid-template-columns: repeat(auto-fill, minmax(420px, 1fr));
+  gap: 40px;
   margin-top: 30px;
-  align-items: stretch;
 }
 
     .gb-card.mod-card {
@@ -622,13 +623,6 @@
       font-weight: 600;
       white-space: nowrap;
     }
-
-    .gb-mod-actions {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 10px;
-    }
-
     .gb-mod-btn {
       padding: 10px 20px;
       border-radius: 10px;
