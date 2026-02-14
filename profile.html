@@ -1121,27 +1121,6 @@ margin: 20px auto 16px;
       div.textContent = str;
       return div.innerHTML;
     }
-
-    // ============================================
-    // TAB SWITCHING
-    // ============================================
-    window.switchTab = function(tabName) {
-      document.querySelectorAll('.gb-tab-content').forEach(tab => tab.classList.remove('active'));
-      document.querySelectorAll('.gb-tab').forEach(btn => btn.classList.remove('active'));
-
-      const tabEl = document.getElementById(`${tabName}-tab`);
-      if (tabEl) tabEl.classList.add('active');
-      if (event.target) event.target.classList.add('active');
-
-      if (tabName === 'stats') {
-        if (typeof loadUserStats === 'function') {
-          loadUserStats();
-        } else {
-          loadUserStatsFallback();
-        }
-      }
-    };
-
     // ============================================
     // CHARACTER COUNTERS
     // ============================================
