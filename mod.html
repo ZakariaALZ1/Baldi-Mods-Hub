@@ -1,0 +1,755 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="X-Content-Type-Options" content="nosniff">
+  <meta http-equiv="Referrer-Policy" content="strict-origin-when-cross-origin">
+  <title>Mod Details - Baldi Mods Hub</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90' fill='%2300ff88'>🎓</text></svg>">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+  <script src="js/supabase.min.js"></script>
+  <script src="config.js"></script>
+  <style>
+    :root {
+      --gb-primary: #00ff88;
+      --gb-primary-dark: #00cc66;
+      --gb-secondary: #ffaa00;
+      --gb-danger: #ff4444;
+      --gb-info: #2196f3;
+      --gb-bg: #0a0a0a;
+      --gb-bg-light: #1a1a1a;
+      --gb-bg-lighter: #222;
+      --gb-border: #333;
+      --gb-text: #fff;
+      --gb-text-muted: #ccc;
+      --gb-text-dark: #666;
+    }
+
+    /* Comments section */
+.gb-comments-section {
+  margin-top: 40px;
+  border-top: 1px solid var(--gb-border);
+  padding-top: 30px;
+}
+.gb-add-comment {
+  margin-bottom: 30px;
+}
+.gb-add-comment textarea {
+  width: 100%;
+  padding: 15px;
+  background: var(--gb-bg-lighter);
+  border: 1px solid var(--gb-border);
+  border-radius: 8px;
+  color: var(--gb-text);
+  margin-bottom: 10px;
+}
+.gb-comment {
+  display: flex;
+  gap: 15px;
+  margin-bottom: 20px;
+  padding: 15px;
+  background: var(--gb-bg-lighter);
+  border-radius: 8px;
+}
+.gb-comment-avatar {
+  width: 40px;
+  height: 40px;
+  background: var(--gb-primary);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+  color: black;
+  flex-shrink: 0;
+}
+.gb-comment-content {
+  flex: 1;
+}
+.gb-comment-header {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  margin-bottom: 5px;
+  font-size: 14px;
+}
+.gb-comment-author {
+  font-weight: bold;
+  color: var(--gb-text);
+}
+.gb-comment-date {
+  color: var(--gb-text-muted);
+  font-size: 12px;
+}
+.gb-comment-edited {
+  color: var(--gb-secondary);
+  font-size: 12px;
+}
+.gb-comment-text {
+  margin-bottom: 10px;
+  line-height: 1.5;
+}
+.gb-comment-actions {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+.gb-comment-footer {
+  display: flex;
+  gap: 15px;
+}
+.gb-comment-replies {
+  margin-left: 30px;
+  margin-top: 15px;
+  border-left: 2px solid var(--gb-border);
+  padding-left: 15px;
+}
+.gb-btn-small {
+  padding: 5px 10px;
+  font-size: 12px;
+}
+.gb-mod-favorite {
+  margin: 20px 0;
+}
+/* Comments section */
+.gb-comments-section {
+  margin-top: 40px;
+  border-top: 1px solid var(--gb-border);
+  padding-top: 30px;
+}
+.gb-add-comment {
+  margin-bottom: 30px;
+}
+.gb-add-comment textarea {
+  width: 100%;
+  padding: 15px;
+  background: var(--gb-bg-lighter);
+  border: 1px solid var(--gb-border);
+  border-radius: 8px;
+  color: var(--gb-text);
+  margin-bottom: 10px;
+}
+.gb-comment {
+  display: flex;
+  gap: 15px;
+  margin-bottom: 20px;
+  padding: 15px;
+  background: var(--gb-bg-lighter);
+  border-radius: 8px;
+}
+.gb-comment-avatar {
+  width: 40px;
+  height: 40px;
+  background: var(--gb-primary);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+  color: black;
+  flex-shrink: 0;
+}
+.gb-comment-content {
+  flex: 1;
+}
+.gb-comment-header {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  margin-bottom: 5px;
+  font-size: 14px;
+}
+.gb-comment-author {
+  font-weight: bold;
+  color: var(--gb-text);
+}
+.gb-comment-date {
+  color: var(--gb-text-muted);
+  font-size: 12px;
+}
+.gb-comment-edited {
+  color: var(--gb-secondary);
+  font-size: 12px;
+}
+.gb-comment-text {
+  margin-bottom: 10px;
+  line-height: 1.5;
+}
+.gb-comment-actions {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+.gb-comment-footer {
+  display: flex;
+  gap: 15px;
+}
+.gb-comment-replies {
+  margin-left: 30px;
+  margin-top: 15px;
+  border-left: 2px solid var(--gb-border);
+  padding-left: 15px;
+}
+.gb-btn-small {
+  padding: 5px 10px;
+  font-size: 12px;
+}
+.gb-mod-favorite {
+  margin: 20px 0;
+}
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      background: var(--gb-bg);
+      color: var(--gb-text);
+      font-family: 'Inter', sans-serif;
+      line-height: 1.6;
+    }
+
+    /* Header & Nav */
+    .gb-header { background: linear-gradient(180deg, #1a1a1a 0%, #0f0f0f 100%); border-bottom: 3px solid var(--gb-primary); padding: 20px 0; position: sticky; top: 0; z-index: 1000; }
+    .gb-header-content { max-width: 1400px; margin: 0 auto; padding: 0 30px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 15px; }
+    .gb-logo { display: flex; align-items: center; gap: 15px; }
+    .gb-logo-icon { font-size: 48px; filter: drop-shadow(0 0 10px rgba(0,255,136,0.3)); }
+    .gb-logo-text h1 { font-size: 28px; font-weight: 800; background: linear-gradient(135deg, #fff 0%, #00ff88 100%); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 5px; }
+    .gb-logo-tagline { color: var(--gb-text-muted); font-size: 14px; }
+    .gb-nav { background: var(--gb-bg-light); border-bottom: 1px solid var(--gb-border); padding: 0; position: sticky; top: 120px; z-index: 999; }
+    .gb-nav-container { max-width: 1400px; margin: 0 auto; padding: 0 30px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 15px; }
+    .gb-nav-links { display: flex; gap: 5px; flex-wrap: wrap; padding: 10px 0; }
+    .gb-nav-item { color: var(--gb-text-muted); text-decoration: none; padding: 12px 24px; border-radius: 8px; font-weight: 600; transition: all 0.2s; white-space: nowrap; }
+    .gb-nav-item:hover { background: rgba(255,255,255,0.05); color: var(--gb-text); }
+    .gb-nav-item.active { color: var(--gb-text); background: linear-gradient(135deg, rgba(0,255,136,0.15) 0%, rgba(0,255,136,0.05) 100%); border-bottom: 2px solid var(--gb-primary); }
+    .gb-nav-user { display: flex; align-items: center; gap: 20px; flex-wrap: wrap; }
+    .gb-user-badge { display: flex; align-items: center; gap: 10px; padding: 8px 16px; background: rgba(255,255,255,0.05); border-radius: 30px; }
+    .gb-user-avatar { width: 32px; height: 32px; background: linear-gradient(135deg, var(--gb-primary), var(--gb-primary-dark)); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; color: black; }
+    .gb-user-info { display: flex; flex-direction: column; }
+    .gb-user-name { font-size: 14px; font-weight: 600; }
+    .gb-user-points { font-size: 12px; color: var(--gb-primary); }
+    .gb-btn { padding: 10px 20px; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; transition: all 0.2s; display: inline-flex; align-items: center; gap: 8px; }
+    .gb-btn-secondary { background: rgba(255,255,255,0.05); color: var(--gb-text); border: 1px solid var(--gb-border); }
+
+    /* GameBanana Mod Page Layout */
+    .gb-mod-page {
+      max-width: 1400px;
+      margin: 40px auto;
+      padding: 0 30px;
+    }
+
+    .gb-mod-grid {
+      display: grid;
+      grid-template-columns: 380px 1fr;
+      gap: 30px;
+    }
+
+    /* Sidebar */
+    .gb-mod-sidebar {
+      background: linear-gradient(135deg, #1a1a1a 0%, #151515 100%);
+      border: 1px solid var(--gb-border);
+      border-radius: 20px;
+      overflow: hidden;
+      position: sticky;
+      top: 200px;
+      align-self: start;
+    }
+
+    .gb-author-cover {
+      height: 100px;
+      background: linear-gradient(135deg, var(--gb-primary), var(--gb-primary-dark));
+      position: relative;
+    }
+
+    .gb-author-avatar {
+      position: absolute;
+      bottom: -40px;
+      left: 30px;
+      width: 80px;
+      height: 80px;
+      background: linear-gradient(135deg, #222, #1a1a1a);
+      border: 4px solid var(--gb-primary);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 36px;
+      font-weight: 800;
+      color: var(--gb-primary);
+      box-shadow: 0 10px 20px rgba(0,0,0,0.3);
+      line-height: 1;
+      text-shadow: 0 0 8px var(--gb-primary);
+    }
+
+    .gb-author-info {
+      padding: 70px 30px 30px;
+    }
+
+    .gb-author-name {
+      font-size: 24px;
+      font-weight: 800;
+      margin-bottom: 5px;
+      color: var(--gb-text);
+    }
+
+    .gb-author-badge {
+      display: inline-block;
+      padding: 4px 12px;
+      background: rgba(255,255,255,0.05);
+      border: 1px solid var(--gb-border);
+      border-radius: 30px;
+      font-size: 12px;
+      color: var(--gb-text-muted);
+      margin-bottom: 20px;
+    }
+
+    .gb-author-stats {
+      display: flex;
+      flex-direction: column;
+      gap: 15px;
+      margin-bottom: 25px;
+      padding: 20px 0;
+      border-top: 1px solid var(--gb-border);
+      border-bottom: 1px solid var(--gb-border);
+    }
+
+    .gb-author-stat {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .gb-author-stat-value {
+      font-size: 18px;
+      font-weight: bold;
+      color: var(--gb-primary);
+      margin-left: auto;
+    }
+
+    .gb-author-actions {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .gb-btn-block {
+      width: 100%;
+      padding: 14px;
+      justify-content: center;
+    }
+
+    .gb-btn-primary {
+      background: linear-gradient(135deg, var(--gb-primary), var(--gb-primary-dark));
+      color: black;
+    }
+
+    .gb-btn-outline {
+      background: transparent;
+      border: 2px solid var(--gb-border);
+      color: var(--gb-text);
+    }
+
+    .gb-btn-outline:hover {
+      border-color: var(--gb-primary);
+      color: var(--gb-primary);
+    }
+
+    /* Main Content */
+    .gb-mod-main {
+      background: linear-gradient(135deg, #1a1a1a 0%, #151515 100%);
+      border: 1px solid var(--gb-border);
+      border-radius: 20px;
+      padding: 30px;
+    }
+
+    .gb-mod-title {
+      font-size: 36px;
+      font-weight: 800;
+      margin-bottom: 15px;
+      word-break: break-word;
+    }
+
+    .gb-mod-badges {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-bottom: 20px;
+    }
+
+    .gb-badge {
+      padding: 4px 12px;
+      border-radius: 30px;
+      font-size: 12px;
+      font-weight: 600;
+      background: var(--gb-bg-lighter);
+      color: var(--gb-text-muted);
+    }
+
+    .gb-mod-meta-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 15px;
+      margin-bottom: 30px;
+      padding: 20px;
+      background: var(--gb-bg-lighter);
+      border-radius: 8px;
+    }
+
+    .gb-meta-item {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .gb-meta-label {
+      font-size: 12px;
+      color: var(--gb-text-muted);
+      margin-bottom: 5px;
+    }
+
+    .gb-meta-value {
+      font-size: 16px;
+      font-weight: bold;
+      color: var(--gb-primary);
+      word-break: break-word;
+    }
+
+    /* Screenshot Gallery */
+    .gb-screenshots {
+      margin: 30px 0;
+    }
+
+    .gb-screenshot-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 15px;
+      margin-top: 20px;
+    }
+
+    .gb-screenshot-item {
+      border-radius: 8px;
+      overflow: hidden;
+      border: 2px solid var(--gb-border);
+      transition: transform 0.2s;
+    }
+
+    .gb-screenshot-item.main {
+      border-color: var(--gb-primary);
+      box-shadow: 0 0 15px rgba(0,255,136,0.3);
+    }
+
+    .gb-screenshot-item img {
+      width: 100%;
+      height: 150px;
+      object-fit: cover;
+      display: block;
+    }
+
+    .gb-screenshot-item:hover {
+      transform: scale(1.05);
+    }
+
+    /* Description */
+    .gb-mod-description {
+      margin: 30px 0;
+    }
+
+    .gb-description-content {
+      background: var(--gb-bg-lighter);
+      padding: 20px;
+      border-radius: 8px;
+      line-height: 1.6;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    .gb-tag-list {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin: 20px 0;
+    }
+
+    .gb-tag {
+      background: #333;
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-size: 12px;
+      color: var(--gb-primary);
+    }
+
+    .gb-mod-actions {
+      display: flex;
+      gap: 15px;
+      margin-top: 30px;
+      flex-wrap: wrap;
+    }
+
+    .gb-btn-large {
+      padding: 15px 30px;
+      font-size: 18px;
+    }
+
+    /* Loading/Error states */
+    .gb-loading {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 80px;
+      color: var(--gb-text-muted);
+    }
+
+    .gb-loading-spinner {
+      width: 50px;
+      height: 50px;
+      border: 3px solid rgba(255,255,255,0.1);
+      border-top-color: var(--gb-primary);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      margin-bottom: 20px;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .gb-error-container {
+      text-align: center;
+      padding: 50px;
+    }
+
+    /* Report Modal */
+    .gb-modal {
+      position: fixed;
+      z-index: 10000;
+      left: 0;
+      top: 0;
+      width: 100%;
+      height: 100%;
+      overflow: auto;
+      background-color: rgba(0,0,0,0.7);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .gb-modal-content {
+      background: var(--gb-bg-light);
+      margin: auto;
+      padding: 30px;
+      border: 1px solid var(--gb-border);
+      border-radius: 20px;
+      max-width: 500px;
+      width: 90%;
+      box-shadow: 0 5px 20px rgba(0,0,0,0.5);
+    }
+    .gb-modal-close {
+      float: right;
+      font-size: 28px;
+      font-weight: bold;
+      cursor: pointer;
+      color: var(--gb-text-muted);
+    }
+    .gb-modal-close:hover {
+      color: var(--gb-text);
+    }
+    .gb-modal h2 {
+      margin-bottom: 20px;
+      color: var(--gb-primary);
+    }
+
+    /* Responsive */
+    @media (max-width: 992px) {
+      .gb-mod-grid {
+        grid-template-columns: 1fr;
+      }
+      .gb-mod-sidebar {
+        position: static;
+      }
+    }
+
+    @media (max-width: 768px) {
+      .gb-author-avatar {
+        width: 60px;
+        height: 60px;
+        font-size: 28px;
+        bottom: -30px;
+        left: 20px;
+      }
+      .gb-author-info {
+        padding-top: 50px;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .gb-mod-meta-grid {
+        grid-template-columns: 1fr;
+      }
+      .gb-screenshot-grid {
+        grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+      }
+    }
+  </style>
+</head>
+<body>
+  <!-- Header -->
+  <header class="gb-header">
+    <div class="gb-header-content">
+      <div class="gb-logo">
+        <span class="gb-logo-icon">🎓</span>
+        <div class="gb-logo-text">
+          <h1>BALDI MODS HUB</h1>
+          <span class="gb-logo-tagline">GameBanana Style • Secure • Community</span>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <nav class="gb-nav" id="main-nav">
+    <div class="gb-nav-container">
+      <div class="gb-nav-links">
+        <a href="index.html" class="gb-nav-item">🏠 Home</a>
+        <a href="upload.html" class="gb-nav-item">📤 Upload</a>
+        <a href="profile.html" class="gb-nav-item">👤 Profile</a>
+        <a href="admin.html" class="gb-nav-item" id="nav-admin" style="display: none;">🛡️ Moderation</a>
+        <a href="admin-dashboard.html" class="gb-nav-item" id="nav-dashboard" style="display: none;">📊 Dashboard</a>
+      </div>
+      <div class="gb-nav-user" id="user-section" style="display: none;">
+        <div class="gb-user-badge">
+          <div class="gb-user-avatar" id="userAvatar">?</div>
+          <div class="gb-user-info">
+            <span class="gb-user-name" id="userDisplayName"></span>
+            <span class="gb-user-points" id="userTrustScore">⭐ 0</span>
+          </div>
+        </div>
+        <button onclick="logout()" class="gb-btn gb-btn-secondary" style="padding: 10px 20px;">🚪 Logout</button>
+      </div>
+    </div>
+  </nav>
+
+  <main class="gb-mod-page">
+    <div id="mod" class="gb-mod-container">
+      <div class="gb-loading">
+        <div class="gb-loading-spinner"></div>
+        <p>Loading mod details...</p>
+      </div>
+    </div>
+  </main>
+
+  <footer class="gb-footer" style="margin-top: 80px; padding: 40px 0; background: linear-gradient(180deg, #0f0f0f 0%, #0a0a0a 100%); border-top: 1px solid #333;">
+    <div style="max-width: 1400px; margin: 0 auto; padding: 0 30px; text-align: center; color: #666; font-size: 12px;">
+      <p>© 2026 Baldi Mods Hub. All rights reserved.</p>
+    </div>
+  </footer>
+
+  <!-- Report Modal -->
+  <div id="reportModal" class="gb-modal" style="display: none;">
+    <div class="gb-modal-content">
+      <span class="gb-modal-close" onclick="closeReportModal()">&times;</span>
+      <h2>Report Mod</h2>
+      <form id="reportForm">
+        <input type="hidden" id="reportModId">
+        <div class="gb-form-group">
+          <label for="reportReason">Reason <span>*</span></label>
+          <select id="reportReason" required>
+            <option value="">Select a reason</option>
+            <option value="spam">Spam</option>
+            <option value="inappropriate">Inappropriate content</option>
+            <option value="broken">Broken/Not working</option>
+            <option value="malware">Contains malware</option>
+            <option value="copyright">Copyright violation</option>
+            <option value="other">Other</option>
+          </select>
+        </div>
+        <div class="gb-form-group">
+          <label for="reportDescription">Description</label>
+          <textarea id="reportDescription" rows="4" placeholder="Provide more details..."></textarea>
+          <span class="gb-hint">Optional but helpful</span>
+        </div>
+        <div class="gb-form-actions">
+          <button type="submit" class="gb-btn gb-btn-primary">Submit Report</button>
+          <button type="button" class="gb-btn gb-btn-secondary" onclick="closeReportModal()">Cancel</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script src="script.js"></script>
+  <script>
+    (async function() {
+      const waitForSupabase = async (maxAttempts = 30) => {
+        for (let i = 0; i < maxAttempts; i++) {
+          if (typeof window.supabaseClient !== 'undefined') return true;
+          await new Promise(resolve => setTimeout(resolve, 100));
+        }
+        return false;
+      };
+      
+      await waitForSupabase();
+      if (typeof window.loadModPage === 'function') {
+        window.loadModPage();
+      } else {
+        console.error('loadModPage function not found');
+      }
+    })();
+
+    // Report modal functions
+    function openReportModal(modId) {
+      document.getElementById('reportModId').value = modId;
+      document.getElementById('reportModal').style.display = 'flex';
+    }
+
+    function closeReportModal() {
+      document.getElementById('reportModal').style.display = 'none';
+      document.getElementById('reportForm').reset();
+    }
+
+    document.getElementById('reportForm').addEventListener('submit', async function(e) {
+      e.preventDefault();
+      const modId = document.getElementById('reportModId').value;
+      const reason = document.getElementById('reportReason').value;
+      const description = document.getElementById('reportDescription').value;
+
+      if (!reason) {
+        showNotification('Please select a reason', 'error');
+        return;
+      }
+
+      const user = await getCurrentUser();
+      if (!user) {
+        showNotification('Please login to report', 'error');
+        closeReportModal();
+        return;
+      }
+
+      try {
+        const { error } = await supabaseClient
+          .from('reports')
+          .insert({
+            mod_id: modId,
+            reporter_id: user.id,
+            reason: reason,
+            description: description,
+            status: 'pending'
+          });
+
+        if (error) throw error;
+
+        showNotification('Report submitted successfully', 'success');
+        closeReportModal();
+      } catch (err) {
+        console.error('Report failed:', err);
+        showNotification('Failed to submit report: ' + err.message, 'error');
+      }
+    });
+
+    // Override the old reportMod function to open modal instead of direct update
+    window.reportMod = function(modId) {
+      openReportModal(modId);
+    };
+  </script>
+</body>
+</html>

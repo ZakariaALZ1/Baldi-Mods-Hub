@@ -1,0 +1,967 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <!-- Security Headers -->
+  <meta http-equiv="X-Content-Type-Options" content="nosniff">
+  <meta http-equiv="Referrer-Policy" content="strict-origin-when-cross-origin">
+  
+  <title>Upload Mod - Baldi Mods Hub (GameBanana Style)</title>
+  <meta name="description" content="Upload your Baldi's Basics mod - 2GB max, malware scanning, moderator approval">
+  
+  <!-- Favicon -->
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90' fill='%2300ff88'>🎓</text></svg>">
+  
+  <!-- Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  
+  <!-- Stylesheets -->
+  <link rel="stylesheet" href="style.css">
+  
+  <!-- Supabase Library -->
+  <script src="js/supabase.min.js"></script>
+  
+  <!-- Config -->
+  <script src="config.js"></script>
+  
+  <style>
+    /* GameBanana Upload Styles */
+    :root {
+      --gb-primary: #00ff88;
+      --gb-primary-dark: #00cc66;
+      --gb-secondary: #ffaa00;
+      --gb-danger: #ff4444;
+      --gb-info: #2196f3;
+      --gb-bg: #0a0a0a;
+      --gb-bg-light: #1a1a1a;
+      --gb-bg-lighter: #222;
+      --gb-border: #333;
+      --gb-text: #fff;
+      --gb-text-muted: #ccc;
+      --gb-text-dark: #666;
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      background: var(--gb-bg);
+      color: var(--gb-text);
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      line-height: 1.6;
+    }
+
+    /* GameBanana Header */
+    .gb-header {
+      background: linear-gradient(180deg, #1a1a1a 0%, #0f0f0f 100%);
+      border-bottom: 3px solid var(--gb-primary);
+      padding: 20px 0;
+      position: sticky;
+      top: 0;
+      z-index: 1000;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+    }
+
+    .gb-header-content {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 0 30px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .gb-logo {
+      display: flex;
+      align-items: center;
+      gap: 15px;
+    }
+
+    .gb-logo-icon {
+      font-size: 48px;
+      filter: drop-shadow(0 0 10px rgba(0,255,136,0.3));
+    }
+
+    .gb-logo-text h1 {
+      font-size: 28px;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+      background: linear-gradient(135deg, #fff 0%, #00ff88 100%);
+      -webkit-background-clip: text;
+      background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin-bottom: 5px;
+    }
+
+    .gb-logo-tagline {
+      color: var(--gb-text-muted);
+      font-size: 14px;
+      font-weight: 500;
+    }
+
+    /* GameBanana Navigation */
+    .gb-nav {
+      background: var(--gb-bg-light);
+      border-bottom: 1px solid var(--gb-border);
+      padding: 0;
+      position: sticky;
+      top: 120px;
+      z-index: 999;
+    }
+
+    .gb-nav-container {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 0 30px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .gb-nav-links {
+      display: flex;
+      gap: 5px;
+      padding: 10px 0;
+    }
+
+    .gb-nav-item {
+      color: var(--gb-text-muted);
+      text-decoration: none;
+      padding: 12px 24px;
+      border-radius: 8px;
+      font-weight: 600;
+      font-size: 15px;
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .gb-nav-item:hover {
+      color: var(--gb-text);
+      background: rgba(255,255,255,0.05);
+    }
+
+    .gb-nav-item.active {
+      color: var(--gb-text);
+      background: linear-gradient(135deg, rgba(0,255,136,0.15) 0%, rgba(0,255,136,0.05) 100%);
+      border-bottom: 2px solid var(--gb-primary);
+    }
+
+    /* GameBanana Upload Container */
+    .gb-upload {
+      max-width: 1000px;
+      margin: 40px auto;
+      padding: 0 30px;
+    }
+
+    .gb-upload-header {
+      margin-bottom: 30px;
+    }
+
+    .gb-upload-header h1 {
+      font-size: 48px;
+      font-weight: 800;
+      background: linear-gradient(135deg, #fff 0%, var(--gb-primary) 100%);
+      -webkit-background-clip: text;
+      background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin-bottom: 10px;
+    }
+
+    .gb-upload-header p {
+      color: var(--gb-text-muted);
+      font-size: 18px;
+    }
+
+    /* Security Notice */
+    .gb-security-card {
+      background: linear-gradient(135deg, rgba(0,255,136,0.1) 0%, rgba(0,255,136,0.05) 100%);
+      border: 1px solid var(--gb-primary);
+      border-radius: 20px;
+      padding: 30px;
+      margin-bottom: 30px;
+      display: flex;
+      align-items: center;
+      gap: 30px;
+    }
+
+    .gb-security-icon {
+      font-size: 64px;
+    }
+
+    .gb-security-content h3 {
+      color: var(--gb-primary);
+      font-size: 24px;
+      font-weight: 700;
+      margin-bottom: 10px;
+    }
+
+    .gb-security-content p {
+      color: var(--gb-text-muted);
+      margin-bottom: 15px;
+    }
+
+    .gb-security-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 20px;
+    }
+
+    .gb-security-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--gb-text);
+      font-size: 14px;
+      font-weight: 600;
+    }
+
+    .gb-security-item span {
+      color: var(--gb-primary);
+      font-size: 18px;
+    }
+
+    /* Upload Form */
+    .gb-upload-form {
+      background: linear-gradient(135deg, #1a1a1a 0%, #151515 100%);
+      border: 1px solid var(--gb-border);
+      border-radius: 20px;
+      padding: 40px;
+    }
+
+    .gb-form-section {
+      margin-bottom: 30px;
+      padding-bottom: 30px;
+      border-bottom: 1px solid var(--gb-border);
+    }
+
+    .gb-form-section:last-child {
+      border-bottom: none;
+      padding-bottom: 0;
+    }
+
+    .gb-form-section h2 {
+      color: var(--gb-primary);
+      font-size: 20px;
+      font-weight: 700;
+      margin-bottom: 20px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .gb-form-group {
+      margin-bottom: 25px;
+    }
+
+    .gb-form-group label {
+      display: block;
+      margin-bottom: 10px;
+      color: var(--gb-text);
+      font-weight: 600;
+      font-size: 15px;
+    }
+
+    .gb-form-group label span {
+      color: var(--gb-primary);
+      margin-left: 5px;
+    }
+
+    .gb-form-group input,
+    .gb-form-group textarea,
+    .gb-form-group select {
+      width: 100%;
+      padding: 16px 20px;
+      background: rgba(0,0,0,0.3);
+      border: 2px solid var(--gb-border);
+      border-radius: 12px;
+      color: var(--gb-text);
+      font-size: 16px;
+      transition: all 0.2s;
+      font-family: 'Inter', sans-serif;
+    }
+
+    .gb-form-group input:focus,
+    .gb-form-group textarea:focus,
+    .gb-form-group select:focus {
+      outline: none;
+      border-color: var(--gb-primary);
+      background: rgba(0,255,136,0.05);
+      box-shadow: 0 0 0 4px rgba(0,255,136,0.1);
+    }
+
+    .gb-form-group input[type="file"] {
+      padding: 12px;
+      background: rgba(0,0,0,0.2);
+      border: 2px dashed var(--gb-border);
+      cursor: pointer;
+    }
+
+    .gb-form-group input[type="file"]:hover {
+      border-color: var(--gb-primary);
+    }
+
+    .gb-form-group input[type="file"]::-webkit-file-upload-button {
+      background: linear-gradient(135deg, var(--gb-primary), var(--gb-primary-dark));
+      border: none;
+      padding: 10px 20px;
+      border-radius: 8px;
+      color: black;
+      font-weight: 600;
+      margin-right: 20px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .gb-form-group input[type="file"]::-webkit-file-upload-button:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 5px 15px rgba(0,255,136,0.3);
+    }
+
+    .gb-hint {
+      display: block;
+      margin-top: 8px;
+      color: var(--gb-text-muted);
+      font-size: 13px;
+    }
+
+    .gb-char-counter {
+      display: block;
+      text-align: right;
+      font-size: 12px;
+      color: var(--gb-text-muted);
+      margin-top: 8px;
+    }
+
+    .gb-file-info {
+      margin-top: 15px;
+      padding: 15px 20px;
+      background: rgba(0,255,136,0.05);
+      border: 1px solid var(--gb-primary);
+      border-radius: 10px;
+      color: var(--gb-text-muted);
+      font-size: 14px;
+      line-height: 1.8;
+    }
+
+    .gb-file-info strong {
+      color: var(--gb-primary);
+    }
+
+    /* Preview Styles for Screenshots */
+    .gb-preview-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+      gap: 10px;
+      margin-top: 10px;
+    }
+    .gb-preview-item {
+      position: relative;
+      border: 2px solid var(--gb-border);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    .gb-preview-item img {
+      width: 100%;
+      height: 80px;
+      object-fit: cover;
+    }
+    .gb-preview-item.main {
+      border-color: var(--gb-primary);
+    }
+    .gb-preview-remove {
+      position: absolute;
+      top: 2px;
+      right: 2px;
+      background: rgba(0,0,0,0.7);
+      color: white;
+      border: none;
+      border-radius: 50%;
+      width: 20px;
+      height: 20px;
+      cursor: pointer;
+    }
+
+    /* Guidelines Card */
+    .gb-guidelines {
+      margin-top: 30px;
+      padding: 30px;
+      background: rgba(255,255,255,0.02);
+      border: 1px solid var(--gb-border);
+      border-radius: 16px;
+    }
+
+    .gb-guidelines h3 {
+      color: var(--gb-secondary);
+      font-size: 18px;
+      font-weight: 700;
+      margin-bottom: 15px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .gb-guidelines ul {
+      list-style: none;
+      padding: 0;
+    }
+
+    .gb-guidelines li {
+      color: var(--gb-text-muted);
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .gb-guidelines li:before {
+      content: "•";
+      color: var(--gb-secondary);
+      font-size: 20px;
+    }
+
+    /* Form Actions */
+    .gb-form-actions {
+      display: flex;
+      gap: 20px;
+      margin-top: 40px;
+    }
+
+    .gb-btn {
+      padding: 18px 36px;
+      border: none;
+      border-radius: 12px;
+      font-weight: 700;
+      font-size: 16px;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      flex: 1;
+    }
+
+    .gb-btn-primary {
+      background: linear-gradient(135deg, var(--gb-primary), var(--gb-primary-dark));
+      color: black;
+    }
+
+    .gb-btn-primary:hover:not(:disabled) {
+      transform: translateY(-3px);
+      box-shadow: 0 15px 30px rgba(0,255,136,0.3);
+    }
+
+    .gb-btn-secondary {
+      background: transparent;
+      border: 2px solid var(--gb-border);
+      color: var(--gb-text-muted);
+    }
+
+    .gb-btn-secondary:hover {
+      border-color: var(--gb-primary);
+      color: var(--gb-primary);
+    }
+
+    .gb-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    /* Progress Card */
+    .gb-progress-card {
+      margin-top: 30px;
+      padding: 30px;
+      background: linear-gradient(135deg, rgba(0,255,136,0.1) 0%, rgba(0,255,136,0.05) 100%);
+      border: 1px solid var(--gb-primary);
+      border-radius: 16px;
+      display: flex;
+      align-items: center;
+      gap: 20px;
+    }
+
+    .gb-progress-spinner {
+      width: 40px;
+      height: 40px;
+      border: 3px solid rgba(255,255,255,0.1);
+      border-top-color: var(--gb-primary);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+
+    .gb-progress-text {
+      color: var(--gb-text);
+      font-weight: 600;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    /* Loading State */
+    .gb-loading {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 80px;
+      color: var(--gb-text-muted);
+    }
+
+    .gb-loading-spinner {
+      width: 50px;
+      height: 50px;
+      border: 3px solid rgba(255,255,255,0.1);
+      border-top-color: var(--gb-primary);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      margin-bottom: 20px;
+    }
+
+    /* Error State */
+    .gb-error {
+      text-align: center;
+      padding: 60px;
+      background: linear-gradient(135deg, #1a1a1a 0%, #151515 100%);
+      border: 1px solid #ff4444;
+      border-radius: 20px;
+      color: #ff8888;
+    }
+
+    .gb-error h2 {
+      font-size: 32px;
+      margin-bottom: 20px;
+    }
+
+    /* Back Link */
+    .gb-back-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--gb-text-muted);
+      text-decoration: none;
+      font-weight: 600;
+      margin-bottom: 30px;
+      transition: color 0.2s;
+    }
+
+    .gb-back-link:hover {
+      color: var(--gb-primary);
+    }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+      .gb-header-content {
+        flex-direction: column;
+        gap: 20px;
+      }
+      
+      .gb-nav-container {
+        flex-direction: column;
+      }
+      
+      .gb-nav-links {
+        flex-wrap: wrap;
+        justify-content: center;
+      }
+      
+      .gb-security-card {
+        flex-direction: column;
+        text-align: center;
+      }
+      
+      .gb-security-list {
+        justify-content: center;
+      }
+      
+      .gb-form-actions {
+        flex-direction: column;
+      }
+      
+      .gb-upload-header h1 {
+        font-size: 36px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <!-- GameBanana Header -->
+  <header class="gb-header">
+    <div class="gb-header-content">
+      <div class="gb-logo">
+        <span class="gb-logo-icon">🎓</span>
+        <div class="gb-logo-text">
+          <h1>BALDI MODS HUB</h1>
+          <span class="gb-logo-tagline">GameBanana Style • Secure • Community</span>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- GameBanana Navigation -->
+  <nav class="gb-nav" id="main-nav">
+    <div class="gb-nav-container">
+      <div class="gb-nav-links">
+        <a href="index.html" class="gb-nav-item">🏠 Home</a>
+        <a href="upload.html" class="gb-nav-item active">📤 Upload</a>
+        <a href="profile.html" class="gb-nav-item">👤 Profile</a>
+        <a href="admin.html" class="gb-nav-item" id="nav-admin" style="display: none;">🛡️ Moderation</a>
+        <a href="admin-dashboard.html" class="gb-nav-item" id="nav-dashboard" style="display: none;">📊 Dashboard</a>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Main Content -->
+  <main class="gb-upload">
+    <a href="index.html" class="gb-back-link">
+      <span>←</span> Back to Home
+    </a>
+    
+    <div id="upload-content">
+      <div class="gb-upload-header">
+        <h1>📤 Upload Mod</h1>
+        <p>Share your creation with the Baldi's Basics community</p>
+      </div>
+
+      <!-- Security Notice -->
+      <div class="gb-security-card">
+        <div class="gb-security-icon">🔒</div>
+        <div class="gb-security-content">
+          <h3>Security Check</h3>
+          <p>All files are automatically scanned for malware. Uploads require moderator approval.</p>
+          <div class="gb-security-list">
+            <div class="gb-security-item">
+              <span>✅</span> 2GB max file size
+            </div>
+            <div class="gb-security-item">
+              <span>✅</span> ZIP, RAR, 7Z, .baldimod
+            </div>
+            <div class="gb-security-item">
+              <span>✅</span> SHA-256 hashed
+            </div>
+            <div class="gb-security-item">
+              <span>✅</span> Malware scanned
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Upload Form -->
+      <form id="uploadForm" class="gb-upload-form">
+        <!-- Basic Information -->
+        <div class="gb-form-section">
+          <h2><span>📋</span> Basic Information</h2>
+          
+          <div class="gb-form-group">
+            <label for="title">Mod Title <span>*</span></label>
+            <input 
+              type="text" 
+              id="title" 
+              name="title"
+              placeholder="e.g., Baldi's New Adventure"
+              maxlength="100"
+              required
+            >
+            <span class="gb-char-counter" id="titleCounter">0/100</span>
+          </div>
+
+          <div class="gb-form-group">
+            <label for="description">Description <span>*</span></label>
+            <textarea 
+              id="description" 
+              name="description"
+              placeholder="Describe your mod - features, installation, credits, requirements..."
+              maxlength="5000"
+              rows="6"
+              required
+            ></textarea>
+            <span class="gb-char-counter" id="descCounter">0/5000</span>
+          </div>
+        </div>
+
+        <!-- Version Details -->
+        <div class="gb-form-section">
+          <h2><span>⚙️</span> Version Details</h2>
+          
+          <div class="gb-form-group">
+            <label for="version">Version <span>*</span></label>
+            <input 
+              type="text" 
+              id="version" 
+              name="version"
+              placeholder="1.0.0"
+              value="1.0.0"
+              maxlength="20"
+              required
+            >
+          </div>
+
+          <div class="gb-form-group">
+            <label for="baldiVersion">Baldi's Basics Version</label>
+            <select id="baldiVersion" name="baldiVersion">
+              <option value="">Select version (optional)</option>
+              <option value="1.4.3">1.4.3</option>
+              <option value="1.4.2">1.4.2</option>
+              <option value="1.4.1">1.4.1</option>
+              <option value="1.3">1.3</option>
+              <option value="1.2">1.2</option>
+              <option value="1.1">1.1</option>
+              <option value="1.0">1.0</option>
+            </select>
+          </div>
+
+          <div class="gb-form-group">
+            <label for="tags">Tags</label>
+            <input 
+              type="text" 
+              id="tags" 
+              name="tags"
+              placeholder="gameplay, graphics, audio, bugfix, etc. (comma separated)"
+            >
+            <span class="gb-hint">Add up to 5 tags to help users find your mod</span>
+          </div>
+        </div>
+
+        <!-- NEW: Screenshot Section -->
+        <div class="gb-form-section">
+          <h2><span>🖼️</span> Screenshots</h2>
+          
+          <div class="gb-form-group">
+            <label for="mainScreenshot">Main Screenshot <span>*</span></label>
+            <input type="file" id="mainScreenshot" name="mainScreenshot" accept="image/*" required>
+            <span class="gb-hint">This will be the cover image for your mod</span>
+          </div>
+
+          <div class="gb-form-group">
+            <label for="screenshots">Additional Screenshots (up to 4)</label>
+            <input type="file" id="screenshots" name="screenshots" accept="image/*" multiple>
+            <span class="gb-hint">You can select up to 4 images (hold Ctrl/Cmd to select multiple)</span>
+            <div id="screenshotPreviews" class="gb-preview-grid"></div>
+          </div>
+        </div>
+
+        <!-- File Upload -->
+        <div class="gb-form-section">
+          <h2><span>📦</span> File Upload</h2>
+          
+          <div class="gb-form-group">
+            <label for="file">Mod File <span>*</span> (up to 2GB)</label>
+            <input 
+              type="file" 
+              id="file" 
+              name="file"
+              accept=".zip,.rar,.7z,.baldimod"
+              required
+            >
+            <span class="gb-hint">Accepted formats: ZIP, RAR, 7Z, .baldimod (Maximum 100 MB)</span>
+            <div id="fileInfo" class="gb-file-info" style="display: none;"></div>
+          </div>
+        </div>
+
+        <!-- Guidelines -->
+        <div class="gb-guidelines">
+          <h3><span>📋</span> Upload Guidelines</h3>
+          <ul>
+            <li>Make sure your mod works with the selected Baldi version</li>
+            <li>Include installation instructions in the description</li>
+            <li>Credit any original authors or assets used</li>
+            <li>Do not upload mods containing malware, viruses, or inappropriate content</li>
+            <li>Mods will be reviewed by moderators before becoming public</li>
+            <li>You can delete your mod while it's pending approval</li>
+          </ul>
+        </div>
+
+        <!-- Form Actions -->
+        <div class="gb-form-actions">
+          <button type="button" onclick="uploadMod()" id="uploadButton" class="gb-btn gb-btn-primary">
+            🚀 Upload Mod
+          </button>
+          <button type="reset" class="gb-btn gb-btn-secondary">
+            🗑️ Clear Form
+          </button>
+        </div>
+      </form>
+    </div>
+  </main>
+
+  <script src="script.js"></script>
+  <script>
+    // ============================================
+    // SECURITY: AUTH GUARD - Redirect if not logged in
+    // ============================================
+    (async function() {
+      try {
+        // Wait for supabase to be initialized
+        const waitForSupabase = async (maxAttempts = 30) => {
+          for (let i = 0; i < maxAttempts; i++) {
+            if (typeof window.supabaseClient !== 'undefined') {
+              return true;
+            }
+            await new Promise(resolve => setTimeout(resolve, 100));
+          }
+          return false;
+        };
+
+        await waitForSupabase();
+
+        // Get current user
+        const { data: { user }, error } = await window.supabaseClient.auth.getUser();
+
+        // If not logged in, redirect to index.html IMMEDIATELY
+        if (error || !user) {
+          console.log('No user detected - redirecting to login');
+          window.location.href = 'index.html?redirect=upload';
+          return;
+        }
+
+        // Check if user is shadow banned
+        const { data: profile } = await window.supabaseClient
+          .from('profiles')
+          .select('is_shadow_banned')
+          .eq('id', user.id)
+          .single();
+
+        if (profile?.is_shadow_banned) {
+          window.location.href = 'index.html?error=banned';
+          return;
+        }
+
+        // User is logged in, show upload form
+        document.getElementById('upload-content').style.display = 'block';
+
+        // Update navigation
+        if (typeof checkAuthState === 'function') {
+          checkAuthState();
+        }
+      } catch (err) {
+        console.error('Upload guard error:', err);
+        window.location.href = 'index.html?error=upload_guard';
+      }
+    })();
+
+    // ============================================
+    // CHARACTER COUNTERS
+    // ============================================
+    document.addEventListener('DOMContentLoaded', function() {
+      // Title counter
+      const titleInput = document.getElementById('title');
+      if (titleInput) {
+        titleInput.addEventListener('input', function() {
+          const counter = document.getElementById('titleCounter');
+          if (counter) counter.textContent = `${this.value.length}/100`;
+        });
+      }
+
+      // Description counter
+      const descInput = document.getElementById('description');
+      if (descInput) {
+        descInput.addEventListener('input', function() {
+          const counter = document.getElementById('descCounter');
+          if (counter) counter.textContent = `${this.value.length}/5000`;
+        });
+      }
+
+      // File info display
+      const fileInput = document.getElementById('file');
+      if (fileInput) {
+        fileInput.addEventListener('change', function() {
+          const fileInfo = document.getElementById('fileInfo');
+          if (this.files[0]) {
+            const file = this.files[0];
+            const sizeInGB = (file.size / 1073741824).toFixed(2);
+            const sizeInMB = (file.size / 1048576).toFixed(2);
+
+            let sizeText = '';
+            if (file.size > 1073741824) {
+              sizeText = `${sizeInGB} GB`;
+            } else {
+              sizeText = `${sizeInMB} MB`;
+            }
+
+            fileInfo.style.display = 'block';
+            fileInfo.innerHTML = `
+              <strong>Selected file:</strong> ${escapeHTML(file.name)}<br>
+              <strong>Size:</strong> ${sizeText}<br>
+              <strong>Type:</strong> ${file.type || 'Unknown'}<br>
+              <strong>Hash:</strong> Calculating...
+            `;
+
+            // Check file size (2GB limit)
+            if (file.size > (window.ENV?.MAX_UPLOAD_SIZE || 2147483648)) {
+              fileInfo.style.borderColor = '#ff4444';
+              fileInfo.innerHTML += '<br><span style="color: #ff4444;">❌ File exceeds 2GB limit!</span>';
+              this.value = '';
+            }
+          } else {
+            fileInfo.style.display = 'none';
+          }
+        });
+      }
+
+      // Form reset handler
+      const resetBtn = document.querySelector('button[type="reset"]');
+      if (resetBtn) {
+        resetBtn.addEventListener('click', function(e) {
+          e.preventDefault();
+          document.getElementById('uploadForm').reset();
+          document.getElementById('titleCounter').textContent = '0/100';
+          document.getElementById('descCounter').textContent = '0/5000';
+          document.getElementById('fileInfo').style.display = 'none';
+          document.getElementById('screenshotPreviews').innerHTML = ''; // Clear previews
+          if (typeof showNotification === 'function') {
+            showNotification('Form cleared', 'info');
+          }
+        });
+      }
+
+      // Screenshot previews
+      const screenshotsInput = document.getElementById('screenshots');
+      if (screenshotsInput) {
+        screenshotsInput.addEventListener('change', function(e) {
+          const previews = document.getElementById('screenshotPreviews');
+          previews.innerHTML = '';
+          const files = Array.from(e.target.files).slice(0, 4);
+          files.forEach((file, index) => {
+            const reader = new FileReader();
+            reader.onload = function(ev) {
+              const div = document.createElement('div');
+              div.className = 'gb-preview-item';
+              div.innerHTML = `<img src="${ev.target.result}" alt="Preview"><button type="button" class="gb-preview-remove" data-index="${index}">×</button>`;
+              previews.appendChild(div);
+            };
+            reader.readAsDataURL(file);
+          });
+        });
+      }
+
+      // Remove preview (optional)
+      const previewsContainer = document.getElementById('screenshotPreviews');
+      if (previewsContainer) {
+        previewsContainer.addEventListener('click', function(e) {
+          if (e.target.classList.contains('gb-preview-remove')) {
+            e.target.parentElement.remove();
+            // Clear the input so user cannot upload removed files easily
+            document.getElementById('screenshots').value = '';
+          }
+        });
+      }
+    });
+
+    // ============================================
+    // UTILITIES
+    // ============================================
+    function escapeHTML(str) {
+      if (!str) return '';
+      const div = document.createElement('div');
+      div.textContent = str;
+      return div.innerHTML;
+    }
+  </script>
+</body>
+</html>
