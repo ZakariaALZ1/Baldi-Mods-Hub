@@ -1255,11 +1255,18 @@ function renderProfile(profile, user) {
           <div class="gb-trust-bar"><div class="gb-trust-fill" style="width:${trustScore}%; background:${trustColor};"></div></div>
         </div>
         
-        <div class="gb-profile-bio">
-          <h3>About</h3>
-          <p>${escapeHTML(profile?.bio || 'No bio yet.')}</p>
-        </div>
-      </div>
+          <div class="gb-profile-bio">
+            <h3>About</h3>
+            <p>${escapeHTML(profile?.bio || 'No bio yet. Click settings to add one!')}</p>
+          </div>
+
+          <div class="gb-profile-actions">
+            <a href="buddies.html?id=${user.id}" class="gb-btn gb-btn-outline gb-btn-block">👥 Buddies</a>
+            <a href="subscribers.html?id=${user.id}" class="gb-btn gb-btn-outline gb-btn-block">👤 Subscribers</a>
+            <button onclick="logout()" class="gb-btn gb-btn-danger gb-btn-block">🚪 Sign Out</button>
+          </div>
+        </div> <!-- close gb-profile-info -->
+      </div> <!-- close gb-profile-sidebar -->
       
       <div class="gb-profile-main">
         <div class="gb-tabs">
