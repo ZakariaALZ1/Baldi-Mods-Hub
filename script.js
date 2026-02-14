@@ -6,7 +6,6 @@ window.__SUPABASE_INIT_DONE__ = true;
 ========================= */
 
 (function() {
-  // Check if the Supabase library is loaded and has createClient function
   if (typeof window.supabase === 'undefined' || typeof window.supabase.createClient !== 'function') {
     console.error('❌ Supabase library not loaded or invalid!');
     return;
@@ -20,14 +19,17 @@ window.__SUPABASE_INIT_DONE__ = true;
   }
 })();
 
-/* ✅ Create global supabase reference */
 window.supabaseClient = window.__SUPABASE_CLIENT__;
-const supabaseClient = window.__SUPABASE_CLIENT__;  // internal use only
+const supabaseClient = window.__SUPABASE_CLIENT__;
+
+/* =========================
+   MEGA BACKEND URL – REPLACE THIS!
+========================= */
+const MEGA_BACKEND_URL = 'https://your-backend-url.com/upload'; // 🔁 Change to your Railway URL
 
 /* =========================
    GLOBAL STATE MANAGEMENT
 ========================= */
-
 let currentUser = null;
 let currentUserProfile = null;
 let currentUserRole = null;
@@ -40,20 +42,17 @@ let csrfToken = null;
    SECURITY HELPERS
 ========================= */
 
-// Generate CSRF token
 function generateCSRFToken() {
   csrfToken = crypto.randomUUID?.() || Math.random().toString(36).substring(2);
   sessionStorage.setItem('csrf_token', csrfToken);
   return csrfToken;
 }
 
-// Validate CSRF token
 function validateCSRFToken(token) {
   const stored = sessionStorage.getItem('csrf_token');
   return stored && token === stored;
 }
 
-// Sanitize user input
 function sanitizeInput(str) {
   if (!str) return '';
   return str
@@ -63,7 +62,6 @@ function sanitizeInput(str) {
     .trim();
 }
 
-// Inactivity timeout
 function resetInactivityTimer() {
   if (inactivityTimer) clearTimeout(inactivityTimer);
   inactivityTimer = setTimeout(async () => {
@@ -71,10 +69,9 @@ function resetInactivityTimer() {
       await logout();
       showNotification('Session expired due to inactivity', 'info');
     }
-  }, 3600000); // 1 hour
+  }, 3600000);
 }
 
-// Add activity listeners
 ['click', 'keypress', 'scroll', 'mousemove'].forEach(event => {
   document.addEventListener(event, resetInactivityTimer);
 });
@@ -137,389 +134,83 @@ function showNotification(message, type = 'info', duration = 5000) {
   }, duration);
 }
 
-// Add animations
 const style = document.createElement('style');
 style.textContent = `
-  @keyframes gbSlideIn {
-    from { transform: translateX(100%); opacity: 0; }
-    to { transform: translateX(0); opacity: 1; }
-  }
-  @keyframes gbSlideOut {
-    from { transform: translateX(0); opacity: 1; }
-    to { transform: translateX(100%); opacity: 0; }
-  }
-  @keyframes gbSpin {
-    to { transform: rotate(360deg); }
-  }
-  .gb-loading-spinner {
-    display: inline-block;
-    width: 16px;
-    height: 16px;
-    border: 2px solid rgba(255,255,255,0.3);
-    border-top-color: #00ff88;
-    border-radius: 50%;
-    animation: gbSpin 0.8s linear infinite;
-    margin-right: 8px;
-  }
-  .gb-badge {
-    display: inline-block;
-    padding: 4px 12px;
-    border-radius: 20px;
-    font-size: 12px;
-    font-weight: bold;
-    margin-left: 8px;
-  }
+  @keyframes gbSlideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+  @keyframes gbSlideOut { from { transform: translateX(0); opacity: 1; } to { transform: translateX(100%); opacity: 0; } }
+  @keyframes gbSpin { to { transform: rotate(360deg); } }
+  .gb-loading-spinner { display: inline-block; width: 16px; height: 16px; border: 2px solid rgba(255,255,255,0.3); border-top-color: #00ff88; border-radius: 50%; animation: gbSpin 0.8s linear infinite; margin-right: 8px; }
+  .gb-badge { display: inline-block; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: bold; margin-left: 8px; }
   .gb-badge.admin { background: #ff4444; color: white; }
   .gb-badge.moderator { background: #ffaa00; color: black; }
   .gb-badge.verified { background: #00ff88; color: black; }
   .gb-badge.premium { background: #aa80ff; color: white; }
-  .gb-card {
-    background: #1a1a1a;
-    border: 1px solid #333;
-    border-radius: 12px;
-    padding: 20px;
-    transition: all 0.2s;
-  }
-  .gb-card:hover {
-    border-color: #00ff88;
-    transform: translateY(-2px);
-    box-shadow: 0 8px 20px rgba(0,255,136,0.1);
-  }
-  .gb-btn {
-    padding: 10px 20px;
-    border: none;
-    border-radius: 8px;
-    font-weight: bold;
-    cursor: pointer;
-    transition: all 0.2s;
-  }
-  .gb-btn-primary {
-    background: #00ff88;
-    color: black;
-  }
-  .gb-btn-primary:hover {
-    background: #00cc66;
-    transform: translateY(-2px);
-  }
-  .gb-btn-danger {
-    background: #ff4444;
-    color: white;
-  }
-  .gb-btn-warning {
-    background: #ffaa00;
-    color: black;
-  }
-  .gb-btn-secondary {
-    background: #333;
-    color: white;
-  }
-  .gb-nav-container {
-    display: flex;
-    align-items: center;
-    gap: 15px;
-    flex-wrap: wrap;
-  }
-  .gb-nav-item {
-    color: white;
-    text-decoration: none;
-    padding: 8px 16px;
-    border-radius: 5px;
-  }
-  .gb-nav-item:hover {
-    background: #333;
-  }
-  .gb-nav-item.active {
-    background: #00ff88;
-    color: black;
-  }
-  .gb-nav-disabled {
-    color: #666;
-    padding: 8px 16px;
-    cursor: not-allowed;
-    opacity: 0.7;
-  }
-  .gb-nav-user {
-    margin-left: auto;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-  }
-  .gb-nav-points {
-    background: #333;
-    padding: 4px 12px;
-    border-radius: 20px;
-    color: #00ff88;
-    font-size: 12px;
-  }
-  .gb-profile-container {
-    max-width: 1200px;
-    margin: 0 auto;
-    padding: 20px;
-    display: grid;
-    grid-template-columns: 300px 1fr;
-    gap: 30px;
-  }
-  .gb-profile-sidebar {
-    background: #1a1a1a;
-    padding: 30px;
-    border-radius: 10px;
-    border: 1px solid #333;
-  }
-  .gb-profile-avatar {
-    text-align: center;
-    margin-bottom: 20px;
-  }
-  .gb-avatar {
-    width: 120px;
-    height: 120px;
-    background: linear-gradient(45deg, #00ff88, #00cc66);
-    border-radius: 50%;
-    margin: 0 auto;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 48px;
-    font-weight: bold;
-    color: black;
-  }
-  .gb-stats-grid {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 15px;
-    margin: 20px 0;
-    padding: 20px 0;
-    border-top: 1px solid #333;
-    border-bottom: 1px solid #333;
-  }
-  .gb-stat {
-    text-align: center;
-  }
-  .gb-stat-value {
-    display: block;
-    font-size: 24px;
-    font-weight: bold;
-    color: #00ff88;
-  }
-  .gb-stat-label {
-    font-size: 12px;
-    color: #ccc;
-  }
-  .gb-trust-score {
-    margin: 20px 0;
-  }
-  .gb-trust-label {
-    display: flex;
-    justify-content: space-between;
-    margin-bottom: 5px;
-  }
-  .gb-trust-bar {
-    height: 8px;
-    background: #333;
-    border-radius: 4px;
-    overflow: hidden;
-  }
-  .gb-trust-fill {
-    height: 100%;
-    border-radius: 4px;
-    transition: width 0.3s ease;
-  }
-  .gb-trust-value {
-    text-align: right;
-    margin-top: 5px;
-    font-weight: bold;
-  }
-  .gb-profile-bio {
-    margin-top: 20px;
-  }
-  .gb-profile-bio h3 {
-    color: #00ff88;
-    margin-bottom: 10px;
-  }
-  .gb-profile-bio p {
-    color: #ccc;
-    line-height: 1.6;
-  }
-  .gb-profile-main {
-    background: #1a1a1a;
-    padding: 30px;
-    border-radius: 10px;
-    border: 1px solid #333;
-  }
-  .gb-tabs {
-    display: flex;
-    gap: 10px;
-    margin-bottom: 30px;
-    border-bottom: 1px solid #333;
-    padding-bottom: 10px;
-  }
-  .gb-tab {
-    padding: 10px 20px;
-    background: transparent;
-    color: #ccc;
-    border: none;
-    cursor: pointer;
-    font-size: 16px;
-  }
-  .gb-tab.active {
-    color: #00ff88;
-    border-bottom: 2px solid #00ff88;
-  }
-  .gb-tab-content {
-    display: none;
-  }
-  .gb-tab-content.active {
-    display: block;
-  }
-  .gb-stats-detailed {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 20px;
-    margin-top: 20px;
-  }
-  .gb-stat-card {
-    background: #222;
-    padding: 20px;
-    border-radius: 8px;
-    display: flex;
-    align-items: center;
-    gap: 15px;
-  }
-  .gb-stat-icon {
-    font-size: 32px;
-  }
-  .gb-stat-info {
-    flex: 1;
-  }
-  .gb-stat-number {
-    font-size: 24px;
-    font-weight: bold;
-    color: #00ff88;
-  }
-  .gb-settings-form {
-    max-width: 500px;
-  }
-  .gb-form-group {
-    margin-bottom: 20px;
-  }
-  .gb-form-group label {
-    display: block;
-    margin-bottom: 5px;
-    color: #ccc;
-  }
-  .gb-form-group input,
-  .gb-form-group textarea {
-    width: 100%;
-    padding: 10px;
-    background: #222;
-    border: 1px solid #333;
-    color: white;
-    border-radius: 5px;
-  }
-  .gb-form-group input:focus,
-  .gb-form-group textarea:focus {
-    outline: none;
-    border-color: #00ff88;
-  }
-  .gb-char-counter {
-    display: block;
-    text-align: right;
-    font-size: 12px;
-    color: #ccc;
-    margin-top: 5px;
-  }
-  .gb-mod-page {
-    max-width: 1000px;
-    margin: 0 auto;
-    padding: 30px;
-  }
-  .gb-mod-header {
-    margin-bottom: 30px;
-  }
-  .gb-mod-header h1 {
-    font-size: 36px;
-    margin-bottom: 15px;
-  }
-  .gb-mod-badges {
-    display: flex;
-    gap: 10px;
-    flex-wrap: wrap;
-  }
-  .gb-mod-meta-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-    gap: 20px;
-    margin-bottom: 30px;
-    padding: 20px;
-    background: #222;
-    border-radius: 8px;
-  }
-  .gb-meta-item {
-    display: flex;
-    flex-direction: column;
-  }
-  .gb-meta-label {
-    font-size: 12px;
-    color: #ccc;
-    margin-bottom: 5px;
-  }
-  .gb-meta-value {
-    font-size: 16px;
-    font-weight: bold;
-    color: #00ff88;
-  }
-  .gb-mod-description {
-    margin-bottom: 30px;
-  }
-  .gb-mod-description h2 {
-    margin-bottom: 15px;
-  }
-  .gb-description-content {
-    background: #222;
-    padding: 20px;
-    border-radius: 8px;
-    line-height: 1.6;
-    white-space: pre-wrap;
-  }
-  .gb-tag-list {
-    display: flex;
-    gap: 10px;
-    flex-wrap: wrap;
-    margin-top: 10px;
-  }
-  .gb-tag {
-    background: #333;
-    padding: 4px 12px;
-    border-radius: 20px;
-    font-size: 12px;
-    color: #00ff88;
-  }
-  .gb-mod-actions {
-    display: flex;
-    gap: 15px;
-    margin-top: 30px;
-  }
-  .gb-btn-large {
-    padding: 15px 30px;
-    font-size: 18px;
-  }
-  .gb-error-container {
-    text-align: center;
-    padding: 50px;
-  }
-  .gb-no-results {
-    text-align: center;
-    padding: 60px;
-    color: #ccc;
-    background: #1a1a1a;
-    border-radius: 10px;
-  }
-  .gb-error {
-    text-align: center;
-    padding: 40px;
-    color: #ff4444;
-    background: #1a1a1a;
-    border-radius: 8px;
-  }
+  .gb-card { background: #1a1a1a; border: 1px solid #333; border-radius: 12px; padding: 20px; transition: all 0.2s; }
+  .gb-card:hover { border-color: #00ff88; transform: translateY(-2px); box-shadow: 0 8px 20px rgba(0,255,136,0.1); }
+  .gb-btn { padding: 10px 20px; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; transition: all 0.2s; }
+  .gb-btn-primary { background: #00ff88; color: black; }
+  .gb-btn-primary:hover { background: #00cc66; transform: translateY(-2px); }
+  .gb-btn-danger { background: #ff4444; color: white; }
+  .gb-btn-warning { background: #ffaa00; color: black; }
+  .gb-btn-secondary { background: #333; color: white; }
+  .gb-nav-container { display: flex; align-items: center; gap: 15px; flex-wrap: wrap; }
+  .gb-nav-item { color: white; text-decoration: none; padding: 8px 16px; border-radius: 5px; }
+  .gb-nav-item:hover { background: #333; }
+  .gb-nav-item.active { background: #00ff88; color: black; }
+  .gb-nav-disabled { color: #666; padding: 8px 16px; cursor: not-allowed; opacity: 0.7; }
+  .gb-nav-user { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+  .gb-nav-points { background: #333; padding: 4px 12px; border-radius: 20px; color: #00ff88; font-size: 12px; }
+  .gb-profile-container { max-width: 1200px; margin: 0 auto; padding: 20px; display: grid; grid-template-columns: 300px 1fr; gap: 30px; }
+  .gb-profile-sidebar { background: #1a1a1a; padding: 30px; border-radius: 10px; border: 1px solid #333; }
+  .gb-profile-avatar { text-align: center; margin-bottom: 20px; }
+  .gb-avatar { width: 120px; height: 120px; background: linear-gradient(45deg, #00ff88, #00cc66); border-radius: 50%; margin: 0 auto; display: flex; align-items: center; justify-content: center; font-size: 48px; font-weight: bold; color: black; }
+  .gb-stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin: 20px 0; padding: 20px 0; border-top: 1px solid #333; border-bottom: 1px solid #333; }
+  .gb-stat { text-align: center; }
+  .gb-stat-value { display: block; font-size: 24px; font-weight: bold; color: #00ff88; }
+  .gb-stat-label { font-size: 12px; color: #ccc; }
+  .gb-trust-score { margin: 20px 0; }
+  .gb-trust-label { display: flex; justify-content: space-between; margin-bottom: 5px; }
+  .gb-trust-bar { height: 8px; background: #333; border-radius: 4px; overflow: hidden; }
+  .gb-trust-fill { height: 100%; border-radius: 4px; transition: width 0.3s ease; }
+  .gb-trust-value { text-align: right; margin-top: 5px; font-weight: bold; }
+  .gb-profile-bio { margin-top: 20px; }
+  .gb-profile-bio h3 { color: #00ff88; margin-bottom: 10px; }
+  .gb-profile-bio p { color: #ccc; line-height: 1.6; }
+  .gb-profile-main { background: #1a1a1a; padding: 30px; border-radius: 10px; border: 1px solid #333; }
+  .gb-tabs { display: flex; gap: 10px; margin-bottom: 30px; border-bottom: 1px solid #333; padding-bottom: 10px; }
+  .gb-tab { padding: 10px 20px; background: transparent; color: #ccc; border: none; cursor: pointer; font-size: 16px; }
+  .gb-tab.active { color: #00ff88; border-bottom: 2px solid #00ff88; }
+  .gb-tab-content { display: none; }
+  .gb-tab-content.active { display: block; }
+  .gb-stats-detailed { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; margin-top: 20px; }
+  .gb-stat-card { background: #222; padding: 20px; border-radius: 8px; display: flex; align-items: center; gap: 15px; }
+  .gb-stat-icon { font-size: 32px; }
+  .gb-stat-info { flex: 1; }
+  .gb-stat-number { font-size: 24px; font-weight: bold; color: #00ff88; }
+  .gb-settings-form { max-width: 500px; }
+  .gb-form-group { margin-bottom: 20px; }
+  .gb-form-group label { display: block; margin-bottom: 5px; color: #ccc; }
+  .gb-form-group input, .gb-form-group textarea { width: 100%; padding: 10px; background: #222; border: 1px solid #333; color: white; border-radius: 5px; }
+  .gb-form-group input:focus, .gb-form-group textarea:focus { outline: none; border-color: #00ff88; }
+  .gb-char-counter { display: block; text-align: right; font-size: 12px; color: #ccc; margin-top: 5px; }
+  .gb-mod-page { max-width: 1000px; margin: 0 auto; padding: 30px; }
+  .gb-mod-header { margin-bottom: 30px; }
+  .gb-mod-header h1 { font-size: 36px; margin-bottom: 15px; }
+  .gb-mod-badges { display: flex; gap: 10px; flex-wrap: wrap; }
+  .gb-mod-meta-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin-bottom: 30px; padding: 20px; background: #222; border-radius: 8px; }
+  .gb-meta-item { display: flex; flex-direction: column; }
+  .gb-meta-label { font-size: 12px; color: #ccc; margin-bottom: 5px; }
+  .gb-meta-value { font-size: 16px; font-weight: bold; color: #00ff88; }
+  .gb-mod-description { margin-bottom: 30px; }
+  .gb-mod-description h2 { margin-bottom: 15px; }
+  .gb-description-content { background: #222; padding: 20px; border-radius: 8px; line-height: 1.6; white-space: pre-wrap; }
+  .gb-tag-list { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 10px; }
+  .gb-tag { background: #333; padding: 4px 12px; border-radius: 20px; font-size: 12px; color: #00ff88; }
+  .gb-mod-actions { display: flex; gap: 15px; margin-top: 30px; }
+  .gb-btn-large { padding: 15px 30px; font-size: 18px; }
+  .gb-error-container { text-align: center; padding: 50px; }
+  .gb-no-results { text-align: center; padding: 60px; color: #ccc; background: #1a1a1a; border-radius: 10px; }
+  .gb-error { text-align: center; padding: 40px; color: #ff4444; background: #1a1a1a; border-radius: 8px; }
 `;
 document.head.appendChild(style);
 
@@ -556,15 +247,12 @@ function formatFileSize(bytes) {
   return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
 }
 
-// Enhanced rate limiting with localStorage
 const rateLimiter = (() => {
   return (action, maxAttempts = 5, windowMs = 60000) => {
     const windowId = Math.floor(Date.now() / windowMs);
     const key = `gb_ratelimit_${action}_${windowId}`;
     let attempts = parseInt(localStorage.getItem(key) || '0');
-    
     if (attempts >= maxAttempts) return false;
-    
     localStorage.setItem(key, (attempts + 1).toString());
     setTimeout(() => localStorage.removeItem(key), windowMs);
     return true;
@@ -592,7 +280,6 @@ function setLoading(button, isLoading, text = 'Loading...') {
 async function checkAuthState() {
   try {
     const { data: { user }, error } = await supabaseClient.auth.getUser();
-    
     if (error || !user) {
       currentUser = null;
       currentUserProfile = null;
@@ -602,7 +289,6 @@ async function checkAuthState() {
       return;
     }
     
-    // Get or create profile
     let { data: profile } = await supabaseClient
       .from('profiles')
       .select('*')
@@ -653,8 +339,6 @@ function startSessionCheck() {
   if (sessionCheckInterval) clearInterval(sessionCheckInterval);
   sessionCheckInterval = setInterval(async () => {
     const { data: { session } } = await supabaseClient.auth.getSession();
-    console.log('Session:', session);
-    console.log('Token expiry:', session?.expires_at ? new Date(session.expires_at * 1000).toLocaleString() : 'none');
     if (!session) {
       showNotification('Session expired. Please login again.', 'info');
       await logout();
@@ -737,11 +421,9 @@ async function signUp() {
   if (!email || !password) {
     return showNotification("Email and password required", "error");
   }
-  
   if (password.length < 8) {
     return showNotification("Password must be at least 8 characters", "error");
   }
-  
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
     return showNotification("Invalid email format", "error");
   }
@@ -749,7 +431,6 @@ async function signUp() {
   const hasUpperCase = /[A-Z]/.test(password);
   const hasLowerCase = /[a-z]/.test(password);
   const hasNumbers = /\d/.test(password);
-  
   if (!(hasUpperCase && hasLowerCase && hasNumbers)) {
     return showNotification("Password must contain uppercase, lowercase, and numbers", "error");
   }
@@ -763,10 +444,7 @@ async function signUp() {
       password,
       options: {
         emailRedirectTo: window.location.origin,
-        data: {
-          username: email.split('@')[0],
-          join_date: new Date().toISOString()
-        }
+        data: { username: email.split('@')[0], join_date: new Date().toISOString() }
       }
     });
     
@@ -785,11 +463,7 @@ async function signUp() {
         download_count: 0
       }, { onConflict: 'id' });
       
-      const { error: signInError } = await supabaseClient.auth.signInWithPassword({
-        email,
-        password
-      });
-      
+      const { error: signInError } = await supabaseClient.auth.signInWithPassword({ email, password });
       if (signInError) throw signInError;
       
       showNotification("🎉 Account created successfully! Welcome to Baldi Mods Hub!", "success", 6000);
@@ -827,27 +501,17 @@ async function signIn() {
   setLoading(button, true, 'Logging in...');
   
   try {
-    const { data, error } = await supabaseClient.auth.signInWithPassword({
-      email,
-      password
-    });
-    
+    const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
     if (error) throw error;
     
     await supabaseClient
       .from("profiles")
-      .update({
-        last_login: new Date().toISOString(),
-        last_login_ip: null
-      })
+      .update({ last_login: new Date().toISOString(), last_login_ip: null })
       .eq("id", data.user.id);
     
     showNotification("✅ Welcome back! Redirecting...", "success");
     await checkAuthState();
-    
-    setTimeout(() => {
-      window.location.href = "index.html";
-    }, 1000);
+    setTimeout(() => window.location.href = "index.html", 1000);
     
   } catch (err) {
     console.error("Login failed:", err);
@@ -873,7 +537,6 @@ async function logout() {
       clearInterval(sessionCheckInterval);
       sessionCheckInterval = null;
     }
-    
     if (inactivityTimer) {
       clearTimeout(inactivityTimer);
       inactivityTimer = null;
@@ -881,10 +544,7 @@ async function logout() {
     
     showNotification("👋 Logged out successfully", "success");
     showPublicUI();
-    
-    setTimeout(() => {
-      window.location.href = "index.html";
-    }, 1000);
+    setTimeout(() => window.location.href = "index.html", 1000);
     
   } catch (err) {
     console.error("Logout failed:", err);
@@ -908,11 +568,7 @@ async function getCurrentUserRole() {
   const user = await getCurrentUser();
   if (!user) return null;
   try {
-    const { data } = await supabaseClient
-      .from("profiles")
-      .select("role")
-      .eq("id", user.id)
-      .single();
+    const { data } = await supabaseClient.from("profiles").select("role").eq("id", user.id).single();
     currentUserRole = data?.role || 'user';
     return currentUserRole;
   } catch {
@@ -973,7 +629,7 @@ async function guardAdminDashboard() {
 }
 
 /* =========================
-   MOD UPLOAD - with screenshots
+   MOD UPLOAD – MEGA.NZ VERSION
 ========================= */
 
 async function uploadMod() {
@@ -990,133 +646,59 @@ async function uploadMod() {
   const additionalScreenshots = document.getElementById('screenshots')?.files;
 
   // Validation
-  if (!title || title.length < 3 || title.length > 100) return showNotification("Title must be 3-100 characters", "error");
-  if (!description || description.length < 10 || description.length > 5000) return showNotification("Description must be 10-5000 characters", "error");
+  if (!title || title.length < 3 || title.length > 100) 
+    return showNotification("Title must be 3-100 characters", "error");
+  if (!description || description.length < 10 || description.length > 5000) 
+    return showNotification("Description must be 10-5000 characters", "error");
   if (!file) return showNotification("Please select a mod file", "error");
   if (!mainScreenshot) return showNotification("Please select a main screenshot", "error");
 
   const allowedExtensions = ['.zip', '.rar', '.7z', '.baldimod'];
   const fileExt = '.' + file.name.split('.').pop().toLowerCase();
-  if (!allowedExtensions.includes(fileExt)) return showNotification(`Only ${allowedExtensions.join(', ')} files allowed`, "error");
+  if (!allowedExtensions.includes(fileExt)) 
+    return showNotification(`Only ${allowedExtensions.join(', ')} files allowed`, "error");
 
   const maxSize = 2147483648; // 2GB
-  if (file.size > maxSize) return showNotification(`File size exceeds 2GB limit`, "error");
+  if (file.size > maxSize) 
+    return showNotification(`File size exceeds 2GB limit`, "error");
 
   const button = document.querySelector('button[onclick="uploadMod()"]');
-  setLoading(button, true, '🔍 Scanning file...');
+  setLoading(button, true, '📤 Uploading to Mega...');
 
   const progressDiv = document.createElement('div');
-  progressDiv.className = 'gb-card';
-  progressDiv.style.cssText = 'margin-top:20px; padding:20px; text-align:center;';
-  progressDiv.innerHTML = '<div class="gb-loading-spinner"></div> Preparing upload...';
+  progressDiv.className = 'gb-progress-card';
+  progressDiv.innerHTML = '<div class="gb-progress-spinner"></div> Uploading to Mega.nz...';
   document.querySelector('.gb-upload-form')?.appendChild(progressDiv);
 
   try {
-    // Get fresh session token
-    const { data: { session } } = await supabaseClient.auth.getSession();
-    const accessToken = session?.access_token;
-    if (!accessToken) throw new Error("No valid session");
-
-    // 1. Scan mod file with timeout
+    // Prepare FormData
     const formData = new FormData();
-    formData.append('file', file);
-    formData.append('title', title);
-    formData.append('description', description);
+    formData.append('mainScreenshot', mainScreenshot);
+    Array.from(additionalScreenshots || []).slice(0, 4).forEach(f => formData.append('screenshots', f));
+    formData.append('modFile', file);
 
-    progressDiv.innerHTML = '<div class="gb-loading-spinner"></div> 🔍 Scanning file for malware... (this may take a moment)';
+    // Send to Mega backend
+    const response = await fetch(MEGA_BACKEND_URL, {
+      method: 'POST',
+      body: formData
+    });
 
-    // Create abort controller for timeout
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 60000); // 60 second timeout
-
-    const scanResponse = await fetch(
-      'https://deovtpdjugfkccnpxfsm.supabase.co/functions/v1/scan-mod',
-      {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${accessToken}` },
-        body: formData,
-        signal: controller.signal
-      }
-    ).finally(() => clearTimeout(timeoutId));
-
-    if (!scanResponse.ok) {
-      let errorMsg = 'Scan failed';
-      try { 
-        const e = await scanResponse.json(); 
-        errorMsg = e.error || e.message || `HTTP ${scanResponse.status}`; 
-      } catch { 
-        errorMsg = `HTTP ${scanResponse.status}`; 
-      }
-      throw new Error(errorMsg);
+    if (!response.ok) {
+      const err = await response.json();
+      throw new Error(err.error || 'Upload to Mega failed');
     }
 
-    const scanResult = await scanResponse.json();
-    if (!scanResult.safe) {
-      setLoading(button, false);
-      progressDiv.remove();
-      showNotification(`⛔ File rejected: ${scanResult.reason || 'Security threat'}`, "error");
-      return;
-    }
+    const { mainScreenshotUrl, screenshotUrls, modFileUrl } = await response.json();
 
-    // 2. Upload mod file to baldi-mods bucket
-    const timestamp = Date.now();
-    const randomId = crypto.randomUUID?.() || Math.random().toString(36).substring(2);
-    const safeFilename = `${randomId}_${file.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
-    const storagePath = `${user.id}/${timestamp}_${safeFilename}`;
-
-    setLoading(button, true, '📤 Uploading mod file...');
-    progressDiv.innerHTML = '<div class="gb-loading-spinner"></div> 📤 Uploading mod file...';
-    const { error: uploadError } = await supabaseClient.storage
-      .from("baldi-mods")
-      .upload(storagePath, file, { cacheControl: '3600', upsert: false });
-    if (uploadError) throw uploadError;
-
-    const { data: urlData } = supabaseClient.storage
-      .from("baldi-mods")
-      .getPublicUrl(storagePath);
-
-    // 3. Upload screenshots to mod-screenshots bucket
-    const screenshotsArray = [];
-
-    // Main screenshot
-    setLoading(button, true, '📤 Uploading main screenshot...');
-    progressDiv.innerHTML = '<div class="gb-loading-spinner"></div> 📤 Uploading main screenshot...';
-    const mainExt = mainScreenshot.name.split('.').pop();
-    const mainPath = `${user.id}/main_${timestamp}.${mainExt}`;
-    const { error: mainUploadError } = await supabaseClient.storage
-      .from('mod-screenshots')
-      .upload(mainPath, mainScreenshot);
-    if (mainUploadError) throw mainUploadError;
-    const { data: mainUrl } = supabaseClient.storage
-      .from('mod-screenshots')
-      .getPublicUrl(mainPath);
-    screenshotsArray.push({ url: mainUrl.publicUrl, is_main: true, sort_order: 0 });
-
-    // Additional screenshots (max 4)
-    if (additionalScreenshots && additionalScreenshots.length > 0) {
-      const maxAdditional = 4;
-      for (let i = 0; i < Math.min(additionalScreenshots.length, maxAdditional); i++) {
-        const file = additionalScreenshots[i];
-        progressDiv.innerHTML = `<div class="gb-loading-spinner"></div> 📤 Uploading screenshot ${i+1}...`;
-        const ext = file.name.split('.').pop();
-        const path = `${user.id}/add_${timestamp}_${i}.${ext}`;
-        const { error: addUploadError } = await supabaseClient.storage
-          .from('mod-screenshots')
-          .upload(path, file);
-        if (addUploadError) throw addUploadError;
-        const { data: urlData } = supabaseClient.storage
-          .from('mod-screenshots')
-          .getPublicUrl(path);
-        screenshotsArray.push({ url: urlData.publicUrl, is_main: false, sort_order: i+1 });
-      }
-    }
-
-    // 4. Insert mod record into database
-    setLoading(button, true, '💾 Saving...');
-    progressDiv.innerHTML = '<div class="gb-loading-spinner"></div> 💾 Publishing mod...';
+    // Prepare screenshots array for database
+    const screenshotsArray = [
+      { url: mainScreenshotUrl, is_main: true, sort_order: 0 },
+      ...(screenshotUrls || []).map((url, i) => ({ url, is_main: false, sort_order: i + 1 }))
+    ];
 
     const tagArray = tags ? tags.split(',').map(t => t.trim()).filter(t => t) : [];
 
+    // Insert mod record into Supabase
     const { error: dbError } = await supabaseClient
       .from("mods2")
       .insert([{
@@ -1125,21 +707,21 @@ async function uploadMod() {
         version: version,
         baldi_version: baldiVersion,
         tags: tagArray,
-        file_url: urlData.publicUrl,
-        file_storage_path: storagePath,
+        file_url: modFileUrl,
+        file_storage_path: null, // No Supabase storage path
         user_id: user.id,
         author_name: currentUserProfile?.username || user.email?.split('@')[0],
         approved: false,
         reported: false,
         quarantine: false,
-        file_hash: scanResult.fingerprint,
+        file_hash: null,           // No scan
         file_size: file.size,
         file_extension: fileExt,
         original_filename: file.name,
-        scan_status: 'clean',
-        risk_score: scanResult.zero_trust_score || 0,
-        threat_cluster: scanResult.cluster || 'unknown',
-        scan_reason: scanResult.reason,
+        scan_status: 'pending',    // Will be reviewed by moderator
+        risk_score: 0,
+        threat_cluster: null,
+        scan_reason: null,
         screenshots: screenshotsArray,
         download_count: 0,
         view_count: 0,
@@ -1149,14 +731,14 @@ async function uploadMod() {
 
     if (dbError) throw dbError;
 
-    // 5. Update user profile upload count
+    // Update user profile upload count
     await supabaseClient
       .from("profiles")
-      .update({ upload_count: supabaseClient.rpc('increment', { x: 1 }), updated_at: new Date().toISOString() })
+      .update({ upload_count: supabaseClient.rpc('increment', { x: 1 }) })
       .eq("id", user.id);
 
     progressDiv.remove();
-    showNotification("✅ Mod uploaded successfully! It will be reviewed by moderators.", "success", 8000);
+    showNotification("✅ Mod uploaded to Mega! Pending review.", "success", 8000);
     
     // Clear form
     ['title', 'description', 'version', 'baldiVersion', 'tags', 'file', 'mainScreenshot', 'screenshots'].forEach(id => {
@@ -1170,33 +752,25 @@ async function uploadMod() {
   } catch (err) {
     console.error("Upload failed:", err);
     progressDiv.remove();
-    if (err.name === 'AbortError') {
-      showNotification("Upload timed out – please try again", "error");
-    } else {
-      showNotification("Upload failed: " + (err.message || "Unknown error"), "error");
-    }
+    showNotification("Upload failed: " + (err.message || "Unknown error"), "error");
   } finally {
     setLoading(button, false);
   }
 }
 
 /* =========================
-   MOD PAGE - improved error handling + screenshots
+   MOD PAGE – (unchanged)
 ========================= */
 
 async function loadModPage() {
   const id = getQueryParam("id");
-  if (!id) {
-    window.location.href = "index.html";
-    return;
-  }
+  if (!id) { window.location.href = "index.html"; return; }
 
   try {
     const { data: mod, error } = await supabaseClient
       .from("mods2")
       .select("*")
       .eq("id", id)
-      // .eq("approved", true) // remove for testing
       .single();
 
     if (error || !mod) {
@@ -1205,26 +779,18 @@ async function loadModPage() {
       return;
     }
 
-    // Get current user
     const user = await getCurrentUser();
 
-    // Increment view count only if the viewer is NOT the author
     if (!user || user.id !== mod.user_id) {
-      try {
-        await supabaseClient.rpc('increment_view_count', { mod_id: mod.id });
-      } catch (err) {
-        console.warn("Failed to increment view count:", err);
-      }
+      try { await supabaseClient.rpc('increment_view_count', { mod_id: mod.id }); } catch (err) { console.warn("Failed to increment view count:", err); }
     }
 
-    // Fetch author profile
     const { data: authorProfile } = await supabaseClient
       .from("profiles")
       .select("username, trust_score, upload_count, download_count, is_verified, role")
       .eq("id", mod.user_id)
       .single();
 
-    // Fetch buddy, subscriber, thank status for current user
     let isBuddy = false, isSubscribed = false, hasThanked = false;
     if (user) {
       const [buddyRes, subRes, thankRes] = await Promise.all([
@@ -1240,7 +806,6 @@ async function loadModPage() {
     const modContainer = document.getElementById("mod");
     if (!modContainer) return;
 
-    // Generate screenshot gallery HTML
     let screenshotsHtml = '';
     if (mod.screenshots && mod.screenshots.length > 0) {
       const sorted = mod.screenshots.sort((a,b) => (a.sort_order||0) - (b.sort_order||0));
@@ -1258,7 +823,6 @@ async function loadModPage() {
       `;
     }
 
-    // Determine author badge
     let authorBadge = '👤 MEMBER';
     if (authorProfile?.role === 'admin') authorBadge = '👑 ADMIN';
     else if (authorProfile?.role === 'moderator') authorBadge = '🛡️ MOD';
@@ -1266,31 +830,17 @@ async function loadModPage() {
 
     modContainer.innerHTML = `
       <div class="gb-mod-grid">
-        <!-- Sidebar (Author Info) -->
         <div class="gb-mod-sidebar">
           <div class="gb-author-cover"></div>
-          <div class="gb-author-avatar" style="text-shadow: 0 0 8px var(--gb-primary);">
-            ${escapeHTML((authorProfile?.username || 'U').charAt(0).toUpperCase())}
-          </div>
+          <div class="gb-author-avatar">${escapeHTML((authorProfile?.username || 'U').charAt(0).toUpperCase())}</div>
           <div class="gb-author-info">
             <div class="gb-author-name"><a href="profile.html?id=${mod.user_id}" style="color: inherit; text-decoration: none;">${escapeHTML(authorProfile?.username || 'Unknown')}</a></div>
             <div class="gb-author-badge">${authorBadge}</div>
-            
             <div class="gb-author-stats">
-              <div class="gb-author-stat">
-                <span>📦 Uploads</span>
-                <span class="gb-author-stat-value">${authorProfile?.upload_count || 0}</span>
-              </div>
-              <div class="gb-author-stat">
-                <span>📥 Downloads</span>
-                <span class="gb-author-stat-value">${authorProfile?.download_count || 0}</span>
-              </div>
-              <div class="gb-author-stat">
-                <span>⭐ Trust</span>
-                <span class="gb-author-stat-value">${authorProfile?.trust_score || 0}</span>
-              </div>
+              <div class="gb-author-stat"><span>📦 Uploads</span><span class="gb-author-stat-value">${authorProfile?.upload_count || 0}</span></div>
+              <div class="gb-author-stat"><span>📥 Downloads</span><span class="gb-author-stat-value">${authorProfile?.download_count || 0}</span></div>
+              <div class="gb-author-stat"><span>⭐ Trust</span><span class="gb-author-stat-value">${authorProfile?.trust_score || 0}</span></div>
             </div>
-
             <div class="gb-author-actions">
               <button onclick="toggleBuddy('${mod.user_id}')" class="gb-btn ${isBuddy ? 'gb-btn-primary' : 'gb-btn-outline'} gb-btn-block" id="buddyBtn-${mod.user_id}">${isBuddy ? '✓ Buddy' : '+ Add Buddy'}</button>
               <button onclick="toggleSubscribe('${mod.user_id}')" class="gb-btn ${isSubscribed ? 'gb-btn-primary' : 'gb-btn-outline'} gb-btn-block" id="subBtn-${mod.user_id}">${isSubscribed ? '🔔 Subscribed' : '🔔 Subscribe'}</button>
@@ -1298,65 +848,39 @@ async function loadModPage() {
             </div>
           </div>
         </div>
-
-        <!-- Main Content -->
         <div class="gb-mod-main">
           <h1 class="gb-mod-title">${escapeHTML(mod.title)}</h1>
-          
           <div class="gb-mod-badges">
             <span class="gb-badge">📦 v${escapeHTML(mod.version || '1.0.0')}</span>
             <span class="gb-badge">🎮 ${escapeHTML(mod.baldi_version || 'Any')}</span>
-            <span class="gb-badge" style="background:${mod.risk_score < 30 ? '#00ff88' : mod.risk_score < 60 ? '#ffaa00' : '#ff4444'};">
-              ${mod.risk_score < 30 ? '✅ Safe' : mod.risk_score < 60 ? '⚠️ Caution' : '❌ Unsafe'}
-            </span>
+            <span class="gb-badge" style="background:${mod.risk_score < 30 ? '#00ff88' : mod.risk_score < 60 ? '#ffaa00' : '#ff4444'};">${mod.risk_score < 30 ? '✅ Safe' : mod.risk_score < 60 ? '⚠️ Caution' : '❌ Unsafe'}</span>
           </div>
-
           <div class="gb-mod-meta-grid">
             <div class="gb-meta-item"><span class="gb-meta-label">Downloads</span><span class="gb-meta-value">📥 ${mod.download_count || 0}</span></div>
             <div class="gb-meta-item"><span class="gb-meta-label">Views</span><span class="gb-meta-value">👁️ ${mod.view_count || 0}</span></div>
             <div class="gb-meta-item"><span class="gb-meta-label">Uploaded</span><span class="gb-meta-value">📅 ${new Date(mod.created_at).toLocaleDateString()}</span></div>
             <div class="gb-meta-item"><span class="gb-meta-label">File Size</span><span class="gb-meta-value">💾 ${formatFileSize(mod.file_size || 0)}</span></div>
           </div>
-
           ${screenshotsHtml}
-
           <div class="gb-mod-description">
             <h2>Description</h2>
             <div class="gb-description-content">${escapeHTML(mod.description).replace(/\n/g, '<br>')}</div>
           </div>
-
-          ${mod.tags?.length ? `
-            <div class="gb-tag-list">
-              ${mod.tags.map(tag => `<span class="gb-tag">#${escapeHTML(tag)}</span>`).join('')}
-            </div>
-          ` : ''}
-
-          <!-- Favorite Button -->
-          <div class="gb-mod-favorite">
-            <button id="favoriteBtn" onclick="toggleFavorite('${mod.id}')" class="gb-btn gb-btn-outline gb-btn-large">🤍 Favorite</button>
-          </div>
-
+          ${mod.tags?.length ? `<div class="gb-tag-list">${mod.tags.map(tag => `<span class="gb-tag">#${escapeHTML(tag)}</span>`).join('')}</div>` : ''}
+          <div class="gb-mod-favorite"><button id="favoriteBtn" onclick="toggleFavorite('${mod.id}')" class="gb-btn gb-btn-outline gb-btn-large">🤍 Favorite</button></div>
           <div class="gb-mod-actions">
             <a href="${escapeHTML(mod.file_url)}" class="gb-btn gb-btn-primary gb-btn-large" target="_blank" rel="noopener noreferrer" onclick="trackDownload('${mod.id}')">⬇️ Download Mod</a>
             <button onclick="reportMod('${mod.id}')" class="gb-btn gb-btn-secondary gb-btn-large">🚩 Report Mod</button>
           </div>
-
-          <!-- Comments Section -->
           <div class="gb-comments-section">
             <h2>Comments</h2>
-            ${user ? `
-              <div class="gb-add-comment">
-                <textarea id="commentInput" placeholder="Write a comment..." rows="3"></textarea>
-                <button onclick="addComment('${mod.id}', document.getElementById('commentInput').value)" class="gb-btn gb-btn-primary">Post Comment</button>
-              </div>
-            ` : '<p><a href="index.html">Login</a> to comment.</p>'}
+            ${user ? `<div class="gb-add-comment"><textarea id="commentInput" placeholder="Write a comment..." rows="3"></textarea><button onclick="addComment('${mod.id}', document.getElementById('commentInput').value)" class="gb-btn gb-btn-primary">Post Comment</button></div>` : '<p><a href="index.html">Login</a> to comment.</p>'}
             <div id="commentsContainer" class="gb-comments-container"></div>
           </div>
         </div>
       </div>
     `;
 
-    // Load comments and favorite status after rendering
     loadComments(mod.id);
     updateFavoriteButton(mod.id);
 
@@ -1367,7 +891,7 @@ async function loadModPage() {
 }
 
 /* =========================
-   MOD LISTING - GAMEBANANA STYLE
+   MOD LISTING – (unchanged)
 ========================= */
 
 async function loadMods() {
@@ -1411,7 +935,6 @@ async function loadMods() {
       return;
     }
 
-    // Get usernames
     const userIds = [...new Set(data.map(m => m.user_id))];
     const { data: profiles } = await supabaseClient
       .from("profiles")
@@ -1419,11 +942,7 @@ async function loadMods() {
       .in("id", userIds);
 
     const profileMap = {};
-    profiles?.forEach(p => {
-      if (!p.is_shadow_banned) {
-        profileMap[p.id] = p.username;
-      }
-    });
+    profiles?.forEach(p => { if (!p.is_shadow_banned) profileMap[p.id] = p.username; });
 
     box.innerHTML = data.map(mod => {
       if (!profileMap[mod.user_id]) return '';
@@ -1437,20 +956,15 @@ async function loadMods() {
       const date = new Date(mod.created_at).toLocaleDateString();
       
       let riskBadge = '';
-      if (mod.risk_score > 70) {
-        riskBadge = '<span class="gb-badge" style="background:#ff4444;">⚠️ High Risk</span>';
-      } else if (mod.risk_score > 40) {
-        riskBadge = '<span class="gb-badge" style="background:#ffaa00;">⚠️ Medium Risk</span>';
-      }
+      if (mod.risk_score > 70) riskBadge = '<span class="gb-badge" style="background:#ff4444;">⚠️ High Risk</span>';
+      else if (mod.risk_score > 40) riskBadge = '<span class="gb-badge" style="background:#ffaa00;">⚠️ Medium Risk</span>';
       
       let baldiBadge = '';
-      if (mod.baldi_version) {
-        baldiBadge = `<span class="gb-badge">🎮 ${escapeHTML(mod.baldi_version)}</span>`;
-      }
+      if (mod.baldi_version) baldiBadge = `<span class="gb-badge">🎮 ${escapeHTML(mod.baldi_version)}</span>`;
       
       return `
         <div class="gb-card mod-card" style="display: flex; flex-direction: column; height: 100%;" data-mod-id="${modId}">
-          <div style="flex: 1;"> <!-- content area -->
+          <div style="flex: 1;">
             <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 15px;">
               <h3 style="margin: 0;"><a href="mod.html?id=${encodeURIComponent(modId)}" style="color: #00ff88; text-decoration: none;">${title}</a></h3>
               <div>${riskBadge}</div>
@@ -1473,13 +987,7 @@ async function loadMods() {
               <span style="color: #00ff88; font-weight: bold;">💾 ${fileSize}</span>
             </div>
             <div style="display: flex; gap: 10px;">
-              <a href="${escapeHTML(mod.file_url)}" 
-                 class="gb-btn gb-btn-primary"
-                 target="_blank" 
-                 rel="noopener noreferrer"
-                 onclick="trackDownload('${modId}')">
-                Download
-              </a>
+              <a href="${escapeHTML(mod.file_url)}" class="gb-btn gb-btn-primary" target="_blank" rel="noopener noreferrer" onclick="trackDownload('${modId}')">Download</a>
               <button onclick="reportMod('${modId}')" class="gb-btn gb-btn-secondary">Report</button>
             </div>
           </div>
@@ -1494,16 +1002,15 @@ async function loadMods() {
 }
 
 /* =========================
-   TRACK DOWNLOAD - prevents author self-counting
+   TRACK DOWNLOAD
 ========================= */
 
 async function trackDownload(modId) {
   const user = await getCurrentUser();
   const { data: mod } = await supabaseClient.from("mods2").select("user_id").eq("id", modId).single();
   
-  // Prevent self-counting
   if (user && mod && user.id === mod.user_id) {
-    showNotification("You cannot increase count btw while downloading the mod again", "info");
+    showNotification("You cannot increase count while downloading the mod again", "info");
     return;
   }
 
@@ -1540,7 +1047,6 @@ async function toggleBuddy(targetUserId) {
       if (error) throw error;
       showNotification("Buddy added", "success");
     }
-    // Update button
     const btn = document.getElementById(`buddyBtn-${targetUserId}`);
     if (btn) {
       const isNow = !existing;
@@ -1588,7 +1094,6 @@ async function toggleSubscribe(targetUserId) {
 async function toggleThank(modId) {
   const user = await getCurrentUser();
   if (!user) { showNotification("Please login", "error"); return; }
-  // Fetch mod author
   const { data: mod } = await supabaseClient.from('mods2').select('user_id').eq('id', modId).single();
   if (user.id === mod.user_id) { showNotification("You cannot thank your own mod", "warning"); return; }
   try {
@@ -1686,28 +1191,14 @@ function renderProfile(profile, user) {
         </div>
         
         <div class="gb-stats-grid">
-          <div class="gb-stat">
-            <span class="gb-stat-value">${profile?.upload_count || 0}</span>
-            <span class="gb-stat-label">Uploads</span>
-          </div>
-          <div class="gb-stat">
-            <span class="gb-stat-value">${profile?.download_count || 0}</span>
-            <span class="gb-stat-label">Downloads</span>
-          </div>
-          <div class="gb-stat">
-            <span class="gb-stat-value">${joinDate}</span>
-            <span class="gb-stat-label">Joined</span>
-          </div>
+          <div class="gb-stat"><span class="gb-stat-value">${profile?.upload_count || 0}</span><span class="gb-stat-label">Uploads</span></div>
+          <div class="gb-stat"><span class="gb-stat-value">${profile?.download_count || 0}</span><span class="gb-stat-label">Downloads</span></div>
+          <div class="gb-stat"><span class="gb-stat-value">${joinDate}</span><span class="gb-stat-label">Joined</span></div>
         </div>
         
         <div class="gb-trust-score">
-          <div class="gb-trust-label">
-            <span>Trust Score</span>
-            <span>${trustScore}</span>
-          </div>
-          <div class="gb-trust-bar">
-            <div class="gb-trust-fill" style="width:${trustScore}%; background:${trustColor};"></div>
-          </div>
+          <div class="gb-trust-label"><span>Trust Score</span><span>${trustScore}</span></div>
+          <div class="gb-trust-bar"><div class="gb-trust-fill" style="width:${trustScore}%; background:${trustColor};"></div></div>
         </div>
         
         <div class="gb-profile-bio">
@@ -1731,34 +1222,10 @@ function renderProfile(profile, user) {
         <div id="stats-tab" class="gb-tab-content">
           <h3>Statistics</h3>
           <div class="gb-stats-detailed">
-            <div class="gb-stat-card">
-              <div class="gb-stat-icon">📤</div>
-              <div class="gb-stat-info">
-                <span class="gb-stat-label">Total Uploads</span>
-                <span class="gb-stat-number" id="statTotalUploads">0</span>
-              </div>
-            </div>
-            <div class="gb-stat-card">
-              <div class="gb-stat-icon">✅</div>
-              <div class="gb-stat-info">
-                <span class="gb-stat-label">Approved</span>
-                <span class="gb-stat-number" id="statApprovedMods">0</span>
-              </div>
-            </div>
-            <div class="gb-stat-card">
-              <div class="gb-stat-icon">⏳</div>
-              <div class="gb-stat-info">
-                <span class="gb-stat-label">Pending</span>
-                <span class="gb-stat-number" id="statPendingMods">0</span>
-              </div>
-            </div>
-            <div class="gb-stat-card">
-              <div class="gb-stat-icon">📥</div>
-              <div class="gb-stat-info">
-                <span class="gb-stat-label">Downloads</span>
-                <span class="gb-stat-number" id="statTotalDownloads">0</span>
-              </div>
-            </div>
+            <div class="gb-stat-card"><div class="gb-stat-icon">📤</div><div class="gb-stat-info"><span class="gb-stat-label">Total Uploads</span><span class="gb-stat-number" id="statTotalUploads">0</span></div></div>
+            <div class="gb-stat-card"><div class="gb-stat-icon">✅</div><div class="gb-stat-info"><span class="gb-stat-label">Approved</span><span class="gb-stat-number" id="statApprovedMods">0</span></div></div>
+            <div class="gb-stat-card"><div class="gb-stat-icon">⏳</div><div class="gb-stat-info"><span class="gb-stat-label">Pending</span><span class="gb-stat-number" id="statPendingMods">0</span></div></div>
+            <div class="gb-stat-card"><div class="gb-stat-icon">📥</div><div class="gb-stat-info"><span class="gb-stat-label">Downloads</span><span class="gb-stat-number" id="statTotalDownloads">0</span></div></div>
           </div>
         </div>
         
@@ -1813,16 +1280,9 @@ async function loadMyMods() {
 
     box.innerHTML = data.map(mod => {
       let status = '', statusClass = '';
-      if (mod.quarantine) {
-        status = '⚠️ Quarantined';
-        statusClass = 'background: #ff4444; color: white;';
-      } else if (mod.approved) {
-        status = '✅ Approved';
-        statusClass = 'background: #00ff88; color: black;';
-      } else {
-        status = '⏳ Pending Review';
-        statusClass = 'background: #ffaa00; color: black;';
-      }
+      if (mod.quarantine) { status = '⚠️ Quarantined'; statusClass = 'background: #ff4444; color: white;'; }
+      else if (mod.approved) { status = '✅ Approved'; statusClass = 'background: #00ff88; color: black;'; }
+      else { status = '⏳ Pending Review'; statusClass = 'background: #ffaa00; color: black;'; }
       
       return `
         <div class="gb-card" style="padding: 20px;">
@@ -1836,8 +1296,7 @@ async function loadMyMods() {
           ${mod.scan_reason ? `<p style="color: #ffaa00; font-size: 12px;">ℹ️ ${escapeHTML(mod.scan_reason)}</p>` : ''}
           <div style="display: flex; gap: 10px; margin-top: 15px;">
             <a href="${escapeHTML(mod.file_url)}" target="_blank" class="gb-btn gb-btn-primary" style="padding: 8px 16px; font-size: 14px;">📥 Download</a>
-            ${!mod.approved && !mod.quarantine ? 
-              `<button onclick="deleteMod('${mod.id}')" class="gb-btn gb-btn-danger" style="padding: 8px 16px; font-size: 14px;">🗑️ Delete</button>` : ''}
+            ${!mod.approved && !mod.quarantine ? `<button onclick="deleteMod('${mod.id}')" class="gb-btn gb-btn-danger" style="padding: 8px 16px; font-size: 14px;">🗑️ Delete</button>` : ''}
           </div>
         </div>
       `;
@@ -1930,7 +1389,7 @@ window.switchTab = function(tabName) {
 };
 
 /* =========================
-   ADMIN FUNCTIONS - COMPLETE
+   ADMIN FUNCTIONS (unchanged)
 ========================= */
 
 async function loadAdminStats() {
@@ -1960,46 +1419,14 @@ async function loadAdminStats() {
     
     box.innerHTML = `
       <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin-bottom: 30px;">
-        <div style="background: #1a1a1a; padding: 25px; border-radius: 10px; border-left: 4px solid #00ff88;">
-          <div style="font-size: 32px; margin-bottom: 10px;">📦</div>
-          <div style="font-size: 14px; color: #ccc;">Total Mods</div>
-          <div style="font-size: 36px; font-weight: bold; color: #00ff88;">${totalMods || 0}</div>
-        </div>
-        <div style="background: #1a1a1a; padding: 25px; border-radius: 10px; border-left: 4px solid #ffaa00;">
-          <div style="font-size: 32px; margin-bottom: 10px;">⏳</div>
-          <div style="font-size: 14px; color: #ccc;">Pending</div>
-          <div style="font-size: 36px; font-weight: bold; color: #ffaa00;">${pendingMods || 0}</div>
-        </div>
-        <div style="background: #1a1a1a; padding: 25px; border-radius: 10px; border-left: 4px solid #ff4444;">
-          <div style="font-size: 32px; margin-bottom: 10px;">🚩</div>
-          <div style="font-size: 14px; color: #ccc;">Reported</div>
-          <div style="font-size: 36px; font-weight: bold; color: #ff4444;">${reportedMods || 0}</div>
-        </div>
-        <div style="background: #1a1a1a; padding: 25px; border-radius: 10px; border-left: 4px solid #ffaa00;">
-          <div style="font-size: 32px; margin-bottom: 10px;">☣️</div>
-          <div style="font-size: 14px; color: #ccc;">Quarantined</div>
-          <div style="font-size: 36px; font-weight: bold; color: #ffaa00;">${quarantinedMods || 0}</div>
-        </div>
-        <div style="background: #1a1a1a; padding: 25px; border-radius: 10px; border-left: 4px solid #2196f3;">
-          <div style="font-size: 32px; margin-bottom: 10px;">👥</div>
-          <div style="font-size: 14px; color: #ccc;">Total Users</div>
-          <div style="font-size: 36px; font-weight: bold; color: #2196f3;">${totalUsers || 0}</div>
-        </div>
-        <div style="background: #1a1a1a; padding: 25px; border-radius: 10px; border-left: 4px solid #00ff88;">
-          <div style="font-size: 32px; margin-bottom: 10px;">✅</div>
-          <div style="font-size: 14px; color: #ccc;">Verified</div>
-          <div style="font-size: 36px; font-weight: bold; color: #00ff88;">${verifiedUsers || 0}</div>
-        </div>
-        <div style="background: #1a1a1a; padding: 25px; border-radius: 10px; border-left: 4px solid #00ff88;">
-          <div style="font-size: 32px; margin-bottom: 10px;">📥</div>
-          <div style="font-size: 14px; color: #ccc;">Downloads</div>
-          <div style="font-size: 36px; font-weight: bold; color: #00ff88;">${totalDownloads || 0}</div>
-        </div>
-        <div style="background: #1a1a1a; padding: 25px; border-radius: 10px; border-left: 4px solid #00ff88;">
-          <div style="font-size: 32px; margin-bottom: 10px;">💾</div>
-          <div style="font-size: 14px; color: #ccc;">Storage</div>
-          <div style="font-size: 36px; font-weight: bold; color: #00ff88;">${formatFileSize(window.ENV?.MAX_UPLOAD_SIZE || 2147483648)} Limit</div>
-        </div>
+        <div style="background: #1a1a1a; padding: 25px; border-radius: 10px; border-left: 4px solid #00ff88;"><div style="font-size: 32px; margin-bottom: 10px;">📦</div><div style="font-size: 14px; color: #ccc;">Total Mods</div><div style="font-size: 36px; font-weight: bold; color: #00ff88;">${totalMods || 0}</div></div>
+        <div style="background: #1a1a1a; padding: 25px; border-radius: 10px; border-left: 4px solid #ffaa00;"><div style="font-size: 32px; margin-bottom: 10px;">⏳</div><div style="font-size: 14px; color: #ccc;">Pending</div><div style="font-size: 36px; font-weight: bold; color: #ffaa00;">${pendingMods || 0}</div></div>
+        <div style="background: #1a1a1a; padding: 25px; border-radius: 10px; border-left: 4px solid #ff4444;"><div style="font-size: 32px; margin-bottom: 10px;">🚩</div><div style="font-size: 14px; color: #ccc;">Reported</div><div style="font-size: 36px; font-weight: bold; color: #ff4444;">${reportedMods || 0}</div></div>
+        <div style="background: #1a1a1a; padding: 25px; border-radius: 10px; border-left: 4px solid #ffaa00;"><div style="font-size: 32px; margin-bottom: 10px;">☣️</div><div style="font-size: 14px; color: #ccc;">Quarantined</div><div style="font-size: 36px; font-weight: bold; color: #ffaa00;">${quarantinedMods || 0}</div></div>
+        <div style="background: #1a1a1a; padding: 25px; border-radius: 10px; border-left: 4px solid #2196f3;"><div style="font-size: 32px; margin-bottom: 10px;">👥</div><div style="font-size: 14px; color: #ccc;">Total Users</div><div style="font-size: 36px; font-weight: bold; color: #2196f3;">${totalUsers || 0}</div></div>
+        <div style="background: #1a1a1a; padding: 25px; border-radius: 10px; border-left: 4px solid #00ff88;"><div style="font-size: 32px; margin-bottom: 10px;">✅</div><div style="font-size: 14px; color: #ccc;">Verified</div><div style="font-size: 36px; font-weight: bold; color: #00ff88;">${verifiedUsers || 0}</div></div>
+        <div style="background: #1a1a1a; padding: 25px; border-radius: 10px; border-left: 4px solid #00ff88;"><div style="font-size: 32px; margin-bottom: 10px;">📥</div><div style="font-size: 14px; color: #ccc;">Downloads</div><div style="font-size: 36px; font-weight: bold; color: #00ff88;">${totalDownloads || 0}</div></div>
+        <div style="background: #1a1a1a; padding: 25px; border-radius: 10px; border-left: 4px solid #00ff88;"><div style="font-size: 32px; margin-bottom: 10px;">💾</div><div style="font-size: 14px; color: #ccc;">Storage</div><div style="font-size: 36px; font-weight: bold; color: #00ff88;">${formatFileSize(window.ENV?.MAX_UPLOAD_SIZE || 2147483648)} Limit</div></div>
       </div>
     `;
   } catch (err) {
@@ -2015,45 +1442,20 @@ async function loadFlaggedMods() {
   try {
     const { data, error } = await supabaseClient
       .from("mods2")
-      .select(`
-        id,
-        title,
-        user_id,
-        author_name,
-        risk_score,
-        scan_status,
-        scan_reason,
-        created_at,
-        download_count,
-        view_count
-      `)
+      .select(`id, title, user_id, author_name, risk_score, scan_status, scan_reason, created_at, download_count, view_count`)
       .or('risk_score.gt.70,scan_status.eq.quarantined')
       .order("risk_score", { ascending: false })
       .limit(20);
     
     if (error) throw error;
-    if (!data?.length) {
-      box.innerHTML = '<div class="gb-no-results">No flagged mods</div>';
-      return;
-    }
+    if (!data?.length) { box.innerHTML = '<div class="gb-no-results">No flagged mods</div>'; return; }
     
     box.innerHTML = data.map(mod => `
       <div class="gb-card" style="border-left: 4px solid #ff4444; margin-bottom: 15px;">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-          <h3 style="margin: 0; color: #fff;">${escapeHTML(mod.title)}</h3>
-          <span class="gb-badge" style="background:#ff4444;">⚠️ RISK ${mod.risk_score || 0}</span>
-        </div>
-        <div style="display: flex; gap: 20px; margin-bottom: 15px; color: #ccc; font-size: 14px;">
-          <span>👤 ${escapeHTML(mod.author_name || 'Unknown')}</span>
-          <span>📥 ${mod.download_count || 0}</span>
-          <span>📅 ${new Date(mod.created_at).toLocaleDateString()}</span>
-        </div>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;"><h3 style="margin: 0; color: #fff;">${escapeHTML(mod.title)}</h3><span class="gb-badge" style="background:#ff4444;">⚠️ RISK ${mod.risk_score || 0}</span></div>
+        <div style="display: flex; gap: 20px; margin-bottom: 15px; color: #ccc; font-size: 14px;"><span>👤 ${escapeHTML(mod.author_name || 'Unknown')}</span><span>📥 ${mod.download_count || 0}</span><span>📅 ${new Date(mod.created_at).toLocaleDateString()}</span></div>
         <p style="color: #ffaa00; margin-bottom: 15px;">${escapeHTML(mod.scan_reason || 'High risk score')}</p>
-        <div style="display: flex; gap: 10px;">
-          <button onclick="quarantineMod('${mod.id}')" class="gb-btn gb-btn-warning">⚠️ Quarantine</button>
-          <button onclick="deleteMod('${mod.id}')" class="gb-btn gb-btn-danger">🗑️ Delete</button>
-          <button onclick="clearFlags('${mod.id}')" class="gb-btn gb-btn-secondary">✓ Clear</button>
-        </div>
+        <div style="display: flex; gap: 10px;"><button onclick="quarantineMod('${mod.id}')" class="gb-btn gb-btn-warning">⚠️ Quarantine</button><button onclick="deleteMod('${mod.id}')" class="gb-btn gb-btn-danger">🗑️ Delete</button><button onclick="clearFlags('${mod.id}')" class="gb-btn gb-btn-secondary">✓ Clear</button></div>
       </div>
     `).join('');
   } catch (err) {
@@ -2069,50 +1471,22 @@ async function loadRiskUsers() {
   try {
     const { data, error } = await supabaseClient
       .from("profiles")
-      .select(`
-        id,
-        username,
-        email,
-        trust_score,
-        spam_flags,
-        is_shadow_banned,
-        is_verified,
-        upload_count,
-        download_count,
-        join_date
-      `)
+      .select(`id, username, email, trust_score, spam_flags, is_shadow_banned, is_verified, upload_count, download_count, join_date`)
       .or('trust_score.lt.50,spam_flags.gt.5,is_shadow_banned.eq.true')
       .order("trust_score", { ascending: true })
       .limit(20);
     
     if (error) throw error;
-    if (!data?.length) {
-      box.innerHTML = '<div class="gb-no-results">No risky users</div>';
-      return;
-    }
+    if (!data?.length) { box.innerHTML = '<div class="gb-no-results">No risky users</div>'; return; }
     
     box.innerHTML = data.map(user => `
       <div class="gb-card" style="border-left: 4px solid ${user.is_shadow_banned ? '#ff4444' : '#ffaa00'}; margin-bottom: 15px;">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-          <h3 style="margin: 0; color: #fff;">${escapeHTML(user.username || 'Unknown')}</h3>
-          <span class="gb-badge" style="background:${user.trust_score < 30 ? '#ff4444' : '#ffaa00'};">Trust: ${user.trust_score || 0}</span>
-        </div>
-        <div style="display: flex; gap: 20px; margin-bottom: 15px; color: #ccc; font-size: 14px;">
-          <span>📧 ${escapeHTML(user.email || 'No email')}</span>
-          <span>🚩 Spam: ${user.spam_flags || 0}</span>
-          <span>📤 Uploads: ${user.upload_count || 0}</span>
-        </div>
-        <div style="margin-bottom: 15px; padding: 8px 12px; background: ${user.is_shadow_banned ? '#2a1a1a' : '#1a2a1a'}; border-radius: 5px; color: ${user.is_shadow_banned ? '#ff8888' : '#00ff88'};">
-          ${user.is_shadow_banned ? '🔇 Shadow Banned' : '✅ Active'}
-        </div>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;"><h3 style="margin: 0; color: #fff;">${escapeHTML(user.username || 'Unknown')}</h3><span class="gb-badge" style="background:${user.trust_score < 30 ? '#ff4444' : '#ffaa00'};">Trust: ${user.trust_score || 0}</span></div>
+        <div style="display: flex; gap: 20px; margin-bottom: 15px; color: #ccc; font-size: 14px;"><span>📧 ${escapeHTML(user.email || 'No email')}</span><span>🚩 Spam: ${user.spam_flags || 0}</span><span>📤 Uploads: ${user.upload_count || 0}</span></div>
+        <div style="margin-bottom: 15px; padding: 8px 12px; background: ${user.is_shadow_banned ? '#2a1a1a' : '#1a2a1a'}; border-radius: 5px; color: ${user.is_shadow_banned ? '#ff8888' : '#00ff88'};">${user.is_shadow_banned ? '🔇 Shadow Banned' : '✅ Active'}</div>
         <div style="display: flex; gap: 10px; flex-wrap: wrap;">
-          ${!user.is_shadow_banned ? 
-            `<button onclick="shadowBanUser('${user.id}')" class="gb-btn gb-btn-warning">🔇 Shadow Ban</button>` : 
-            `<button onclick="removeShadowBan('${user.id}')" class="gb-btn gb-btn-primary">✓ Remove Ban</button>`
-          }
-          <button onclick="verifyUser('${user.id}')" class="gb-btn gb-btn-secondary" ${user.is_verified ? 'disabled' : ''}>
-            ${user.is_verified ? '✅ Verified' : '✅ Verify'}
-          </button>
+          ${!user.is_shadow_banned ? `<button onclick="shadowBanUser('${user.id}')" class="gb-btn gb-btn-warning">🔇 Shadow Ban</button>` : `<button onclick="removeShadowBan('${user.id}')" class="gb-btn gb-btn-primary">✓ Remove Ban</button>`}
+          <button onclick="verifyUser('${user.id}')" class="gb-btn gb-btn-secondary" ${user.is_verified ? 'disabled' : ''}>${user.is_verified ? '✅ Verified' : '✅ Verify'}</button>
           <button onclick="resetTrustScore('${user.id}')" class="gb-btn gb-btn-secondary">↻ Reset</button>
         </div>
       </div>
@@ -2130,41 +1504,19 @@ async function loadQuarantineMods() {
   try {
     const { data, error } = await supabaseClient
       .from("mods2")
-      .select(`
-        id,
-        title,
-        user_id,
-        author_name,
-        scan_reason,
-        risk_score,
-        created_at,
-        download_count
-      `)
+      .select(`id, title, user_id, author_name, scan_reason, risk_score, created_at, download_count`)
       .eq("quarantine", true)
       .order("created_at", { ascending: false });
     
     if (error) throw error;
-    if (!data?.length) {
-      box.innerHTML = '<div class="gb-no-results">No quarantined mods</div>';
-      return;
-    }
+    if (!data?.length) { box.innerHTML = '<div class="gb-no-results">No quarantined mods</div>'; return; }
     
     box.innerHTML = data.map(mod => `
       <div class="gb-card" style="border-left: 4px solid #ffaa00; margin-bottom: 15px;">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-          <h3 style="margin: 0; color: #fff;">${escapeHTML(mod.title)}</h3>
-          <span class="gb-badge" style="background:#ffaa00;">☣️ Quarantined</span>
-        </div>
-        <div style="display: flex; gap: 20px; margin-bottom: 15px; color: #ccc; font-size: 14px;">
-          <span>👤 ${escapeHTML(mod.author_name || 'Unknown')}</span>
-          <span>📥 ${mod.download_count || 0}</span>
-          <span>📅 ${new Date(mod.created_at).toLocaleDateString()}</span>
-        </div>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;"><h3 style="margin: 0; color: #fff;">${escapeHTML(mod.title)}</h3><span class="gb-badge" style="background:#ffaa00;">☣️ Quarantined</span></div>
+        <div style="display: flex; gap: 20px; margin-bottom: 15px; color: #ccc; font-size: 14px;"><span>👤 ${escapeHTML(mod.author_name || 'Unknown')}</span><span>📥 ${mod.download_count || 0}</span><span>📅 ${new Date(mod.created_at).toLocaleDateString()}</span></div>
         <p style="color: #ffaa00; margin-bottom: 15px;">${escapeHTML(mod.scan_reason || 'Quarantined by admin')}</p>
-        <div style="display: flex; gap: 10px;">
-          <button onclick="approveMod('${mod.id}')" class="gb-btn gb-btn-primary">✅ Release</button>
-          <button onclick="deleteMod('${mod.id}')" class="gb-btn gb-btn-danger">🗑️ Delete</button>
-        </div>
+        <div style="display: flex; gap: 10px;"><button onclick="approveMod('${mod.id}')" class="gb-btn gb-btn-primary">✅ Release</button><button onclick="deleteMod('${mod.id}')" class="gb-btn gb-btn-danger">🗑️ Delete</button></div>
       </div>
     `).join('');
   } catch (err) {
@@ -2180,72 +1532,27 @@ async function loadPendingMods() {
   try {
     const { data, error } = await supabaseClient
       .from("mods2")
-      .select(`
-        id,
-        title,
-        description,
-        user_id,
-        author_name,
-        version,
-        baldi_version,
-        created_at,
-        file_size,
-        risk_score,
-        scan_status,
-        scan_reason,
-        tags
-      `)
+      .select(`id, title, description, user_id, author_name, version, baldi_version, created_at, file_size, risk_score, scan_status, scan_reason, tags`)
       .eq("approved", false)
       .eq("quarantine", false)
       .order("created_at", { ascending: true })
       .limit(50);
     
     if (error) throw error;
-    if (!data?.length) {
-      box.innerHTML = '<div class="gb-no-results">No pending mods</div>';
-      return;
-    }
+    if (!data?.length) { box.innerHTML = '<div class="gb-no-results">No pending mods</div>'; return; }
     
     box.innerHTML = data.map(mod => `
       <div class="gb-card review" style="margin-bottom: 20px;">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-          <h3 style="margin: 0; color: #00ff88;">${escapeHTML(mod.title)}</h3>
-          <span class="gb-badge">v${escapeHTML(mod.version || '1.0.0')}</span>
-        </div>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;"><h3 style="margin: 0; color: #00ff88;">${escapeHTML(mod.title)}</h3><span class="gb-badge">v${escapeHTML(mod.version || '1.0.0')}</span></div>
         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 15px; padding: 15px; background: #1a1a1a; border-radius: 8px;">
-          <div>
-            <strong style="display: block; color: #fff; margin-bottom: 5px;">Author</strong>
-            <span style="color: #ccc;">${escapeHTML(mod.author_name || 'Unknown')}</span>
-          </div>
-          <div>
-            <strong style="display: block; color: #fff; margin-bottom: 5px;">Baldi Version</strong>
-            <span style="color: #ccc;">${escapeHTML(mod.baldi_version || 'Any')}</span>
-          </div>
-          <div>
-            <strong style="display: block; color: #fff; margin-bottom: 5px;">Size</strong>
-            <span style="color: #ccc;">${formatFileSize(mod.file_size || 0)}</span>
-          </div>
-          <div>
-            <strong style="display: block; color: #fff; margin-bottom: 5px;">Uploaded</strong>
-            <span style="color: #ccc;">${new Date(mod.created_at).toLocaleDateString()}</span>
-          </div>
+          <div><strong style="display: block; color: #fff; margin-bottom: 5px;">Author</strong><span style="color: #ccc;">${escapeHTML(mod.author_name || 'Unknown')}</span></div>
+          <div><strong style="display: block; color: #fff; margin-bottom: 5px;">Baldi Version</strong><span style="color: #ccc;">${escapeHTML(mod.baldi_version || 'Any')}</span></div>
+          <div><strong style="display: block; color: #fff; margin-bottom: 5px;">Size</strong><span style="color: #ccc;">${formatFileSize(mod.file_size || 0)}</span></div>
+          <div><strong style="display: block; color: #fff; margin-bottom: 5px;">Uploaded</strong><span style="color: #ccc;">${new Date(mod.created_at).toLocaleDateString()}</span></div>
         </div>
-        <div style="margin-bottom: 15px;">
-          <span>Risk Score: </span>
-          <span class="gb-badge" style="background:${mod.risk_score > 50 ? '#ff4444' : mod.risk_score > 20 ? '#ffaa00' : '#00ff88'};">
-            ${mod.risk_score || 0}/100
-          </span>
-        </div>
-        <div style="margin-bottom: 15px; padding: 15px; background: #1a1a1a; border-radius: 8px;">
-          <strong style="display: block; color: #fff; margin-bottom: 10px;">Description</strong>
-          <p style="color: #ccc; margin: 0; line-height: 1.6;">${escapeHTML(mod.description.substring(0, 300))}${mod.description.length > 300 ? '...' : ''}</p>
-        </div>
-        ${mod.scan_reason ? `
-          <div style="margin-bottom: 15px; padding: 15px; background: #332200; border-left: 4px solid #ffaa00; border-radius: 4px;">
-            <strong style="display: block; color: #ffaa00; margin-bottom: 10px;">🔍 Scan Notes</strong>
-            <p style="color: #fff; margin: 0;">${escapeHTML(mod.scan_reason)}</p>
-          </div>
-        ` : ''}
+        <div style="margin-bottom: 15px;"><span>Risk Score: </span><span class="gb-badge" style="background:${mod.risk_score > 50 ? '#ff4444' : mod.risk_score > 20 ? '#ffaa00' : '#00ff88'};">${mod.risk_score || 0}/100</span></div>
+        <div style="margin-bottom: 15px; padding: 15px; background: #1a1a1a; border-radius: 8px;"><strong style="display: block; color: #fff; margin-bottom: 10px;">Description</strong><p style="color: #ccc; margin: 0; line-height: 1.6;">${escapeHTML(mod.description.substring(0, 300))}${mod.description.length > 300 ? '...' : ''}</p></div>
+        ${mod.scan_reason ? `<div style="margin-bottom: 15px; padding: 15px; background: #332200; border-left: 4px solid #ffaa00; border-radius: 4px;"><strong style="display: block; color: #ffaa00; margin-bottom: 10px;">🔍 Scan Notes</strong><p style="color: #fff; margin: 0;">${escapeHTML(mod.scan_reason)}</p></div>` : ''}
         <div style="display: flex; gap: 10px; margin-top: 20px; flex-wrap: wrap;">
           <button onclick="approveMod('${mod.id}')" class="gb-btn gb-btn-primary">✅ Approve</button>
           <button onclick="rejectMod('${mod.id}')" class="gb-btn gb-btn-danger">❌ Reject</button>
@@ -2266,37 +1573,17 @@ async function loadReportedMods() {
   try {
     const { data, error } = await supabaseClient
       .from("mods2")
-      .select(`
-        id,
-        title,
-        user_id,
-        author_name,
-        reported_by,
-        reported_at,
-        scan_reason,
-        created_at,
-        download_count
-      `)
+      .select(`id, title, user_id, author_name, reported_by, reported_at, scan_reason, created_at, download_count`)
       .eq("reported", true)
       .order("reported_at", { ascending: false });
     
     if (error) throw error;
-    if (!data?.length) {
-      box.innerHTML = '<div class="gb-no-results">No reported mods</div>';
-      return;
-    }
+    if (!data?.length) { box.innerHTML = '<div class="gb-no-results">No reported mods</div>'; return; }
     
     box.innerHTML = data.map(mod => `
       <div class="gb-card" style="border-left: 4px solid #ff4444; margin-bottom: 15px;">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-          <h3 style="margin: 0; color: #fff;">${escapeHTML(mod.title)}</h3>
-          <span class="gb-badge" style="background:#ff4444;">🚩 Reported</span>
-        </div>
-        <div style="display: flex; gap: 20px; margin-bottom: 15px; color: #ccc; font-size: 14px;">
-          <span>👤 ${escapeHTML(mod.author_name || 'Unknown')}</span>
-          <span>📥 ${mod.download_count || 0}</span>
-          <span>📅 ${new Date(mod.reported_at || mod.created_at).toLocaleDateString()}</span>
-        </div>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;"><h3 style="margin: 0; color: #fff;">${escapeHTML(mod.title)}</h3><span class="gb-badge" style="background:#ff4444;">🚩 Reported</span></div>
+        <div style="display: flex; gap: 20px; margin-bottom: 15px; color: #ccc; font-size: 14px;"><span>👤 ${escapeHTML(mod.author_name || 'Unknown')}</span><span>📥 ${mod.download_count || 0}</span><span>📅 ${new Date(mod.reported_at || mod.created_at).toLocaleDateString()}</span></div>
         <p style="color: #ffaa00; margin-bottom: 15px;">${escapeHTML(mod.scan_reason || 'User reported')}</p>
         <div style="display: flex; gap: 10px; flex-wrap: wrap;">
           <button onclick="quarantineMod('${mod.id}')" class="gb-btn gb-btn-warning">⚠️ Quarantine</button>
@@ -2315,18 +1602,8 @@ async function loadReportedMods() {
 async function approveMod(id) {
   if (!await isModerator()) return;
   if (!confirm('Approve this mod? It will be public immediately.')) return;
-  
   try {
-    const { error } = await supabaseClient
-      .from("mods2")
-      .update({ 
-        approved: true,
-        quarantine: false,
-        scan_status: 'approved',
-        updated_at: new Date().toISOString()
-      })
-      .eq("id", id);
-
+    const { error } = await supabaseClient.from("mods2").update({ approved: true, quarantine: false, scan_status: 'approved', updated_at: new Date().toISOString() }).eq("id", id);
     if (error) throw error;
     showNotification("✅ Mod approved successfully", "success");
     if (typeof loadPendingMods === 'function') loadPendingMods();
@@ -2341,18 +1618,8 @@ async function rejectMod(id) {
   if (!await isModerator()) return;
   const reason = prompt('Reason for rejection:');
   if (!reason) return;
-  
   try {
-    const { error } = await supabaseClient
-      .from("mods2")
-      .update({ 
-        approved: false,
-        scan_status: 'rejected',
-        scan_reason: reason,
-        updated_at: new Date().toISOString()
-      })
-      .eq("id", id);
-
+    const { error } = await supabaseClient.from("mods2").update({ approved: false, scan_status: 'rejected', scan_reason: reason, updated_at: new Date().toISOString() }).eq("id", id);
     if (error) throw error;
     showNotification("Mod rejected", "info");
     if (typeof loadPendingMods === 'function') loadPendingMods();
@@ -2365,18 +1632,8 @@ async function rejectMod(id) {
 async function quarantineMod(id) {
   if (!await isModerator()) return;
   if (!confirm('Quarantine this mod? It will be hidden from users.')) return;
-  
   try {
-    const { error } = await supabaseClient
-      .from("mods2")
-      .update({ 
-        quarantine: true,
-        approved: false,
-        scan_status: 'quarantined',
-        updated_at: new Date().toISOString()
-      })
-      .eq("id", id);
-
+    const { error } = await supabaseClient.from("mods2").update({ quarantine: true, approved: false, scan_status: 'quarantined', updated_at: new Date().toISOString() }).eq("id", id);
     if (error) throw error;
     showNotification("Mod quarantined", "warning");
     if (typeof loadPendingMods === 'function') loadPendingMods();
@@ -2391,25 +1648,14 @@ async function quarantineMod(id) {
 async function deleteMod(id) {
   if (!await isModerator()) return;
   if (!confirm('⚠️ Permanently delete this mod? This cannot be undone.')) return;
-  
   try {
-    const { data: mod } = await supabaseClient
-      .from("mods2")
-      .select("file_storage_path")
-      .eq("id", id)
-      .single();
-    
-    const { error } = await supabaseClient
-      .from("mods2")
-      .delete()
-      .eq("id", id);
-
+    const { data: mod } = await supabaseClient.from("mods2").select("file_storage_path").eq("id", id).single();
+    const { error } = await supabaseClient.from("mods2").delete().eq("id", id);
     if (error) throw error;
-    
+    // If file was stored in Supabase storage, delete it (optional – most mods will have Mega links)
     if (mod?.file_storage_path) {
       await supabaseClient.storage.from("baldi-mods").remove([mod.file_storage_path]);
     }
-    
     showNotification("✅ Mod deleted", "success");
     if (typeof loadPendingMods === 'function') loadPendingMods();
     if (typeof loadReportedMods === 'function') loadReportedMods();
@@ -2422,18 +1668,8 @@ async function deleteMod(id) {
 
 async function clearReport(id) {
   if (!await isModerator()) return;
-  
   try {
-    const { error } = await supabaseClient
-      .from("mods2")
-      .update({ 
-        reported: false,
-        reported_by: null,
-        reported_at: null,
-        updated_at: new Date().toISOString()
-      })
-      .eq("id", id);
-
+    const { error } = await supabaseClient.from("mods2").update({ reported: false, reported_by: null, reported_at: null, updated_at: new Date().toISOString() }).eq("id", id);
     if (error) throw error;
     showNotification("Report cleared", "success");
     if (typeof loadReportedMods === 'function') loadReportedMods();
@@ -2445,30 +1681,15 @@ async function clearReport(id) {
 
 async function reportMod(id) {
   const user = await getCurrentUser();
-  if (!user) {
-    return showNotification("Please login to report mods", "error");
-  }
-
-  // Check if we're on mod page with modal
+  if (!user) { return showNotification("Please login to report mods", "error"); }
   const modal = document.getElementById('reportModal');
   if (modal) {
-    // Use modal
     document.getElementById('reportModId').value = id;
     modal.style.display = 'flex';
   } else {
-    // Fallback: old method (just flag mod)
     if (!confirm('Report this mod? Moderators will review it.')) return;
     try {
-      const { error } = await supabaseClient
-        .from("mods2")
-        .update({ 
-          reported: true,
-          reported_by: user.id,
-          reported_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        })
-        .eq("id", id);
-
+      const { error } = await supabaseClient.from("mods2").update({ reported: true, reported_by: user.id, reported_at: new Date().toISOString(), updated_at: new Date().toISOString() }).eq("id", id);
       if (error) throw error;
       showNotification("✅ Mod reported to moderators", "success");
     } catch (err) {
@@ -2481,17 +1702,8 @@ async function reportMod(id) {
 async function shadowBanUser(userId) {
   if (!await isAdmin()) return;
   if (!confirm('⚠️ Shadow ban this user? Their content will be hidden.')) return;
-  
   try {
-    const { error } = await supabaseClient
-      .from("profiles")
-      .update({ 
-        is_shadow_banned: true,
-        trust_score: 0,
-        updated_at: new Date().toISOString()
-      })
-      .eq("id", userId);
-    
+    const { error } = await supabaseClient.from("profiles").update({ is_shadow_banned: true, trust_score: 0, updated_at: new Date().toISOString() }).eq("id", userId);
     if (error) throw error;
     showNotification("User shadow banned", "success");
     if (typeof loadRiskUsers === 'function') loadRiskUsers();
@@ -2503,17 +1715,8 @@ async function shadowBanUser(userId) {
 
 async function removeShadowBan(userId) {
   if (!await isAdmin()) return;
-  
   try {
-    const { error } = await supabaseClient
-      .from("profiles")
-      .update({ 
-        is_shadow_banned: false,
-        trust_score: 50,
-        updated_at: new Date().toISOString()
-      })
-      .eq("id", userId);
-    
+    const { error } = await supabaseClient.from("profiles").update({ is_shadow_banned: false, trust_score: 50, updated_at: new Date().toISOString() }).eq("id", userId);
     if (error) throw error;
     showNotification("Shadow ban removed", "success");
     if (typeof loadRiskUsers === 'function') loadRiskUsers();
@@ -2525,17 +1728,8 @@ async function removeShadowBan(userId) {
 
 async function verifyUser(userId) {
   if (!await isAdmin()) return;
-  
   try {
-    const { error } = await supabaseClient
-      .from("profiles")
-      .update({ 
-        is_verified: true,
-        trust_score: 100,
-        updated_at: new Date().toISOString()
-      })
-      .eq("id", userId);
-    
+    const { error } = await supabaseClient.from("profiles").update({ is_verified: true, trust_score: 100, updated_at: new Date().toISOString() }).eq("id", userId);
     if (error) throw error;
     showNotification("User verified", "success");
     if (typeof loadRiskUsers === 'function') loadRiskUsers();
@@ -2547,17 +1741,8 @@ async function verifyUser(userId) {
 
 async function resetTrustScore(userId) {
   if (!await isAdmin()) return;
-  
   try {
-    const { error } = await supabaseClient
-      .from("profiles")
-      .update({ 
-        trust_score: 100,
-        spam_flags: 0,
-        updated_at: new Date().toISOString()
-      })
-      .eq("id", userId);
-    
+    const { error } = await supabaseClient.from("profiles").update({ trust_score: 100, spam_flags: 0, updated_at: new Date().toISOString() }).eq("id", userId);
     if (error) throw error;
     showNotification("Trust score reset", "success");
     if (typeof loadRiskUsers === 'function') loadRiskUsers();
@@ -2569,18 +1754,8 @@ async function resetTrustScore(userId) {
 
 async function clearFlags(modId) {
   if (!await isAdmin()) return;
-  
   try {
-    const { error } = await supabaseClient
-      .from("mods2")
-      .update({ 
-        risk_score: 0,
-        scan_status: 'clean',
-        quarantine: false,
-        updated_at: new Date().toISOString()
-      })
-      .eq("id", modId);
-    
+    const { error } = await supabaseClient.from("mods2").update({ risk_score: 0, scan_status: 'clean', quarantine: false, updated_at: new Date().toISOString() }).eq("id", modId);
     if (error) throw error;
     showNotification("Flags cleared", "success");
     if (typeof loadFlaggedMods === 'function') loadFlaggedMods();
@@ -2600,7 +1775,6 @@ async function loadComments(modId) {
   if (!container) return;
 
   try {
-    // Fetch comments
     const { data: comments, error } = await supabaseClient
       .from('comments')
       .select('*')
@@ -2609,10 +1783,7 @@ async function loadComments(modId) {
 
     if (error) throw error;
 
-    // Get user IDs
     const userIds = [...new Set(comments.map(c => c.user_id))];
-    
-    // Fetch profiles for those users
     const { data: profiles } = await supabaseClient
       .from('profiles')
       .select('id, username')
@@ -2621,14 +1792,12 @@ async function loadComments(modId) {
     const profileMap = {};
     profiles?.forEach(p => profileMap[p.id] = p.username);
 
-    // Fetch reactions
     let reactionsMap = {};
     if (comments.length) {
       const { data: reactions } = await supabaseClient
         .from('comment_reactions')
         .select('comment_id, user_id')
         .in('comment_id', comments.map(c => c.id));
-      
       reactionsMap = reactions?.reduce((acc, r) => {
         if (!acc[r.comment_id]) acc[r.comment_id] = [];
         acc[r.comment_id].push(r.user_id);
@@ -2637,8 +1806,6 @@ async function loadComments(modId) {
     }
 
     const user = await getCurrentUser();
-
-    // Group comments by parent
     const topLevel = comments.filter(c => !c.parent_id);
     const replies = comments.filter(c => c.parent_id);
 
@@ -2667,18 +1834,8 @@ function renderComment(comment, replies, profileMap, reactionsMap, user) {
           ${comment.updated_at !== comment.created_at ? '<span class="gb-comment-edited">(edited)</span>' : ''}
         </div>
         <div class="gb-comment-text" id="comment-text-${comment.id}">${escapeHTML(comment.content)}</div>
-        ${isAuthor ? `
-          <div class="gb-comment-actions">
-            <button onclick="editComment('${comment.id}')" class="gb-btn gb-btn-small">Edit</button>
-            <button onclick="deleteComment('${comment.id}')" class="gb-btn gb-btn-small gb-btn-danger">Delete</button>
-          </div>
-        ` : ''}
-        <div class="gb-comment-footer">
-          <button onclick="toggleCommentReaction('${comment.id}')" class="gb-btn gb-btn-small ${userReacted ? 'gb-btn-primary' : 'gb-btn-secondary'}">
-            ❤️ ${reactionCount}
-          </button>
-          <!-- Reply button removed for simplicity; you can add later -->
-        </div>
+        ${isAuthor ? `<div class="gb-comment-actions"><button onclick="editComment('${comment.id}')" class="gb-btn gb-btn-small">Edit</button><button onclick="deleteComment('${comment.id}')" class="gb-btn gb-btn-small gb-btn-danger">Delete</button></div>` : ''}
+        <div class="gb-comment-footer"><button onclick="toggleCommentReaction('${comment.id}')" class="gb-btn gb-btn-small ${userReacted ? 'gb-btn-primary' : 'gb-btn-secondary'}">❤️ ${reactionCount}</button></div>
         ${replies.length ? `<div class="gb-comment-replies">${replies.map(r => renderComment(r, [], profileMap, reactionsMap, user)).join('')}</div>` : ''}
       </div>
     </div>
@@ -2687,27 +1844,14 @@ function renderComment(comment, replies, profileMap, reactionsMap, user) {
 
 async function addComment(modId, content, parentId = null) {
   const user = await getCurrentUser();
-  if (!user) {
-    showNotification('Please login to comment', 'error');
-    return;
-  }
-  if (!content.trim()) {
-    showNotification('Comment cannot be empty', 'error');
-    return;
-  }
+  if (!user) { showNotification('Please login to comment', 'error'); return; }
+  if (!content.trim()) { showNotification('Comment cannot be empty', 'error'); return; }
 
   try {
     const { error } = await supabaseClient
       .from('comments')
-      .insert({
-        mod_id: modId,
-        user_id: user.id,
-        content: content.trim(),
-        parent_id: parentId
-      });
-
+      .insert({ mod_id: modId, user_id: user.id, content: content.trim(), parent_id: parentId });
     if (error) throw error;
-
     showNotification('Comment added', 'success');
     document.getElementById('commentInput').value = '';
     loadComments(modId);
@@ -2728,9 +1872,7 @@ async function editComment(commentId) {
       .from('comments')
       .update({ content: newText.trim(), updated_at: new Date().toISOString() })
       .eq('id', commentId);
-
     if (error) throw error;
-
     showNotification('Comment updated', 'success');
     const modId = getQueryParam("id");
     if (modId) loadComments(modId);
@@ -2742,15 +1884,9 @@ async function editComment(commentId) {
 
 async function deleteComment(commentId) {
   if (!confirm('Delete this comment?')) return;
-
   try {
-    const { error } = await supabaseClient
-      .from('comments')
-      .delete()
-      .eq('id', commentId);
-
+    const { error } = await supabaseClient.from('comments').delete().eq('id', commentId);
     if (error) throw error;
-
     showNotification('Comment deleted', 'success');
     const modId = getQueryParam("id");
     if (modId) loadComments(modId);
@@ -2762,13 +1898,9 @@ async function deleteComment(commentId) {
 
 async function toggleCommentReaction(commentId) {
   const user = await getCurrentUser();
-  if (!user) {
-    showNotification('Please login to react', 'error');
-    return;
-  }
+  if (!user) { showNotification('Please login to react', 'error'); return; }
 
   try {
-    // Check if user already reacted
     const { data: existing } = await supabaseClient
       .from('comment_reactions')
       .select('id')
@@ -2777,21 +1909,12 @@ async function toggleCommentReaction(commentId) {
       .maybeSingle();
 
     if (existing) {
-      // Remove reaction
-      const { error } = await supabaseClient
-        .from('comment_reactions')
-        .delete()
-        .eq('id', existing.id);
+      const { error } = await supabaseClient.from('comment_reactions').delete().eq('id', existing.id);
       if (error) throw error;
     } else {
-      // Add reaction
-      const { error } = await supabaseClient
-        .from('comment_reactions')
-        .insert({ comment_id: commentId, user_id: user.id });
+      const { error } = await supabaseClient.from('comment_reactions').insert({ comment_id: commentId, user_id: user.id });
       if (error) throw error;
     }
-
-    // Reload comments
     const modId = getQueryParam("id");
     if (modId) loadComments(modId);
   } catch (err) {
@@ -2802,10 +1925,7 @@ async function toggleCommentReaction(commentId) {
 
 async function toggleFavorite(modId) {
   const user = await getCurrentUser();
-  if (!user) {
-    showNotification('Please login to favorite', 'error');
-    return;
-  }
+  if (!user) { showNotification('Please login to favorite', 'error'); return; }
 
   try {
     const { data: existing } = await supabaseClient
@@ -2816,16 +1936,11 @@ async function toggleFavorite(modId) {
       .maybeSingle();
 
     if (existing) {
-      const { error } = await supabaseClient
-        .from('favorites')
-        .delete()
-        .eq('id', existing.id);
+      const { error } = await supabaseClient.from('favorites').delete().eq('id', existing.id);
       if (error) throw error;
       showNotification('Removed from favorites', 'success');
     } else {
-      const { error } = await supabaseClient
-        .from('favorites')
-        .insert({ mod_id: modId, user_id: user.id });
+      const { error } = await supabaseClient.from('favorites').insert({ mod_id: modId, user_id: user.id });
       if (error) throw error;
       showNotification('Added to favorites', 'success');
     }
@@ -2839,14 +1954,7 @@ async function toggleFavorite(modId) {
 async function checkFavorite(modId) {
   const user = await getCurrentUser();
   if (!user) return false;
-
-  const { data } = await supabaseClient
-    .from('favorites')
-    .select('id')
-    .eq('mod_id', modId)
-    .eq('user_id', user.id)
-    .maybeSingle();
-
+  const { data } = await supabaseClient.from('favorites').select('id').eq('mod_id', modId).eq('user_id', user.id).maybeSingle();
   return !!data;
 }
 
@@ -2859,7 +1967,7 @@ async function updateFavoriteButton(modId) {
 }
 
 /* =========================
-   PUBLIC PROFILE (view other users)
+   PUBLIC PROFILE
 ========================= */
 
 async function loadPublicProfile(userId) {
@@ -2915,7 +2023,6 @@ async function loadPublicProfile(userId) {
         </div>
       </div>
     `;
-    // Load user's mods
     const { data: mods } = await supabaseClient.from('mods2').select('*').eq('user_id', userId).eq('approved', true).order('created_at', { ascending: false });
     const modsContainer = document.getElementById('userMods');
     if (mods && mods.length) {
