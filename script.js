@@ -2118,18 +2118,37 @@ async function loadProfileBuddies(userId) {
   if (!container) return;
   container.innerHTML = '<div class="gb-loading-spinner"></div> Loading buddies...';
   try {
-    const { data, error } = await supabaseClient
+    // 1. Fetch buddy IDs
+    const { data: buddies, error: buddiesError } = await supabaseClient
       .from('buddies')
-      .select('buddy_id, profiles!buddies_buddy_id_fkey (username, trust_score, is_verified, role)')
+      .select('buddy_id')
       .eq('user_id', userId)
       .order('created_at', { ascending: false })
       .limit(24);
-    if (error) throw error;
-    if (!data || data.length === 0) {
+
+    if (buddiesError) throw buddiesError;
+
+    if (!buddies || buddies.length === 0) {
       container.innerHTML = '<p class="gb-text-muted">No buddies yet.</p>';
       return;
     }
-    container.innerHTML = data.map(item => renderUserCard(item.profiles, item.buddy_id)).join('');
+
+    // 2. Fetch profile details
+    const buddyIds = buddies.map(b => b.buddy_id);
+    const { data: profiles, error: profilesError } = await supabaseClient
+      .from('profiles')
+      .select('id, username, trust_score, is_verified, role')
+      .in('id', buddyIds);
+
+    if (profilesError) throw profilesError;
+
+    const profileMap = {};
+    profiles.forEach(p => profileMap[p.id] = p);
+
+    container.innerHTML = buddies.map(item => {
+      const p = profileMap[item.buddy_id];
+      return p ? renderUserCard(p, item.buddy_id) : '';
+    }).join('');
   } catch (err) {
     console.error(err);
     container.innerHTML = '<div class="gb-error">Failed to load buddies</div>';
@@ -2141,18 +2160,37 @@ async function loadProfileSubscribers(userId) {
   if (!container) return;
   container.innerHTML = '<div class="gb-loading-spinner"></div> Loading subscribers...';
   try {
-    const { data, error } = await supabaseClient
+    // 1. Fetch subscriber IDs
+    const { data: subs, error: subsError } = await supabaseClient
       .from('subscriptions')
-      .select('subscriber_id, profiles!subscriptions_subscriber_id_fkey (username, trust_score, is_verified, role)')
+      .select('subscriber_id')
       .eq('target_id', userId)
       .order('created_at', { ascending: false })
       .limit(24);
-    if (error) throw error;
-    if (!data || data.length === 0) {
+
+    if (subsError) throw subsError;
+
+    if (!subs || subs.length === 0) {
       container.innerHTML = '<p class="gb-text-muted">No subscribers yet.</p>';
       return;
     }
-    container.innerHTML = data.map(item => renderUserCard(item.profiles, item.subscriber_id)).join('');
+
+    // 2. Fetch profile details
+    const subscriberIds = subs.map(s => s.subscriber_id);
+    const { data: profiles, error: profilesError } = await supabaseClient
+      .from('profiles')
+      .select('id, username, trust_score, is_verified, role')
+      .in('id', subscriberIds);
+
+    if (profilesError) throw profilesError;
+
+    const profileMap = {};
+    profiles.forEach(p => profileMap[p.id] = p);
+
+    container.innerHTML = subs.map(item => {
+      const p = profileMap[item.subscriber_id];
+      return p ? renderUserCard(p, item.subscriber_id) : '';
+    }).join('');
   } catch (err) {
     console.error(err);
     container.innerHTML = '<div class="gb-error">Failed to load subscribers</div>';
