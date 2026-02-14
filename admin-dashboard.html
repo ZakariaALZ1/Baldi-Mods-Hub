@@ -66,44 +66,58 @@
     <p>🔒 Admin Dashboard - All administrative actions are logged for security</p>
   </footer>
 
-<script src="script.js"></script>
-<script>
-  // Wait for supabase to be initialized
-  (async function() {
-    const waitForSupabase = async (maxAttempts = 30) => {
-      for (let i = 0; i < maxAttempts; i++) {
-        if (typeof window.supabaseClient !== 'undefined') {
-          return true;
-        }
-        await new Promise(resolve => setTimeout(resolve, 100));
-      }
-      return false;
-    };
-
-    await waitForSupabase();
-
-    const admin = await window.isAdmin?.();
-
-    if (!admin) {
-      if (typeof window.showNotification === 'function') {
-        window.showNotification('Access denied. Administrator privileges required.', 'error');
-      }
-      setTimeout(() => {
-        window.location.href = 'index.html';
-      }, 2000);
-      return;
+  <script src="script.js"></script>
+  <script>
+    // ===== SAFETY FALLBACK for escapeHTML =====
+    if (typeof escapeHTML !== 'function') {
+      window.escapeHTML = function(str) {
+        if (!str) return '';
+        const div = document.createElement('div');
+        div.textContent = str;
+        return div.innerHTML;
+      };
     }
 
-    // User is admin, show content
-    document.getElementById('loading').style.display = 'none';
-    document.getElementById('content').style.display = 'block';
+    // ===== Prompt for warning =====
+    window.promptWarn = function(userId) {
+      const reason = prompt('Enter warning reason:');
+      if (!reason) return;
+      const note = prompt('Enter additional note (optional):', '');
+      warnUser(userId, reason, note || '');
+    };
 
-    // Load admin dashboard data
-    if (typeof loadAdminStats === 'function') loadAdminStats();
-    if (typeof loadFlaggedMods === 'function') loadFlaggedMods();
-    if (typeof loadRiskUsers === 'function') loadRiskUsers();
-    if (typeof loadQuarantineMods === 'function') loadQuarantineMods();
-  })();
-</script>
+    // ===== Main Initialization =====
+    (async function() {
+      const waitForSupabase = async (maxAttempts = 30) => {
+        for (let i = 0; i < maxAttempts; i++) {
+          if (typeof window.supabaseClient !== 'undefined') {
+            return true;
+          }
+          await new Promise(resolve => setTimeout(resolve, 100));
+        }
+        return false;
+      };
+
+      await waitForSupabase();
+
+      const admin = await window.isAdmin?.();
+      if (!admin) {
+        if (typeof window.showNotification === 'function') {
+          window.showNotification('Access denied. Administrator privileges required.', 'error');
+        }
+        setTimeout(() => window.location.href = 'index.html', 2000);
+        return;
+      }
+
+      document.getElementById('loading').style.display = 'none';
+      document.getElementById('content').style.display = 'block';
+
+      // Load admin dashboard data
+      if (typeof loadAdminStats === 'function') loadAdminStats();
+      if (typeof loadFlaggedMods === 'function') loadFlaggedMods();
+      if (typeof loadRiskUsers === 'function') loadRiskUsers();
+      if (typeof loadQuarantineMods === 'function') loadQuarantineMods();
+    })();
+  </script>
 </body>
 </html>

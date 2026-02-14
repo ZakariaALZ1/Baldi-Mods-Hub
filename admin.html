@@ -291,12 +291,13 @@
         <input type="hidden" id="actionTargetUserId">
         <div class="gb-form-group">
           <label for="actionType">Action <span>*</span></label>
-          <select id="actionType" required onchange="toggleDurationField()">
-            <option value="">Select an action</option>
-            <option value="delete_comment">🗑️ Delete Comment</option>
-            <option value="warn_user">⚠️ Warn User</option>
-            <option value="mute_user">🔇 Mute User</option>
-          </select>
+<select id="actionType" required onchange="toggleDurationField()">
+  <option value="">Select an action</option>
+  <option value="delete_comment">🗑️ Delete Comment</option>
+  <option value="warn_user">⚠️ Warn User</option>
+  <option value="mute_user">🔇 Mute User</option>
+  <option value="unmute_user">🔊 Unmute User</option>
+</select>
         </div>
         <div id="durationGroup" class="gb-form-group" style="display: none;">
           <label for="muteDuration">Mute Duration</label>
@@ -483,10 +484,10 @@ window.updateReportStatus = async function(reportId, status) {
       document.getElementById('durationGroup').style.display = 'none';
     };
 
-    window.toggleDurationField = function() {
-      const actionType = document.getElementById('actionType').value;
-      document.getElementById('durationGroup').style.display = actionType === 'mute_user' ? 'block' : 'none';
-    };
+window.toggleDurationField = function() {
+  const actionType = document.getElementById('actionType').value;
+  document.getElementById('durationGroup').style.display = actionType === 'mute_user' ? 'block' : 'none';
+};
 
 window.executeAction = async function() {
   const reportId = document.getElementById('actionReportId').value;
@@ -514,6 +515,15 @@ window.executeAction = async function() {
     showNotification('Cannot mute: missing user ID', 'error');
     return;
   }
+  else if (actionType === 'unmute_user') {
+  console.log('Unmuting user:', targetUserId);
+  const { error } = await supabaseClient
+    .from('profiles')
+    .update({ muted_until: null })
+    .eq('id', targetUserId);
+  if (error) throw error;
+  showNotification('User unmuted', 'success');
+}
 
   try {
     if (actionType === 'delete_comment') {

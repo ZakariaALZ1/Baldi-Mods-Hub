@@ -1503,6 +1503,160 @@ async function loadAdminStats() {
   }
 }
 
+// =========================
+// MODERATION ACTIONS (new)
+// =========================
+
+// Warn user
+async function warnUser(userId, reason, note = '') {
+  if (!await isModerator()) return;
+  const mod = await getCurrentUser();
+  if (!mod) return;
+  
+  try {
+    const { error } = await supabaseClient
+      .from('user_warnings')
+      .insert({
+        user_id: userId,
+        moderator_id: mod.id,
+        reason: reason,
+        note: note
+      });
+    if (error) throw error;
+    showNotification('User warned', 'success');
+    if (typeof loadRiskUsers === 'function') loadRiskUsers(); // refresh
+  } catch (err) {
+    console.error('Failed to warn user:', err);
+    showNotification('Failed to warn user', 'error');
+  }
+}
+
+// Unmute user
+async function unmuteUser(userId) {
+  if (!await isModerator()) return;
+  try {
+    const { error } = await supabaseClient
+      .from('profiles')
+      .update({ muted_until: null })
+      .eq('id', userId);
+    if (error) throw error;
+    showNotification('User unmuted', 'success');
+    if (typeof loadRiskUsers === 'function') loadRiskUsers();
+  } catch (err) {
+    console.error('Failed to unmute user:', err);
+    showNotification('Failed to unmute user', 'error');
+  }
+}
+
+// Unban user (remove shadow ban)
+async function unbanUser(userId) {
+  if (!await isAdmin()) return;
+  try {
+    const { error } = await supabaseClient
+      .from('profiles')
+      .update({ is_shadow_banned: false, trust_score: 50 })
+      .eq('id', userId);
+    if (error) throw error;
+    showNotification('User unbanned', 'success');
+    if (typeof loadRiskUsers === 'function') loadRiskUsers();
+  } catch (err) {
+    console.error('Failed to unban user:', err);
+    showNotification('Failed to unban user', 'error');
+  }
+}
+
+// Load warnings for a user (used in risky users)
+async function loadUserWarnings(userId) {
+  const { data, error } = await supabaseClient
+    .from('user_warnings')
+    .select(`
+      *,
+      profiles:moderator_id (username)
+    `)
+    .eq('user_id', userId)
+    .order('created_at', { ascending: false });
+  if (error) {
+    console.error('Failed to load warnings:', error);
+    return [];
+  }
+  return data || [];
+}
+
+// Enhanced loadRiskUsers (replace the existing one)
+window.loadRiskUsers = async function() {
+  const box = document.getElementById('riskyUsers');
+  if (!box || !await isAdmin()) return;
+  
+  try {
+    const now = new Date().toISOString();
+    const { data, error } = await supabaseClient
+      .from('profiles')
+      .select(`
+        id, username, email, trust_score, spam_flags, 
+        is_shadow_banned, is_verified, upload_count, download_count, 
+        join_date, muted_until
+      `)
+      .or(`trust_score.lt.50,spam_flags.gt.5,is_shadow_banned.eq.true,muted_until.gt.${now}`)
+      .order('trust_score', { ascending: true })
+      .limit(20);
+    
+    if (error) throw error;
+    if (!data?.length) { box.innerHTML = '<div class="gb-no-results">No risky or muted users</div>'; return; }
+    
+    // For each user, fetch their warnings
+    const usersWithWarnings = await Promise.all(data.map(async (user) => {
+      const warnings = await loadUserWarnings(user.id);
+      return { ...user, warnings };
+    }));
+
+    box.innerHTML = usersWithWarnings.map(user => {
+      const isMuted = user.muted_until && new Date(user.muted_until) > new Date();
+      const muteInfo = isMuted ? `<div style="margin-bottom: 5px;"><span style="background:#ffaa00; padding:2px 8px; border-radius:4px;">🔇 Muted until ${new Date(user.muted_until).toLocaleDateString()}</span></div>` : '';
+      
+      // Show warning count
+      const warningCount = user.warnings.length;
+      const warningBadge = warningCount > 0 ? `<span class="gb-badge" style="background:#ffaa00;">⚠️ ${warningCount} warning(s)</span>` : '';
+
+      return `
+        <div class="gb-card" style="border-left: 4px solid ${user.is_shadow_banned ? '#ff4444' : (isMuted ? '#ffaa00' : '#ffaa00')}; margin-bottom: 15px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+            <h3 style="margin: 0; color: #fff;">${escapeHTML(user.username || 'Unknown')}</h3>
+            <div>
+              <span class="gb-badge" style="background:${user.trust_score < 30 ? '#ff4444' : '#ffaa00'};">Trust: ${user.trust_score || 0}</span>
+              ${warningBadge}
+            </div>
+          </div>
+          <div style="display: flex; gap: 20px; margin-bottom: 15px; color: #ccc; font-size: 14px;">
+            <span>📧 ${escapeHTML(user.email || 'No email')}</span>
+            <span>🚩 Spam: ${user.spam_flags || 0}</span>
+            <span>📤 Uploads: ${user.upload_count || 0}</span>
+          </div>
+          ${muteInfo}
+          <div style="margin-bottom: 15px; padding: 8px 12px; background: ${user.is_shadow_banned ? '#2a1a1a' : '#1a2a1a'}; border-radius: 5px; color: ${user.is_shadow_banned ? '#ff8888' : '#00ff88'};">
+            ${user.is_shadow_banned ? '🔇 Shadow Banned' : '✅ Active'}
+          </div>
+          <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+            <button onclick="warnUser('${user.id}')" class="gb-btn gb-btn-warning">⚠️ Warn</button>
+            ${!user.is_shadow_banned ? 
+              `<button onclick="shadowBanUser('${user.id}')" class="gb-btn gb-btn-warning">🔇 Shadow Ban</button>` : 
+              `<button onclick="unbanUser('${user.id}')" class="gb-btn gb-btn-primary">✓ Unban</button>`
+            }
+            ${isMuted ? 
+              `<button onclick="unmuteUser('${user.id}')" class="gb-btn gb-btn-secondary">🔊 Unmute</button>` : 
+              ''
+            }
+            <button onclick="verifyUser('${user.id}')" class="gb-btn gb-btn-secondary" ${user.is_verified ? 'disabled' : ''}>${user.is_verified ? '✅ Verified' : '✅ Verify'}</button>
+            <button onclick="resetTrustScore('${user.id}')" class="gb-btn gb-btn-secondary">↻ Reset</button>
+          </div>
+        </div>
+      `;
+    }).join('');
+  } catch (err) {
+    console.error("Failed to load risky users:", err);
+    box.innerHTML = '<div class="gb-error">Failed to load risky users</div>';
+  }
+};
+
 async function loadFlaggedMods() {
   const box = document.getElementById("flagged");
   if (!box || !await isAdmin()) return;
