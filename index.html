@@ -170,11 +170,15 @@
     .gb-card.mod-card {
   display: flex;
   flex-direction: column;
+  margin: 0;   /* prevent double stacking margins */
   height: 100%;
 }
 
 .gb-card.mod-card > div:first-child {
-  padding-bottom: 15px; /* ensures space before buttons */
+  padding-bottom: 25px; /* ensures space before buttons */
+}
+.gb-mod-actions {
+  margin-top: auto;
 }
 
 .gb-card.mod-card .gb-mod-actions {
