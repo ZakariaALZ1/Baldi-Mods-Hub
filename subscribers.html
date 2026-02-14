@@ -118,6 +118,15 @@
   </main>
   <script src="script.js"></script>
   <script>
+      // ===== SAFETY FALLBACK for escapeHTML =====
+  if (typeof escapeHTML !== 'function') {
+    window.escapeHTML = function(str) {
+      if (!str) return '';
+      const div = document.createElement('div');
+      div.textContent = str;
+      return div.innerHTML;
+    };
+  }
     (async function() {
       const waitForSupabase = async (maxAttempts = 30) => {
         for (let i = 0; i < maxAttempts; i++) {
@@ -128,12 +137,13 @@
       };
       await waitForSupabase();
 
-      const urlParams = new URLSearchParams(window.location.search);
-      const targetUserId = urlParams.get('id') || (await getCurrentUser())?.id;
-      if (!targetUserId) {
-        window.location.href = 'index.html';
-        return;
-      }
+const urlParams = new URLSearchParams(window.location.search);
+const targetUserId = urlParams.get('id') || (await getCurrentUser())?.id;
+if (!targetUserId || targetUserId.length < 10) {
+  console.error('Invalid targetUserId');
+  window.location.href = 'index.html';
+  return;
+}
 
       let currentPage = 1;
       const limit = 12;
