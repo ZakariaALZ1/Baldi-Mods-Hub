@@ -709,6 +709,49 @@
     </div>
   </div>
 
+  <!-- Moderation Action Modal -->
+<div id="actionModal" class="gb-modal" style="display: none;">
+  <div class="gb-modal-content" style="max-width: 500px;">
+    <span class="gb-modal-close" onclick="closeActionModal()">&times;</span>
+    <h2>Moderate Report</h2>
+    <form id="actionForm" onsubmit="event.preventDefault(); executeAction();">
+      <input type="hidden" id="actionReportId">
+      <input type="hidden" id="actionCommentId">
+      <input type="hidden" id="actionTargetUserId">
+      
+      <div class="gb-form-group">
+        <label for="actionType">Action <span>*</span></label>
+        <select id="actionType" required onchange="toggleDurationField()">
+          <option value="">Select an action</option>
+          <option value="delete_comment">🗑️ Delete Comment</option>
+          <option value="warn_user">⚠️ Warn User</option>
+          <option value="mute_user">🔇 Mute User</option>
+        </select>
+      </div>
+
+      <div id="durationGroup" class="gb-form-group" style="display: none;">
+        <label for="muteDuration">Mute Duration</label>
+        <select id="muteDuration">
+          <option value="1 day">1 day</option>
+          <option value="3 days">3 days</option>
+          <option value="7 days">7 days</option>
+          <option value="permanent">Permanent</option>
+        </select>
+      </div>
+
+      <div class="gb-form-group">
+        <label for="actionNote">Moderator Note (optional)</label>
+        <textarea id="actionNote" rows="3" placeholder="Add a note..."></textarea>
+      </div>
+
+      <div class="gb-form-actions" style="display: flex; gap: 10px; justify-content: flex-end;">
+        <button type="submit" class="gb-btn gb-btn-primary">Apply Action</button>
+        <button type="button" class="gb-btn gb-btn-secondary" onclick="closeActionModal()">Cancel</button>
+      </div>
+    </form>
+  </div>
+</div>
+
   <script src="script.js"></script>
   <script>
     (async function() {

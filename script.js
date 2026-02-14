@@ -1976,7 +1976,6 @@ async function addComment(modId, content, parentId = null) {
     console.error('Failed to add comment:', err);
     showNotification('Failed to add comment', 'error');
   }
-}
 
 async function editComment(commentId) {
   const commentDiv = document.getElementById(`comment-text-${commentId}`);
