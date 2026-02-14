@@ -1935,7 +1935,7 @@ async function addComment(modId, content, parentId = null) {
     if (profileError) {
       console.error('Mute check error:', profileError);
       showNotification('Could not verify mute status. Please try again.', 'error');
-      return;
+      return; // BLOCK COMMENT IF WE CAN'T CHECK
     }
 
     if (profile?.muted_until) {
@@ -1946,13 +1946,13 @@ async function addComment(modId, content, parentId = null) {
           `You are muted and cannot comment until ${muteDate.toLocaleDateString()}`,
           'error'
         );
-        return;
+        return; // BLOCK COMMENT
       }
     }
   } catch (err) {
     console.error('Unexpected mute check error:', err);
     showNotification('Error checking mute status. Please try again.', 'error');
-    return;
+    return; // BLOCK COMMENT
   }
   // ===== END MUTE CHECK =====
 
@@ -1976,7 +1976,7 @@ async function addComment(modId, content, parentId = null) {
     console.error('Failed to add comment:', err);
     showNotification('Failed to add comment: ' + err.message, 'error');
   }
-} // <-- only one closing brace
+} // <-- only one closing brace here
 
 async function editComment(commentId) {
   const commentDiv = document.getElementById(`comment-text-${commentId}`);
