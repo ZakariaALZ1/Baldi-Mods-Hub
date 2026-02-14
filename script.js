@@ -1924,7 +1924,7 @@ async function addComment(modId, content, parentId = null) {
     return;
   }
 
-  // Check if user is muted
+  // ===== MUTE CHECK – NOW FAIL‑SAFE =====
   try {
     const { data: profile, error: profileError } = await supabaseClient
       .from('profiles')
@@ -1933,18 +1933,28 @@ async function addComment(modId, content, parentId = null) {
       .single();
 
     if (profileError) {
-      console.warn('Could not check mute status:', profileError);
-    } else if (profile?.muted_until && new Date(profile.muted_until) > new Date()) {
-      showNotification(
-        `You are muted and cannot comment until ${new Date(profile.muted_until).toLocaleDateString()}`,
-        'error'
-      );
-      return;
+      console.error('Mute check error:', profileError);
+      showNotification('Could not verify mute status. Please try again.', 'error');
+      return; // BLOCK COMMENT IF WE CAN'T CHECK
+    }
+
+    if (profile?.muted_until) {
+      const muteDate = new Date(profile.muted_until);
+      const now = new Date();
+      if (muteDate > now) {
+        showNotification(
+          `You are muted and cannot comment until ${muteDate.toLocaleDateString()}`,
+          'error'
+        );
+        return; // BLOCK COMMENT
+      }
     }
   } catch (err) {
-    console.error('Mute check failed:', err);
-    // Continue anyway? Probably safe to allow comment, but we'll log it.
+    console.error('Unexpected mute check error:', err);
+    showNotification('Error checking mute status. Please try again.', 'error');
+    return; // BLOCK COMMENT
   }
+  // ===== END MUTE CHECK =====
 
   try {
     const { error } = await supabaseClient
@@ -1966,8 +1976,28 @@ async function addComment(modId, content, parentId = null) {
     console.error('Failed to add comment:', err);
     showNotification('Failed to add comment: ' + err.message, 'error');
   }
-} // <-- brace properly closed
+}
 
+  try {
+    const { error } = await supabaseClient
+      .from('comments')
+      .insert({
+        mod_id: modId,
+        user_id: user.id,
+        content: content.trim(),
+        parent_id: parentId,
+        created_at: new Date().toISOString()
+      });
+
+    if (error) throw error;
+
+    showNotification('Comment added', 'success');
+    document.getElementById('commentInput').value = '';
+    loadComments(modId);
+  } catch (err) {
+    console.error('Failed to add comment:', err);
+    showNotification('Failed to add comment: ' + err.message, 'error');
+  }
 async function editComment(commentId) {
   const commentDiv = document.getElementById(`comment-text-${commentId}`);
   const currentText = commentDiv.innerText;
