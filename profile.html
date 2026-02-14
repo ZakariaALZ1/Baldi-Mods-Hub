@@ -944,10 +944,11 @@ margin: 20px auto 16px;
                 <p>${escapeHTML(profile?.bio || 'No bio yet. Click settings to add one!')}</p>
               </div>
 
-              <div class="gb-profile-actions">
-                <button onclick="logout()" class="gb-btn gb-btn-danger">
-                  🚪 Sign Out
-                </button>
+<div class="gb-profile-actions">
+  <a href="buddies.html?id=${user.id}" class="gb-btn gb-btn-outline gb-btn-block">👥 Buddies</a>
+  <a href="subscribers.html?id=${user.id}" class="gb-btn gb-btn-outline gb-btn-block">👤 Subscribers</a>
+  <button onclick="logout()" class="gb-btn gb-btn-danger gb-btn-block">🚪 Sign Out</button>
+</div>
               </div>
             </div>
           </div>
