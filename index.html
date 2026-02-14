@@ -483,19 +483,20 @@
     }
 
     /* GameBanana Mod Grid - Responsive */
-    .gb-mod-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
-      gap: 30px;
-      margin-top: 30px;
-      align-items: stretch; /* ensures all cards have equal height */
-    }
+  .gb-mod-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
+  gap: 40px; /* increased from 30px */
+  margin-top: 30px;
+  align-items: stretch;
+}
 
     .gb-card.mod-card {
       display: flex;
       flex-direction: column;
       height: 100%;
       transition: transform 0.2s, border-color 0.2s;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3); /* optional */
     }
 
     .gb-card.mod-card:hover {

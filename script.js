@@ -917,6 +917,19 @@ async function loadModPage() {
   }
 }
 
+const user = await getCurrentUser();
+if (user && user.id !== mod.user_id) {
+  const { data: existing } = await supabaseClient
+    .from('user_views')
+    .select('id')
+    .eq('user_id', user.id)
+    .eq('mod_id', mod.id)
+    .maybeSingle();
+  if (!existing) {
+    await supabaseClient.rpc('increment_view_count', { mod_id: mod.id });
+    await supabaseClient.from('user_views').insert({ user_id: user.id, mod_id: mod.id });
+  }
+}
 /* =========================
    MOD LISTING – (unchanged)
 ========================= */
@@ -1070,11 +1083,25 @@ async function trackDownload(modId) {
       .from('user_downloads')
       .insert({ user_id: user.id, mod_id: modId });
 
+      const user = await getCurrentUser();
+if (!user) return; // or show notification
+const { data: existing } = await supabaseClient
+  .from('user_downloads')
+  .select('id')
+  .eq('user_id', user.id)
+  .eq('mod_id', modId)
+  .maybeSingle();
+if (!existing) {
+  await supabaseClient.rpc('increment_download_count', { mod_id: modId });
+  await supabaseClient.from('user_downloads').insert({ user_id: user.id, mod_id: modId });
+}
+
     showNotification("Download started", "success");
   } catch (err) {
     console.error("Failed to track download:", err);
     showNotification("Download count could not be updated", "error");
   }
+
 }
 
 /* =========================
