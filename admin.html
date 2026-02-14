@@ -294,6 +294,14 @@
 
 <script src="script.js"></script>
 <script>
+  if (typeof escapeHTML !== 'function') {
+  window.escapeHTML = function(str) {
+    if (!str) return '';
+    const div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
+  };
+}
   // Wait for supabase to be initialized
   (async function() {
     const waitForSupabase = async (maxAttempts = 30) => {
@@ -329,7 +337,8 @@
       .from('reports')
       .select(`
         *,
-        mods2 (title, author_name, file_url),
+        mods2 (id, title, author_name, file_url),
+        comments (id, content, user_id, profiles!comments_user_id_fkey (username)),
         profiles:reporter_id (username)
       `)
       .order('created_at', { ascending: false });
@@ -341,26 +350,40 @@
       return;
     }
 
-    box.innerHTML = data.map(report => `
-      <div class="gb-card" style="border-left: 4px solid #ffaa00; margin-bottom: 15px;">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-          <h3 style="margin: 0; color: #fff;">Report #${report.id.slice(0,8)}</h3>
-          <span class="gb-badge" style="background:${report.status === 'pending' ? '#ffaa00' : '#00ff88'};">${report.status}</span>
-        </div>
-        <div style="margin-bottom: 10px;">
+    box.innerHTML = data.map(report => {
+      let targetInfo = '';
+      if (report.mod_id) {
+        targetInfo = `
           <strong>Mod:</strong> <a href="mod.html?id=${report.mod_id}" target="_blank">${escapeHTML(report.mods2?.title || 'Unknown')}</a><br>
           <strong>Author:</strong> ${escapeHTML(report.mods2?.author_name || 'Unknown')}<br>
-          <strong>Reported by:</strong> ${escapeHTML(report.profiles?.username || 'Unknown')}<br>
-          <strong>Reason:</strong> ${escapeHTML(report.reason)}<br>
-          ${report.description ? `<strong>Description:</strong> ${escapeHTML(report.description)}<br>` : ''}
-          <strong>Date:</strong> ${new Date(report.created_at).toLocaleString()}
+        `;
+      } else if (report.comment_id) {
+        targetInfo = `
+          <strong>Comment:</strong> ${escapeHTML(report.comments?.content?.substring(0,100))}...<br>
+          <strong>Comment by:</strong> ${escapeHTML(report.comments?.profiles?.username || 'Unknown')}<br>
+          <strong>In mod:</strong> <a href="mod.html?id=${report.comments?.mod_id}" target="_blank">${escapeHTML(report.mods2?.title || 'Unknown mod')}</a><br>
+        `;
+      }
+      return `
+        <div class="gb-card" style="border-left: 4px solid #ffaa00; margin-bottom: 15px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+            <h3 style="margin: 0; color: #fff;">Report #${report.id.slice(0,8)}</h3>
+            <span class="gb-badge" style="background:${report.status === 'pending' ? '#ffaa00' : '#00ff88'};">${report.status}</span>
+          </div>
+          <div style="margin-bottom: 10px;">
+            ${targetInfo}
+            <strong>Reported by:</strong> ${escapeHTML(report.profiles?.username || 'Unknown')}<br>
+            <strong>Reason:</strong> ${escapeHTML(report.reason)}<br>
+            ${report.description ? `<strong>Description:</strong> ${escapeHTML(report.description)}<br>` : ''}
+            <strong>Date:</strong> ${new Date(report.created_at).toLocaleString()}
+          </div>
+          <div style="display: flex; gap: 10px;">
+            <button onclick="updateReportStatus('${report.id}', 'reviewed')" class="gb-btn gb-btn-primary">Mark Reviewed</button>
+            <button onclick="updateReportStatus('${report.id}', 'dismissed')" class="gb-btn gb-btn-secondary">Dismiss</button>
+          </div>
         </div>
-        <div style="display: flex; gap: 10px;">
-          <button onclick="updateReportStatus('${report.id}', 'reviewed')" class="gb-btn gb-btn-primary">Mark Reviewed</button>
-          <button onclick="updateReportStatus('${report.id}', 'dismissed')" class="gb-btn gb-btn-secondary">Dismiss</button>
-        </div>
-      </div>
-    `).join('');
+      `;
+    }).join('');
   } catch (err) {
     console.error('Failed to load reports:', err);
     box.innerHTML = '<div class="gb-error">Failed to load reports</div>';

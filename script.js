@@ -1903,7 +1903,10 @@ function renderComment(comment, replies, profileMap, reactionsMap, user) {
         </div>
         <div class="gb-comment-text" id="comment-text-${comment.id}">${escapeHTML(comment.content)}</div>
         ${isAuthor ? `<div class="gb-comment-actions"><button onclick="editComment('${comment.id}')" class="gb-btn gb-btn-small">Edit</button><button onclick="deleteComment('${comment.id}')" class="gb-btn gb-btn-small gb-btn-danger">Delete</button></div>` : ''}
-        <div class="gb-comment-footer"><button onclick="toggleCommentReaction('${comment.id}')" class="gb-btn gb-btn-small ${userReacted ? 'gb-btn-primary' : 'gb-btn-secondary'}">❤️ ${reactionCount}</button></div>
+        <div class="gb-comment-footer">
+  <button onclick="toggleCommentReaction('${comment.id}')" class="gb-btn gb-btn-small ${userReacted ? 'gb-btn-primary' : 'gb-btn-secondary'}">❤️ ${reactionCount}</button>
+  <button onclick="openCommentReportModal('${comment.id}')" class="gb-btn gb-btn-small gb-btn-secondary">🚩 Report</button>
+</div>
         ${replies.length ? `<div class="gb-comment-replies">${replies.map(r => renderComment(r, [], profileMap, reactionsMap, user)).join('')}</div>` : ''}
       </div>
     </div>
