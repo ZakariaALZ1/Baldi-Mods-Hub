@@ -167,33 +167,151 @@
       padding: 10px 0;
       flex-wrap: wrap;
     }
+/* ---------- CARD LAYOUT FIX ---------- */
+
 .gb-card.mod-card {
   background: linear-gradient(135deg, #1a1a1a 0%, #151515 100%);
   border: 1px solid var(--gb-border);
   border-radius: 16px;
   overflow: hidden;
-  transition: transform 0.2s, border-color 0.2s;
 
   display: flex;
   flex-direction: column;
   height: 100%;
+
+  transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
+.gb-card.mod-card:hover {
+  transform: translateY(-6px);
+  border-color: var(--gb-primary);
+  box-shadow: 0 12px 28px rgba(0,255,136,0.18);
+}
+
+/* ---------- MOD CONTENT PUSH FOOTER DOWN ---------- */
+
+.gb-mod-content {
+  padding: 25px;
+  flex: 1;
+}
+
+/* ---------- FOOTER ROW FIX ---------- */
 
 .gb-mod-footer {
-margin-top: 20px;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 14px;
+
+  margin-top: 20px;
+  padding-top: 20px;
+  border-top: 1px solid var(--gb-border);
 }
+
+/* ---------- STATS GROUP ---------- */
+
+.gb-mod-stats {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: nowrap;
+}
+
+/* ---------- ACTION BUTTON GROUP ---------- */
 
 .gb-mod-actions {
   display: flex;
-  gap: 12px;
-  justify-content: flex-end;
+  gap: 10px;
   flex-wrap: wrap;
+  justify-content: flex-end;
 }
+
 .gb-mod-actions a,
 .gb-mod-actions button {
   flex: 0 0 auto;
 }
+
+/* ---------- GLOBAL BUTTON FIX ---------- */
+
+.gb-btn {
+  border: none;
+  border-radius: 10px;
+  font-weight: 700;
+  font-size: 14px;
+  cursor: pointer;
+
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+
+  padding: 0 18px;
+  height: 44px;
+
+  flex: 0 0 auto;
+  min-width: auto;
+
+  transition: transform 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease;
+}
+
+.gb-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(0,0,0,0.35);
+  opacity: 0.96;
+}
+
+/* ---------- SMALLER CARD BUTTONS ---------- */
+
+.mod-card .gb-btn {
+  height: 38px;
+  padding: 0 16px;
+  font-size: 13px;
+  border-radius: 8px;
+}
+
+/* ---------- MOD BUTTON STYLE ---------- */
+
+.gb-mod-btn {
+  height: 40px;
+  padding: 0 18px;
+  border-radius: 10px;
+  font-weight: 700;
+  font-size: 14px;
+
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+
+  white-space: nowrap;
+}
+
+/* ---------- GRID RESPONSIVE POLISH ---------- */
+
+.gb-mod-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(420px, 1fr));
+  gap: 40px;
+  margin-top: 30px;
+}
+
+/* ---------- MOBILE FIX ---------- */
+
+@media (max-width: 768px) {
+  .gb-mod-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .gb-mod-footer {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .gb-mod-actions {
+    justify-content: center;
+  }
+}
+
 
 
     .gb-nav-item {
