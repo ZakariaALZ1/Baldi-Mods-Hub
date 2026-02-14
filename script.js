@@ -779,11 +779,28 @@ async function loadModPage() {
       return;
     }
 
-    const user = await getCurrentUser();
+if (user && user.id !== mod.user_id) {
+  // Check if user already viewed this mod
+  const { data: existingView } = await supabaseClient
+    .from('user_views')
+    .select('id')
+    .eq('user_id', user.id)
+    .eq('mod_id', mod.id)
+    .maybeSingle();
 
-    if (!user || user.id !== mod.user_id) {
-      try { await supabaseClient.rpc('increment_view_count', { mod_id: mod.id }); } catch (err) { console.warn("Failed to increment view count:", err); }
+  if (!existingView) {
+    try {
+      // Increment view count in mods2 table
+      await supabaseClient.rpc('increment_view_count', { mod_id: mod.id });
+      // Record this view
+      await supabaseClient
+        .from('user_views')
+        .insert({ user_id: user.id, mod_id: mod.id });
+    } catch (err) {
+      console.warn("Failed to increment view count:", err);
     }
+  }
+}
 
     const { data: authorProfile } = await supabaseClient
       .from("profiles")
@@ -1009,13 +1026,40 @@ async function trackDownload(modId) {
   const user = await getCurrentUser();
   const { data: mod } = await supabaseClient.from("mods2").select("user_id").eq("id", modId).single();
   
+  // Prevent author from counting their own download
   if (user && mod && user.id === mod.user_id) {
     showNotification("You cannot increase count while downloading the mod again", "info");
     return;
   }
 
+  // If user is not logged in, just allow download without counting (or you can remove this condition)
+  if (!user) {
+    showNotification("Download started", "success");
+    return;
+  }
+
+  // Check if this user has already downloaded this mod
+  const { data: existingDownload } = await supabaseClient
+    .from('user_downloads')
+    .select('id')
+    .eq('user_id', user.id)
+    .eq('mod_id', modId)
+    .maybeSingle();
+
+  if (existingDownload) {
+    showNotification("You have already downloaded this mod", "info");
+    return;
+  }
+
   try {
+    // Increment download count in mods2 table
     await supabaseClient.rpc('increment_download_count', { mod_id: modId });
+
+    // Record this download in user_downloads table
+    await supabaseClient
+      .from('user_downloads')
+      .insert({ user_id: user.id, mod_id: modId });
+
     showNotification("Download started", "success");
   } catch (err) {
     console.error("Failed to track download:", err);
