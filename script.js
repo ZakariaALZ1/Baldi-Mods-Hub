@@ -1904,9 +1904,9 @@ function renderComment(comment, replies, profileMap, reactionsMap, user) {
         <div class="gb-comment-text" id="comment-text-${comment.id}">${escapeHTML(comment.content)}</div>
         ${isAuthor ? `<div class="gb-comment-actions"><button onclick="editComment('${comment.id}')" class="gb-btn gb-btn-small">Edit</button><button onclick="deleteComment('${comment.id}')" class="gb-btn gb-btn-small gb-btn-danger">Delete</button></div>` : ''}
         <div class="gb-comment-footer">
-  <button onclick="toggleCommentReaction('${comment.id}')" class="gb-btn gb-btn-small ${userReacted ? 'gb-btn-primary' : 'gb-btn-secondary'}">❤️ ${reactionCount}</button>
-  <button onclick="openCommentReportModal('${comment.id}')" class="gb-btn gb-btn-small gb-btn-secondary">🚩 Report</button>
-</div>
+          <button onclick="toggleCommentReaction('${comment.id}')" class="gb-btn gb-btn-small ${userReacted ? 'gb-btn-primary' : 'gb-btn-secondary'}">❤️ ${reactionCount}</button>
+          <button onclick="openCommentReportModal('${comment.id}')" class="gb-btn gb-btn-small gb-btn-secondary">🚩 Report</button>
+        </div>
         ${replies.length ? `<div class="gb-comment-replies">${replies.map(r => renderComment(r, [], profileMap, reactionsMap, user)).join('')}</div>` : ''}
       </div>
     </div>
@@ -1917,6 +1917,52 @@ async function addComment(modId, content, parentId = null) {
   const user = await getCurrentUser();
   if (!user) { showNotification('Please login to comment', 'error'); return; }
   if (!content.trim()) { showNotification('Comment cannot be empty', 'error'); return; }
+
+    // Check if user is muted
+  const { data: profile } = await supabaseClient
+    .from('profiles')
+    .select('muted_until')
+    .eq('id', user.id)
+    .single();
+
+  if (profile?.muted_until && new Date(profile.muted_until) > new Date()) {
+    showNotification('You are muted and cannot comment until ' + new Date(profile.muted_until).toLocaleDateString(), 'error');
+    return;
+  }
+  
+  try {
+    const { error } = await supabaseClient
+      .from('comments')
+      .insert({ mod_id: modId, user_id: user.id, content: content.trim(), parent_id: parentId });
+    if (error) throw error;
+    showNotification('Comment added', 'success');
+    document.getElementById('commentInput').value = '';
+    loadComments(modId);
+  } catch (err) {
+    console.error('Failed to add comment:', err);
+    showNotification('Failed to add comment', 'error');
+  }
+}
+
+async function addComment(modId, content, parentId = null) {
+  const user = await getCurrentUser();
+  if (!user) { showNotification('Please login to comment', 'error'); return; }
+  if (!content.trim()) { showNotification('Comment cannot be empty', 'error'); return; }
+
+  // ===== MUTE CHECK =====
+  const { data: profile, error: profileError } = await supabaseClient
+    .from('profiles')
+    .select('muted_until')
+    .eq('id', user.id)
+    .single();
+
+  if (profileError) {
+    console.error('Failed to fetch profile:', profileError);
+  } else if (profile?.muted_until && new Date(profile.muted_until) > new Date()) {
+    showNotification('You are muted and cannot comment until ' + new Date(profile.muted_until).toLocaleDateString(), 'error');
+    return;
+  }
+  // ===== END MUTE CHECK =====
 
   try {
     const { error } = await supabaseClient

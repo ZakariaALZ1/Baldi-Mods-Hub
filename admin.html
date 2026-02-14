@@ -334,20 +334,20 @@
     }
 
     // ===== Global report status updater =====
-    window.updateReportStatus = async function(reportId, status) {
-      try {
-        const { error } = await supabaseClient
-          .from('reports')
-          .update({ status, updated_at: new Date().toISOString() })
-          .eq('id', reportId);
-        if (error) throw error;
-        showNotification('Report status updated', 'success');
-        loadReports(); // refresh
-      } catch (err) {
-        console.error('Failed to update report:', err);
-        showNotification('Failed to update report', 'error');
-      }
-    };
+window.updateReportStatus = async function(reportId, status) {
+  try {
+    const { error } = await supabaseClient
+      .from('reports')
+      .update({ status, updated_at: new Date().toISOString() })
+      .eq('id', reportId);
+    if (error) throw error;
+    showNotification('Report status updated', 'success');
+    await loadReports(); // ensure it's awaited
+  } catch (err) {
+    console.error('Failed to update report:', err);
+    showNotification('Failed to update report', 'error');
+  }
+};
 
     // ===== Global function to load reports (two‑step fetch) =====
   window.loadReports = async function() {
