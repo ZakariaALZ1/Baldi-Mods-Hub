@@ -174,9 +174,25 @@
 }
 
 .gb-card.mod-card > div:first-child {
-  flex: 1;
+  padding-bottom: 10px; /* ensures space before buttons */
 }
 
+.gb-card.mod-card .gb-mod-actions {
+  margin-top: 15px;
+  padding-top: 15px;
+  border-top: 1px solid var(--gb-border);
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: space-between; /* pushes report button to right */
+}
+
+.gb-card.mod-card .gb-mod-actions a,
+.gb-card.mod-card .gb-mod-actions button {
+  flex: 1 1 auto; /* allows buttons to shrink if needed */
+  min-width: 100px; /* prevents them from becoming too narrow */
+  text-align: center;
+}
     .gb-nav-item {
       color: var(--gb-text-muted);
       text-decoration: none;
