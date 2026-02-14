@@ -167,15 +167,20 @@
     }
 
     /* Profile Sidebar - GameBanana Style */
-    .gb-profile-sidebar {
-      background: linear-gradient(135deg, #1a1a1a 0%, #151515 100%);
-      border: 1px solid var(--gb-border);
-      border-radius: 20px;
-      overflow: visible;
-      position: sticky;
-      top: 200px;
-      align-self: start;
-    }
+.gb-profile-sidebar {
+  background: linear-gradient(135deg, #1a1a1a 0%, #151515 100%);
+  border: 1px solid var(--gb-border);
+  border-radius: 20px;
+
+  /* FIX */
+  padding-top: 55px;
+
+  overflow: visible;
+  position: sticky;
+  top: 200px;
+  align-self: start;
+}
+
 
     .gb-profile-cover {
       height: 100px;
@@ -186,7 +191,7 @@
 /* ===== PROFILE INFO SPACING FIX ===== */
 
 .gb-profile-info {
-  padding: 70px 25px 30px;
+  padding: 40px 25px 30px;
   text-align: center;
   position: relative;
   z-index: 1;
