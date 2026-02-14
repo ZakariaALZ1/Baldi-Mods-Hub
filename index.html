@@ -167,13 +167,18 @@
       padding: 10px 0;
       flex-wrap: wrap;
     }
-  .gb-card.mod-card {
+.gb-card.mod-card {
   background: linear-gradient(135deg, #1a1a1a 0%, #151515 100%);
   border: 1px solid var(--gb-border);
   border-radius: 16px;
   overflow: hidden;
   transition: transform 0.2s, border-color 0.2s;
+
+  display: flex;
+  flex-direction: column;
+  height: 100%;
 }
+
 
 .gb-mod-footer {
 margin-top: 20px;
@@ -182,12 +187,15 @@ margin-top: 20px;
 .gb-mod-actions {
   display: flex;
   gap: 12px;
-  margin-top: 15px;
-  padding-top: 15px;
-  border-top: 1px solid var(--gb-border);
   justify-content: flex-end;
   flex-wrap: wrap;
 }
+.gb-mod-actions a,
+.gb-mod-actions button {
+  flex: 0 0 auto;
+}
+
+
     .gb-nav-item {
       color: var(--gb-text-muted);
       text-decoration: none;
@@ -329,21 +337,29 @@ margin-top: 20px;
       flex-wrap: wrap;
     }
 
-    .gb-btn {
-      padding: 15px 30px;
-      border: none;
-      border-radius: 12px;
-      font-weight: 700;
-      font-size: 16px;
-      cursor: pointer;
-      transition: all 0.2s;
-      flex: 1;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 10px;
-      min-width: 150px;
-    }
+.gb-btn {
+  padding: 8px 16px;
+  border: none;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s;
+
+  /* FIX */
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-width: auto;
+}
+.mod-card .gb-btn {
+  padding: 6px 14px;
+  font-size: 13px;
+  border-radius: 6px;
+}
+
 
     .gb-btn-primary {
       background: linear-gradient(135deg, var(--gb-primary), var(--gb-primary-dark));
@@ -588,12 +604,12 @@ margin-top: 20px;
       border-top: 1px solid var(--gb-border);
     }
 
-    .gb-mod-stats {
-      flex-wrap: nowrap;      /* keep stats on one line */
-      display: flex;
-      flex-wrap: wrap;
-      gap: 15px;
-    }
+.gb-mod-stats {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 15px;
+}
+
 
     .gb-mod-stat {
       display: flex;
@@ -772,11 +788,13 @@ margin-top: 20px;
       .gb-mod-meta-grid {
         grid-template-columns: 1fr 1fr;
       }
-      .gb-btn-large,
-      .gb-btn {
-        width: 100%;
-        justify-content: center;
-      }
+.gb-btn-large,
+.gb-btn {
+  display: inline-flex;
+  flex: 0 0 auto;
+  min-width: auto;
+}
+
     }
 
     @media (max-width: 480px) {
