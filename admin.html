@@ -302,6 +302,22 @@
     return div.innerHTML;
   };
 }
+  // ===== Global report status updater =====
+  window.updateReportStatus = async function(reportId, status) {
+    try {
+      const { error } = await supabaseClient
+        .from('reports')
+        .update({ status, updated_at: new Date().toISOString() })
+        .eq('id', reportId);
+
+      if (error) throw error;
+      showNotification('Report status updated', 'success');
+      loadReports(); // refresh the list
+    } catch (err) {
+      console.error('Failed to update report:', err);
+      showNotification('Failed to update report', 'error');
+    }
+  };
   // Wait for supabase to be initialized
   (async function() {
     const waitForSupabase = async (maxAttempts = 30) => {
