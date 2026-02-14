@@ -148,8 +148,16 @@
 
         const { data: subscribers, error, count } = await supabaseClient
           .from('subscriptions')
-          .select('subscriber_id, profiles!subscriptions_subscriber_id_fkey (username, trust_score, is_verified, role)', { count: 'exact' })
-          .eq('target_id', targetUserId)
+.select(`
+  subscriber_id,
+  profiles (
+    username,
+    trust_score,
+    is_verified,
+    role
+  )
+`, { count: 'exact' })          
+.eq('target_id', targetUserId)
           .range(from, to)
           .order('created_at', { ascending: false });
 

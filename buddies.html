@@ -147,7 +147,15 @@
 
         const { data: buddies, error, count } = await supabaseClient
           .from('buddies')
-          .select('buddy_id, profiles!buddies_buddy_id_fkey (username, trust_score, is_verified, role)', { count: 'exact' })
+.select(`
+  buddy_id,
+  profiles (
+    username,
+    trust_score,
+    is_verified,
+    role
+  )
+`, { count: 'exact' })
           .eq('user_id', targetUserId)
           .range(from, to)
           .order('created_at', { ascending: false });
