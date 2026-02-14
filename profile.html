@@ -160,11 +160,51 @@
       padding: 0 30px;
     }
 
-    .gb-profile-grid {
-      display: grid;
-      grid-template-columns: 380px 1fr;
-      gap: 30px;
-    }
+.gb-user-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 15px;
+  margin-top: 15px;
+}
+.gb-user-card {
+  background: var(--gb-bg-light);
+  border: 1px solid var(--gb-border);
+  border-radius: 12px;
+  padding: 15px;
+  text-align: center;
+  transition: all 0.2s;
+}
+.gb-user-card:hover {
+  border-color: var(--gb-primary);
+  transform: translateY(-3px);
+  box-shadow: 0 8px 20px rgba(0,255,136,0.15);
+}
+.gb-user-avatar-lg {
+  width: 70px;
+  height: 70px;
+  background: linear-gradient(135deg, var(--gb-primary), var(--gb-primary-dark));
+  border-radius: 50%;
+  margin: 0 auto 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 32px;
+  font-weight: 800;
+  color: black;
+}
+.gb-user-card h3 {
+  margin: 0 0 5px;
+  font-size: 16px;
+  font-weight: 700;
+}
+.gb-user-card p {
+  color: var(--gb-text-muted);
+  font-size: 13px;
+  margin: 5px 0 0;
+}
+.gb-badge.admin { background: #ff4444; color: white; }
+.gb-badge.moderator { background: #ffaa00; color: black; }
+.gb-badge.verified { background: #00ff88; color: black; }
 
     /* Profile Sidebar - GameBanana Style */
     .gb-profile-sidebar {

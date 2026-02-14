@@ -1265,8 +1265,19 @@ function renderProfile(profile, user) {
         <div class="gb-tabs">
           <button class="gb-tab active" onclick="window.switchTab('uploads')">📦 My Mods</button>
           <button class="gb-tab" onclick="window.switchTab('stats')">📊 Statistics</button>
+          <button class="gb-tab" onclick="window.switchTab('buddies')">👥 Buddies</button>
+          <button class="gb-tab" onclick="window.switchTab('subscribers')">👤 Subscribers</button>
           <button class="gb-tab" onclick="window.switchTab('settings')">⚙️ Settings</button>
         </div>
+
+        <div id="buddies-tab" class="gb-tab-content">
+  <h3>Buddies</h3>
+  <div id="profileBuddiesList" class="gb-user-grid" style="grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 15px;"></div>
+</div>
+<div id="subscribers-tab" class="gb-tab-content">
+  <h3>Subscribers</h3>
+  <div id="profileSubscribersList" class="gb-user-grid" style="grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 15px;"></div>
+</div>
         
         <div id="uploads-tab" class="gb-tab-content active">
           <h3>My Uploaded Mods</h3>
@@ -1435,12 +1446,14 @@ async function updateProfile() {
 window.switchTab = function(tabName) {
   document.querySelectorAll('.gb-tab-content').forEach(tab => tab.classList.remove('active'));
   document.querySelectorAll('.gb-tab').forEach(btn => btn.classList.remove('active'));
-  
+
   const tabEl = document.getElementById(`${tabName}-tab`);
   if (tabEl) tabEl.classList.add('active');
   if (event.target) event.target.classList.add('active');
-  
+
   if (tabName === 'stats') loadUserStats();
+  else if (tabName === 'buddies' && currentUser) loadProfileBuddies(currentUser.id);
+  else if (tabName === 'subscribers' && currentUser) loadProfileSubscribers(currentUser.id);
 };
 
 /* =========================
@@ -2096,6 +2109,71 @@ ${user && user.id !== userId ? `
   } catch (err) { console.error(err); container.innerHTML = '<div class="gb-error">Error loading profile</div>'; }
 }
 
+// =========================
+// PROFILE BUDDIES / SUBSCRIBERS (inline)
+// =========================
+
+async function loadProfileBuddies(userId) {
+  const container = document.getElementById('profileBuddiesList');
+  if (!container) return;
+  container.innerHTML = '<div class="gb-loading-spinner"></div> Loading buddies...';
+  try {
+    const { data, error } = await supabaseClient
+      .from('buddies')
+      .select('buddy_id, profiles!buddies_buddy_id_fkey (username, trust_score, is_verified, role)')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false })
+      .limit(24);
+    if (error) throw error;
+    if (!data || data.length === 0) {
+      container.innerHTML = '<p class="gb-text-muted">No buddies yet.</p>';
+      return;
+    }
+    container.innerHTML = data.map(item => renderUserCard(item.profiles, item.buddy_id)).join('');
+  } catch (err) {
+    console.error(err);
+    container.innerHTML = '<div class="gb-error">Failed to load buddies</div>';
+  }
+}
+
+async function loadProfileSubscribers(userId) {
+  const container = document.getElementById('profileSubscribersList');
+  if (!container) return;
+  container.innerHTML = '<div class="gb-loading-spinner"></div> Loading subscribers...';
+  try {
+    const { data, error } = await supabaseClient
+      .from('subscriptions')
+      .select('subscriber_id, profiles!subscriptions_subscriber_id_fkey (username, trust_score, is_verified, role)')
+      .eq('target_id', userId)
+      .order('created_at', { ascending: false })
+      .limit(24);
+    if (error) throw error;
+    if (!data || data.length === 0) {
+      container.innerHTML = '<p class="gb-text-muted">No subscribers yet.</p>';
+      return;
+    }
+    container.innerHTML = data.map(item => renderUserCard(item.profiles, item.subscriber_id)).join('');
+  } catch (err) {
+    console.error(err);
+    container.innerHTML = '<div class="gb-error">Failed to load subscribers</div>';
+  }
+}
+
+function renderUserCard(profile, userId) {
+  let badge = '';
+  if (profile?.role === 'admin') badge = '<span class="gb-badge admin">ADMIN</span>';
+  else if (profile?.role === 'moderator') badge = '<span class="gb-badge moderator">MOD</span>';
+  else if (profile?.is_verified) badge = '<span class="gb-badge verified">VERIFIED</span>';
+  return `
+    <div class="gb-user-card">
+      <div class="gb-user-avatar-lg">${profile?.username?.charAt(0).toUpperCase() || '?'}</div>
+      <h3><a href="profile.html?id=${userId}" style="color:inherit; text-decoration:none;">${escapeHTML(profile?.username || 'Unknown')}</a></h3>
+      ${badge}
+      <p>⭐ ${profile?.trust_score || 0}</p>
+    </div>
+  `;
+}
+
 /* =========================
    EXPORT GLOBALS
 ========================= */
@@ -2159,6 +2237,10 @@ window.toggleBuddy = toggleBuddy;
 window.toggleSubscribe = toggleSubscribe;
 window.toggleThank = toggleThank;
 window.loadPublicProfile = loadPublicProfile;
+// buddy and subscribers section
+window.loadProfileBuddies = loadProfileBuddies;
+window.loadProfileSubscribers = loadProfileSubscribers;
+window.renderUserCard = renderUserCard;
 
 // Also expose as window.supabaseClient for clarity
 window.supabaseClient = supabaseClient;
