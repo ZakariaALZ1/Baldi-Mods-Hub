@@ -126,108 +126,91 @@
       return div.innerHTML;
     };
   }
-    (async function() {
-      const waitForSupabase = async (maxAttempts = 30) => {
-        for (let i = 0; i < maxAttempts; i++) {
-          if (typeof window.supabaseClient !== 'undefined') return true;
-          await new Promise(resolve => setTimeout(resolve, 100));
-        }
-        return false;
-      };
-      await waitForSupabase();
 
-const urlParams = new URLSearchParams(window.location.search);
-const targetUserId = urlParams.get('id') || (await getCurrentUser())?.id;
-if (!targetUserId || targetUserId.length < 10) {
-  console.error('Invalid targetUserId');
-  window.location.href = 'index.html';
-  return;
-}
+  (async function() {
+    const waitForSupabase = async (maxAttempts = 30) => {
+      for (let i = 0; i < maxAttempts; i++) {
+        if (typeof window.supabaseClient !== 'undefined') return true;
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
+      return false;
+    };
+    await waitForSupabase();
 
-      let currentPage = 1;
-      const limit = 12;
+    const urlParams = new URLSearchParams(window.location.search);
+    const targetUserId = urlParams.get('id') || (await getCurrentUser())?.id;
+    if (!targetUserId || targetUserId.length < 10) {
+      console.error('Invalid targetUserId');
+      window.location.href = 'index.html';
+      return;
+    }
 
-    async function loadBuddies(page = 1) {
-  const container = document.getElementById('buddiesContainer');
-  const subtitle = document.getElementById('subtitle');
-  container.innerHTML = '<div class="gb-loading">Loading buddies...</div>';
-  
-  const from = (page - 1) * limit;
-  const to = from + limit - 1;
+    // Validate UUID format
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!uuidRegex.test(targetUserId)) {
+      console.error('Invalid UUID format:', targetUserId);
+      window.location.href = 'index.html';
+      return;
+    }
 
-  // 1. Fetch buddy IDs
-  const { data: buddies, error: buddiesError, count } = await supabaseClient
-    .from('buddies')
-    .select('buddy_id', { count: 'exact' })
-    .eq('user_id', targetUserId)
-    .range(from, to)
-    .order('created_at', { ascending: false });
+    async function loadBuddies() {
+      const container = document.getElementById('buddiesContainer');
+      const subtitle = document.getElementById('subtitle');
+      container.innerHTML = '<div class="gb-loading">Loading buddies...</div>';
 
-  if (buddiesError) {
-    console.error('Buddies error:', buddiesError);
-    container.innerHTML = '<div class="gb-error">Failed to load buddies</div>';
-    return;
-  }
+      // 1. Single query with join (no pagination)
+      const { data: buddies, error } = await supabaseClient
+        .from('buddies')
+        .select(`
+          buddy_id,
+          profiles:buddy_id (
+            username,
+            trust_score,
+            is_verified,
+            role
+          )
+        `)
+        .eq('user_id', targetUserId)
+        .order('created_at', { ascending: false });
 
-  subtitle.textContent = `Total: ${count || 0}`;
+      if (error) {
+        console.error('Buddies error:', error);
+        container.innerHTML = '<div class="gb-error">Failed to load buddies</div>';
+        return;
+      }
 
-  if (!buddies || buddies.length === 0) {
-    container.innerHTML = '<div class="gb-loading">No buddies yet.</div>';
-    return;
-  }
+      subtitle.textContent = `Total: ${buddies?.length || 0}`;
 
-  // 2. Fetch profile details for those IDs
-  const buddyIds = buddies.map(b => b.buddy_id);
-  const { data: profiles, error: profilesError } = await supabaseClient
-    .from('profiles')
-    .select('id, username, trust_score, is_verified, role')
-    .in('id', buddyIds);
+      if (!buddies || buddies.length === 0) {
+        container.innerHTML = '<div class="gb-loading">No buddies yet.</div>';
+        return;
+      }
 
-  if (profilesError) {
-    console.error('Profiles error:', profilesError);
-    container.innerHTML = '<div class="gb-error">Failed to load profile details</div>';
-    return;
-  }
+      // 2. Render using the joined data
+      container.innerHTML = buddies.map(item => {
+        const p = item.profiles;
+        if (!p) return '';
+        let badge = '';
+        if (p.role === 'admin') badge = '<span class="gb-badge admin">ADMIN</span>';
+        else if (p.role === 'moderator') badge = '<span class="gb-badge moderator">MOD</span>';
+        else if (p.is_verified) badge = '<span class="gb-badge verified">VERIFIED</span>';
+        return `
+          <div class="gb-user-card">
+            <div class="gb-user-avatar-lg">${p.username?.charAt(0).toUpperCase() || '?'}</div>
+            <h3><a href="profile.html?id=${item.buddy_id}" style="color:inherit; text-decoration:none;">${escapeHTML(p.username || 'Unknown')}</a></h3>
+            ${badge}
+            <p>⭐ ${p.trust_score || 0}</p>
+          </div>
+        `;
+      }).join('');
 
-  const profileMap = {};
-  profiles.forEach(p => profileMap[p.id] = p);
+      // Hide pagination controls – they are not used
+      document.getElementById('pagination').style.display = 'none';
+    }
 
-  container.innerHTML = buddies.map(item => {
-    const p = profileMap[item.buddy_id];
-    if (!p) return '';
-    let badge = '';
-    if (p.role === 'admin') badge = '<span class="gb-badge admin">ADMIN</span>';
-    else if (p.role === 'moderator') badge = '<span class="gb-badge moderator">MOD</span>';
-    else if (p.is_verified) badge = '<span class="gb-badge verified">VERIFIED</span>';
-    return `
-      <div class="gb-user-card">
-        <div class="gb-user-avatar-lg">${p.username?.charAt(0).toUpperCase() || '?'}</div>
-        <h3><a href="profile.html?id=${item.buddy_id}" style="color:inherit; text-decoration:none;">${escapeHTML(p.username || 'Unknown')}</a></h3>
-        ${badge}
-        <p>⭐ ${p.trust_score || 0}</p>
-      </div>
-    `;
-  }).join('');
-
-  const totalPages = Math.ceil((count || 0) / limit);
-  document.getElementById('pageInfo').textContent = `Page ${page} of ${totalPages || 1}`;
-  document.getElementById('prevPage').disabled = page <= 1;
-  document.getElementById('nextPage').disabled = page >= totalPages;
-}
-
-      document.getElementById('prevPage').addEventListener('click', () => {
-        if (currentPage > 1) {
-          currentPage--;
-          loadBuddies(currentPage);
-        }
-      });
-      document.getElementById('nextPage').addEventListener('click', () => {
-        currentPage++;
-        loadBuddies(currentPage);
-      });
-
-      loadBuddies(1);
-    })();
-  </script>
+    // Load buddies
+    loadBuddies();
+  })();
+</script>
 </body>
 </html>
