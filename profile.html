@@ -183,29 +183,33 @@
       position: relative;
     }
 
-    .gb-profile-avatar {
-      position: absolute;
-      bottom: -50px;
-      left: 50%;
-      transform: translateX(-50%);
-      width: 100px;
-      height: 100px;
-      background: linear-gradient(135deg, #222, #1a1a1a);
-      border: 4px solid var(--gb-primary);
-      border-radius: 50%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 48px;
-      font-weight: 800;
-      color: var(--gb-primary);
-      box-shadow: 0 10px 20px rgba(0,0,0,0.3);
-    }
+.gb-profile-avatar {
+  position: absolute;
+  bottom: -50px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 100px;
+  height: 100px;
+  background: linear-gradient(135deg, #222, #1a1a1a);
+  border: 4px solid var(--gb-primary);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 48px;
+  font-weight: 800;
+  color: var(--gb-primary);
+  box-shadow: 0 10px 20px rgba(0,0,0,0.3);
+  z-index: 2;
+}
 
 .gb-profile-info {
-  padding: 120px 30px 30px; /* extra space for avatar overlap */
+  padding: 140px 30px 30px;
   text-align: center;
+  position: relative;
+  z-index: 1;
 }
+
 
     .gb-profile-name {
       font-size: 28px;
@@ -653,43 +657,40 @@
 
 @media (max-width: 768px) {
   .gb-profile-info {
-    padding-top: 110px;
+    padding: 120px 20px 25px;
+  }
+
+  .gb-profile-stats {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  .gb-stat-value {
+    font-size: 20px;
+  }
+
+  .gb-stat-label {
+    font-size: 11px;
+  }
+
+  .gb-tabs {
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  .gb-tab {
+    padding: 8px 16px;
+    font-size: 14px;
+  }
+
+  .gb-profile-avatar {
+    width: 80px;
+    height: 80px;
+    font-size: 36px;
+    bottom: -40px;
   }
 }
-      .gb-profile-stats {
-        grid-template-columns: 1fr;
-        gap: 10px;
-      }
-      .gb-stat-value {
-        font-size: 20px;
-      }
-      .gb-stat-label {
-        font-size: 11px;
-      }
-      .gb-tabs {
-        flex-wrap: wrap;
-        justify-content: center;
-      }
-      .gb-tab {
-        padding: 8px 16px;
-        font-size: 14px;
-      }
-      .gb-profile-avatar {
-        width: 80px;
-        height: 80px;
-        font-size: 36px;
-        bottom: -40px;
-      }
-      .gb-profile-avatar {
-  z-index: 2;
-}
-      .gb-profile-info {
-        padding-top: 70px;
-      }
-    .gb-profile-info {
-  position: relative;
-  z-index: 1;
-}
+
     @media (max-width: 480px) {
       .gb-profile-stats {
         grid-template-columns: 1fr;
