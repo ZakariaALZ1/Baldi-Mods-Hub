@@ -1220,159 +1220,91 @@ async function loadProfilePage() {
   }
 }
 
-function renderGameBananaProfile(profile, user) {
+function renderProfile(profile, user) {
   const container = document.getElementById('profile-content');
+  if (!container) return;
+  
   const username = profile?.username || user.email?.split('@')[0] || 'User';
-  const joinDate = profile?.join_date ? new Date(profile.join_date).toLocaleDateString('en-US', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric'
-  }) : 'Today';
+  const joinDate = profile?.join_date ? new Date(profile.join_date).toLocaleDateString() : 'Today';
   const trustScore = profile?.trust_score || 100;
-
+  
   let trustColor = '#ff4444';
   if (trustScore >= 80) trustColor = '#00ff88';
   else if (trustScore >= 50) trustColor = '#ffaa00';
-
-  let roleBadge = '';
-  if (profile?.role === 'admin') {
-    roleBadge = '<span class="gb-profile-badge admin">👑 ADMINISTRATOR</span>';
-  } else if (profile?.role === 'moderator') {
-    roleBadge = '<span class="gb-profile-badge moderator">🛡️ MODERATOR</span>';
-  } else if (profile?.is_verified) {
-    roleBadge = '<span class="gb-profile-badge verified">✅ VERIFIED</span>';
-  } else {
-    roleBadge = '<span class="gb-profile-badge">👤 MEMBER</span>';
-  }
-
+  
   container.innerHTML = `
-    <div class="gb-profile-grid">
-      <!-- Sidebar -->
+    <div class="gb-profile-container">
       <div class="gb-profile-sidebar">
-        <div class="gb-profile-cover"></div>
         <div class="gb-profile-avatar">
-          ${username.charAt(0).toUpperCase()}
+          <div class="gb-avatar">${username.charAt(0).toUpperCase()}</div>
+          ${profile?.is_verified ? '<span class="gb-badge verified">✅ VERIFIED</span>' : ''}
         </div>
-        <div class="gb-profile-info">
-          <h2 class="gb-profile-name">${escapeHTML(username)}</h2>
-          ${roleBadge}
-
-          <div class="gb-profile-stats">
-            <div class="gb-stat">
-              <span class="gb-stat-value">${profile?.upload_count || 0}</span>
-              <span class="gb-stat-label">Uploads</span>
-            </div>
-            <div class="gb-stat">
-              <span class="gb-stat-value">${profile?.download_count || 0}</span>
-              <span class="gb-stat-label">Downloads</span>
-            </div>
-            <div class="gb-stat">
-              <span class="gb-stat-value join-date">${joinDate}</span>
-              <span class="gb-stat-label">Joined</span>
-            </div>
-          </div>
-
-          <div class="gb-trust-score">
-            <div class="gb-trust-header">
-              <span>Trust Score</span>
-              <span style="color: ${trustColor};">${trustScore}%</span>
-            </div>
-            <div class="gb-trust-bar">
-              <div class="gb-trust-fill" style="width: ${trustScore}%; background: ${trustColor};"></div>
-            </div>
-          </div>
-
-          <div class="gb-profile-bio">
-            <h3>About</h3>
-            <p>${escapeHTML(profile?.bio || 'No bio yet. Click settings to add one!')}</p>
-          </div>
-
-          <div class="gb-profile-actions">
-            <a href="buddies.html?id=${user.id}" class="gb-btn gb-btn-outline gb-btn-block">👥 Buddies</a>
-            <a href="subscribers.html?id=${user.id}" class="gb-btn gb-btn-outline gb-btn-block">👤 Subscribers</a>
-            <button onclick="logout()" class="gb-btn gb-btn-danger gb-btn-block">🚪 Sign Out</button>
-          </div>
-        </div> <!-- close gb-profile-info -->
-      </div> <!-- close gb-profile-sidebar -->
-
-      <!-- Main Content -->
+        <h2 style="text-align: center; margin: 10px 0 5px; color: #00ff88;">${escapeHTML(username)}</h2>
+        <div style="text-align: center; color: #ccc; margin-bottom: 20px;">
+          <span class="gb-badge ${profile?.role || 'user'}">${profile?.role?.toUpperCase() || 'USER'}</span>
+        </div>
+        
+        <div class="gb-stats-grid">
+          <div class="gb-stat"><span class="gb-stat-value">${profile?.upload_count || 0}</span><span class="gb-stat-label">Uploads</span></div>
+          <div class="gb-stat"><span class="gb-stat-value">${profile?.download_count || 0}</span><span class="gb-stat-label">Downloads</span></div>
+          <div class="gb-stat"><span class="gb-stat-value">${joinDate}</span><span class="gb-stat-label">Joined</span></div>
+        </div>
+        
+        <div class="gb-trust-score">
+          <div class="gb-trust-label"><span>Trust Score</span><span>${trustScore}</span></div>
+          <div class="gb-trust-bar"><div class="gb-trust-fill" style="width:${trustScore}%; background:${trustColor};"></div></div>
+        </div>
+        
+        <div class="gb-profile-bio">
+          <h3>About</h3>
+          <p>${escapeHTML(profile?.bio || 'No bio yet.')}</p>
+        </div>
+      </div>
+      
       <div class="gb-profile-main">
         <div class="gb-tabs">
           <button class="gb-tab active" onclick="window.switchTab('uploads')">📦 My Mods</button>
           <button class="gb-tab" onclick="window.switchTab('stats')">📊 Statistics</button>
           <button class="gb-tab" onclick="window.switchTab('settings')">⚙️ Settings</button>
         </div>
-
-        <!-- Uploads Tab -->
+        
         <div id="uploads-tab" class="gb-tab-content active">
-          <h3 style="color: var(--gb-primary); margin-bottom: 20px;">My Uploaded Mods</h3>
-          <div id="myMods" class="gb-mod-grid">
-            <div class="gb-loading" style="padding: 40px;">
-              <div class="gb-loading-spinner" style="width: 30px; height: 30px;"></div>
-              <p>Loading your mods...</p>
-            </div>
-          </div>
+          <h3>My Uploaded Mods</h3>
+          <div id="myMods" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px; margin-top: 20px;"></div>
         </div>
-
-        <!-- Stats Tab -->
+        
         <div id="stats-tab" class="gb-tab-content">
-          <h3 style="color: var(--gb-primary); margin-bottom: 20px;">Your Statistics</h3>
-          <div class="gb-stats-grid">
-            <div class="gb-stat-card">
-              <div class="gb-stat-icon">📤</div>
-              <div class="gb-stat-info">
-                <h4>Total Uploads</h4>
-                <span class="gb-stat-number" id="statTotalUploads">0</span>
-              </div>
-            </div>
-            <div class="gb-stat-card">
-              <div class="gb-stat-icon">✅</div>
-              <div class="gb-stat-info">
-                <h4>Approved</h4>
-                <span class="gb-stat-number" id="statApprovedMods">0</span>
-              </div>
-            </div>
-            <div class="gb-stat-card">
-              <div class="gb-stat-icon">⏳</div>
-              <div class="gb-stat-info">
-                <h4>Pending</h4>
-                <span class="gb-stat-number" id="statPendingMods">0</span>
-              </div>
-            </div>
-            <div class="gb-stat-card">
-              <div class="gb-stat-icon">📥</div>
-              <div class="gb-stat-info">
-                <h4>Downloads</h4>
-                <span class="gb-stat-number" id="statTotalDownloads">0</span>
-              </div>
-            </div>
+          <h3>Statistics</h3>
+          <div class="gb-stats-detailed">
+            <div class="gb-stat-card"><div class="gb-stat-icon">📤</div><div class="gb-stat-info"><span class="gb-stat-label">Total Uploads</span><span class="gb-stat-number" id="statTotalUploads">0</span></div></div>
+            <div class="gb-stat-card"><div class="gb-stat-icon">✅</div><div class="gb-stat-info"><span class="gb-stat-label">Approved</span><span class="gb-stat-number" id="statApprovedMods">0</span></div></div>
+            <div class="gb-stat-card"><div class="gb-stat-icon">⏳</div><div class="gb-stat-info"><span class="gb-stat-label">Pending</span><span class="gb-stat-number" id="statPendingMods">0</span></div></div>
+            <div class="gb-stat-card"><div class="gb-stat-icon">📥</div><div class="gb-stat-info"><span class="gb-stat-label">Downloads</span><span class="gb-stat-number" id="statTotalDownloads">0</span></div></div>
           </div>
         </div>
-
-        <!-- Settings Tab -->
+        
         <div id="settings-tab" class="gb-tab-content">
-          <h3 style="color: var(--gb-primary); margin-bottom: 20px;">Profile Settings</h3>
-          <form class="gb-settings-form" onsubmit="event.preventDefault(); updateProfile();">
+          <h3>Profile Settings</h3>
+          <form class="gb-settings-form">
             <div class="gb-form-group">
-              <label for="displayName">Display Name</label>
-              <input type="text" id="displayName" value="${escapeHTML(username)}" maxlength="30" placeholder="Enter your display name">
+              <label>Display Name</label>
+              <input type="text" id="displayName" value="${escapeHTML(username)}" maxlength="30">
               <span class="gb-char-counter" id="nameCounter">${username.length}/30</span>
             </div>
             <div class="gb-form-group">
-              <label for="userBio">Bio</label>
-              <textarea id="userBio" rows="4" maxlength="500" placeholder="Tell the community about yourself...">${escapeHTML(profile?.bio || '')}</textarea>
+              <label>Bio</label>
+              <textarea id="userBio" rows="4" maxlength="500" placeholder="Tell us about yourself...">${escapeHTML(profile?.bio || '')}</textarea>
               <span class="gb-char-counter" id="bioCounter">${profile?.bio?.length || 0}/500</span>
             </div>
             <div class="gb-form-group">
-              <label for="email">Email Address</label>
-              <input type="email" id="email" value="${escapeHTML(user.email)}" disabled style="background: rgba(0,0,0,0.5); opacity: 0.7;">
-              <span class="gb-char-counter">Cannot be changed</span>
+              <label>Email</label>
+              <input type="email" value="${escapeHTML(user.email)}" disabled style="background: #333; opacity: 0.7;">
             </div>
-            <button type="submit" class="gb-btn gb-btn-primary" style="width: 100%;">💾 Save Changes</button>
+            <button type="button" onclick="updateProfile()" class="gb-btn gb-btn-primary">💾 Save Changes</button>
           </form>
         </div>
-      </div> <!-- close gb-profile-main -->
-    </div> <!-- close gb-profile-grid -->
+      </div>
+    </div>
   `;
   
   loadUserStatsFallback();
