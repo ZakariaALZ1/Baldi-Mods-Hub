@@ -779,35 +779,43 @@ async function loadModPage() {
       return;
     }
 
-if (user && user.id !== mod.user_id) {
-  // Check if user already viewed this mod
-  const { data: existingView } = await supabaseClient
-    .from('user_views')
-    .select('id')
-    .eq('user_id', user.id)
-    .eq('mod_id', mod.id)
-    .maybeSingle();
+    // Get current user
+    const user = await getCurrentUser();
 
-  if (!existingView) {
-    try {
-      // Increment view count in mods2 table
-      await supabaseClient.rpc('increment_view_count', { mod_id: mod.id });
-      // Record this view
-      await supabaseClient
+    // ===== UNIQUE VIEW COUNT LOGIC =====
+    // Increment view count only if:
+    // - viewer is logged in
+    // - viewer is NOT the author
+    // - viewer hasn't viewed this mod before
+    if (user && user.id !== mod.user_id) {
+      // Check if this user has already viewed this mod
+      const { data: existingView } = await supabaseClient
         .from('user_views')
-        .insert({ user_id: user.id, mod_id: mod.id });
-    } catch (err) {
-      console.warn("Failed to increment view count:", err);
-    }
-  }
-}
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('mod_id', mod.id)
+        .maybeSingle();
 
+      if (!existingView) {
+        try {
+          await supabaseClient.rpc('increment_view_count', { mod_id: mod.id });
+          await supabaseClient
+            .from('user_views')
+            .insert({ user_id: user.id, mod_id: mod.id });
+        } catch (err) {
+          console.warn("Failed to increment view count:", err);
+        }
+      }
+    }
+
+    // Fetch author profile
     const { data: authorProfile } = await supabaseClient
       .from("profiles")
       .select("username, trust_score, upload_count, download_count, is_verified, role")
       .eq("id", mod.user_id)
       .single();
 
+    // Fetch buddy, subscriber, thank status for current user
     let isBuddy = false, isSubscribed = false, hasThanked = false;
     if (user) {
       const [buddyRes, subRes, thankRes] = await Promise.all([
@@ -823,6 +831,7 @@ if (user && user.id !== mod.user_id) {
     const modContainer = document.getElementById("mod");
     if (!modContainer) return;
 
+    // Generate screenshot gallery HTML
     let screenshotsHtml = '';
     if (mod.screenshots && mod.screenshots.length > 0) {
       const sorted = mod.screenshots.sort((a,b) => (a.sort_order||0) - (b.sort_order||0));
@@ -840,6 +849,7 @@ if (user && user.id !== mod.user_id) {
       `;
     }
 
+    // Determine author badge
     let authorBadge = '👤 MEMBER';
     if (authorProfile?.role === 'admin') authorBadge = '👑 ADMIN';
     else if (authorProfile?.role === 'moderator') authorBadge = '🛡️ MOD';
