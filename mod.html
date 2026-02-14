@@ -592,6 +592,7 @@
         grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
       }
     }
+    
   </style>
 </head>
 <body>
@@ -644,6 +645,37 @@
       <p>© 2026 Baldi Mods Hub. All rights reserved.</p>
     </div>
   </footer>
+
+  <!-- Comment Report Modal -->
+<div id="commentReportModal" class="gb-modal" style="display: none;">
+  <div class="gb-modal-content">
+    <span class="gb-modal-close" onclick="closeCommentReportModal()">&times;</span>
+    <h2>Report Comment</h2>
+    <form id="commentReportForm">
+      <input type="hidden" id="reportCommentId">
+      <div class="gb-form-group">
+        <label for="commentReportReason">Reason <span>*</span></label>
+        <select id="commentReportReason" required>
+          <option value="">Select a reason</option>
+          <option value="spam">Spam</option>
+          <option value="inappropriate">Inappropriate content</option>
+          <option value="harassment">Harassment</option>
+          <option value="offensive">Offensive language</option>
+          <option value="other">Other</option>
+        </select>
+      </div>
+      <div class="gb-form-group">
+        <label for="commentReportDescription">Description</label>
+        <textarea id="commentReportDescription" rows="4" placeholder="Provide more details..."></textarea>
+        <span class="gb-hint">Optional but helpful</span>
+      </div>
+      <div class="gb-form-actions">
+        <button type="submit" class="gb-btn gb-btn-primary">Submit Report</button>
+        <button type="button" class="gb-btn gb-btn-secondary" onclick="closeCommentReportModal()">Cancel</button>
+      </div>
+    </form>
+  </div>
+</div>
 
   <!-- Report Modal -->
   <div id="reportModal" class="gb-modal" style="display: none;">
@@ -701,6 +733,79 @@
       document.getElementById('reportModId').value = modId;
       document.getElementById('reportModal').style.display = 'flex';
     }
+
+    // Comment report modal functions
+function openCommentReportModal(commentId) {
+  document.getElementById('reportCommentId').value = commentId;
+  document.getElementById('commentReportModal').style.display = 'flex';
+}
+
+function closeCommentReportModal() {
+  document.getElementById('commentReportModal').style.display = 'none';
+  document.getElementById('commentReportForm').reset();
+}
+
+// Submit comment report
+document.getElementById('commentReportForm').addEventListener('submit', async function(e) {
+  e.preventDefault();
+  const commentId = document.getElementById('reportCommentId').value;
+  const reason = document.getElementById('commentReportReason').value;
+  const description = document.getElementById('commentReportDescription').value;
+
+  if (!reason) {
+    showNotification('Please select a reason', 'error');
+    return;
+  }
+
+  const user = await getCurrentUser();
+  if (!user) {
+    showNotification('Please login to report', 'error');
+    closeCommentReportModal();
+    return;
+  }
+
+  // Prevent reporting own comment
+  try {
+    const { data: comment, error: commentError } = await supabaseClient
+      .from('comments')
+      .select('user_id')
+      .eq('id', commentId)
+      .single();
+
+    if (commentError) throw commentError;
+
+    if (comment.user_id === user.id) {
+      showNotification('You cannot report your own comment', 'error');
+      closeCommentReportModal();
+      return;
+    }
+  } catch (err) {
+    console.error('Failed to verify comment ownership:', err);
+    showNotification('Failed to process report', 'error');
+    closeCommentReportModal();
+    return;
+  }
+
+  try {
+    const { error } = await supabaseClient
+      .from('reports')
+      .insert({
+        comment_id: commentId,
+        reporter_id: user.id,
+        reason: reason,
+        description: description,
+        status: 'pending'
+      });
+
+    if (error) throw error;
+
+    showNotification('Report submitted successfully', 'success');
+    closeCommentReportModal();
+  } catch (err) {
+    console.error('Report failed:', err);
+    showNotification('Failed to submit report: ' + err.message, 'error');
+  }
+});
 
     function closeReportModal() {
       document.getElementById('reportModal').style.display = 'none';
