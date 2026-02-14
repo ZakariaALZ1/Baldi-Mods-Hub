@@ -174,24 +174,21 @@
 }
 
 .gb-card.mod-card > div:first-child {
-  padding-bottom: 10px; /* ensures space before buttons */
+  padding-bottom: 15px; /* ensures space before buttons */
 }
 
 .gb-card.mod-card .gb-mod-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr; /* two equal columns */
+  gap: 8px;
   margin-top: 15px;
   padding-top: 15px;
   border-top: 1px solid var(--gb-border);
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-  justify-content: space-between; /* pushes report button to right */
 }
-
 .gb-card.mod-card .gb-mod-actions a,
 .gb-card.mod-card .gb-mod-actions button {
-  flex: 1 1 auto; /* allows buttons to shrink if needed */
-  min-width: 130px; /* prevents them from becoming too narrow */
-  text-align: center;
+  width: 100%;       /* fill the grid cell */
+  min-width: 0;      /* allow shrinking if needed */
 }
     .gb-nav-item {
       color: var(--gb-text-muted);
@@ -485,7 +482,7 @@
     /* GameBanana Mod Grid - Responsive */
     .gb-mod-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(600px, 2fr));
+      grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
       gap: 30px;
       margin-top: 30px;
       align-items: stretch; /* ensures all cards have equal height */
@@ -603,6 +600,7 @@
     }
 
     .gb-mod-stats {
+      flex-wrap: nowrap;      /* keep stats on one line */
       display: flex;
       flex-wrap: wrap;
       gap: 15px;
