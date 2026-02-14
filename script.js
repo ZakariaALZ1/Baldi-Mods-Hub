@@ -1976,7 +1976,7 @@ async function addComment(modId, content, parentId = null) {
     console.error('Failed to add comment:', err);
     showNotification('Failed to add comment: ' + err.message, 'error');
   }
-} // <-- only one closing brace here
+}
 
 async function editComment(commentId) {
   const commentDiv = document.getElementById(`comment-text-${commentId}`);
