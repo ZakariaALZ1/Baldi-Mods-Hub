@@ -328,42 +328,85 @@
       return;
     }
     
-    async function loadReports() {
+  async function loadReports() {
   const box = document.getElementById('reportsList');
   if (!box) return;
 
   try {
-    const { data, error } = await supabaseClient
+    // Fetch reports with basic fields
+    const { data: reports, error } = await supabaseClient
       .from('reports')
       .select(`
         *,
-        mods2 (id, title, author_name, file_url),
-        comments (id, content, user_id, profiles!comments_user_id_fkey (username)),
         profiles:reporter_id (username)
       `)
       .order('created_at', { ascending: false });
 
     if (error) throw error;
 
-    if (!data?.length) {
+    if (!reports?.length) {
       box.innerHTML = '<div class="gb-no-results">No reports yet</div>';
       return;
     }
 
-    box.innerHTML = data.map(report => {
-      let targetInfo = '';
+    // For each report, fetch additional details based on type
+    const reportsWithDetails = await Promise.all(reports.map(async (report) => {
+      let targetInfo = {};
+
       if (report.mod_id) {
-        targetInfo = `
-          <strong>Mod:</strong> <a href="mod.html?id=${report.mod_id}" target="_blank">${escapeHTML(report.mods2?.title || 'Unknown')}</a><br>
-          <strong>Author:</strong> ${escapeHTML(report.mods2?.author_name || 'Unknown')}<br>
-        `;
+        const { data: mod } = await supabaseClient
+          .from('mods2')
+          .select('title, author_name')
+          .eq('id', report.mod_id)
+          .single();
+        targetInfo = { type: 'mod', ...mod };
       } else if (report.comment_id) {
-        targetInfo = `
-          <strong>Comment:</strong> ${escapeHTML(report.comments?.content?.substring(0,100))}...<br>
-          <strong>Comment by:</strong> ${escapeHTML(report.comments?.profiles?.username || 'Unknown')}<br>
-          <strong>In mod:</strong> <a href="mod.html?id=${report.comments?.mod_id}" target="_blank">${escapeHTML(report.mods2?.title || 'Unknown mod')}</a><br>
+        const { data: comment } = await supabaseClient
+          .from('comments')
+          .select(`
+            content,
+            mod_id,
+            profiles:user_id (username)
+          `)
+          .eq('id', report.comment_id)
+          .single();
+
+        const { data: mod } = await supabaseClient
+          .from('mods2')
+          .select('title')
+          .eq('id', comment?.mod_id)
+          .single();
+
+        targetInfo = {
+          type: 'comment',
+          content: comment?.content,
+          commentAuthor: comment?.profiles?.username,
+          modTitle: mod?.title,
+          modId: comment?.mod_id
+        };
+      }
+
+      return { ...report, targetInfo };
+    }));
+
+    // Render
+    box.innerHTML = reportsWithDetails.map(report => {
+      const { targetInfo } = report;
+      let targetHtml = '';
+
+      if (targetInfo.type === 'mod') {
+        targetHtml = `
+          <strong>Mod:</strong> <a href="mod.html?id=${report.mod_id}" target="_blank">${escapeHTML(targetInfo.title || 'Unknown')}</a><br>
+          <strong>Author:</strong> ${escapeHTML(targetInfo.author_name || 'Unknown')}<br>
+        `;
+      } else if (targetInfo.type === 'comment') {
+        targetHtml = `
+          <strong>Comment:</strong> ${escapeHTML(targetInfo.content?.substring(0,100))}...<br>
+          <strong>Comment by:</strong> ${escapeHTML(targetInfo.commentAuthor || 'Unknown')}<br>
+          <strong>In mod:</strong> <a href="mod.html?id=${targetInfo.modId}" target="_blank">${escapeHTML(targetInfo.modTitle || 'Unknown mod')}</a><br>
         `;
       }
+
       return `
         <div class="gb-card" style="border-left: 4px solid #ffaa00; margin-bottom: 15px;">
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
@@ -371,7 +414,7 @@
             <span class="gb-badge" style="background:${report.status === 'pending' ? '#ffaa00' : '#00ff88'};">${report.status}</span>
           </div>
           <div style="margin-bottom: 10px;">
-            ${targetInfo}
+            ${targetHtml}
             <strong>Reported by:</strong> ${escapeHTML(report.profiles?.username || 'Unknown')}<br>
             <strong>Reason:</strong> ${escapeHTML(report.reason)}<br>
             ${report.description ? `<strong>Description:</strong> ${escapeHTML(report.description)}<br>` : ''}
@@ -389,7 +432,6 @@
     box.innerHTML = '<div class="gb-error">Failed to load reports</div>';
   }
 }
-
 async function updateReportStatus(reportId, status) {
   try {
     const { error } = await supabaseClient
@@ -413,6 +455,7 @@ async function updateReportStatus(reportId, status) {
     // Load moderation data
     if (typeof loadPendingMods === 'function') loadPendingMods();
     if (typeof loadReportedMods === 'function') loadReportedMods();
+    if (typeof loadReports === 'function') loadReports(); // <-- add this
     
   })();
 </script>
