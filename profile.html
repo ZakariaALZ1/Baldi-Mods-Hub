@@ -202,10 +202,10 @@
       box-shadow: 0 10px 20px rgba(0,0,0,0.3);
     }
 
-    .gb-profile-info {
-      padding: 90px 30px 30px; /* increased from 70px */
-      text-align: center;
-    }
+.gb-profile-info {
+  padding: 120px 30px 30px; /* extra space for avatar overlap */
+  text-align: center;
+}
 
     .gb-profile-name {
       font-size: 28px;
@@ -651,10 +651,11 @@
       }
     }
 
-    @media (max-width: 768px) {
-      .gb-profile-grid {
-        grid-template-columns: 1fr;
-      }
+@media (max-width: 768px) {
+  .gb-profile-info {
+    padding-top: 110px;
+  }
+}
       .gb-profile-stats {
         grid-template-columns: 1fr;
         gap: 10px;
@@ -679,11 +680,16 @@
         font-size: 36px;
         bottom: -40px;
       }
+      .gb-profile-avatar {
+  z-index: 2;
+}
       .gb-profile-info {
         padding-top: 70px;
       }
-    }
-
+    .gb-profile-info {
+  position: relative;
+  z-index: 1;
+}
     @media (max-width: 480px) {
       .gb-profile-stats {
         grid-template-columns: 1fr;
