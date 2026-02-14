@@ -1261,6 +1261,12 @@ function renderProfile(profile, user) {
         </div>
       </div>
       
+      <div class="gb-profile-actions">
+  <a href="buddies.html?id=${user.id}" class="gb-btn gb-btn-outline gb-btn-block">👥 Buddies</a>
+  <a href="subscribers.html?id=${user.id}" class="gb-btn gb-btn-outline gb-btn-block">👤 Subscribers</a>
+  <button onclick="logout()" class="gb-btn gb-btn-danger gb-btn-block">🚪 Sign Out</button>
+</div>
+      
       <div class="gb-profile-main">
         <div class="gb-tabs">
           <button class="gb-tab active" onclick="window.switchTab('uploads')">📦 My Mods</button>
@@ -2063,12 +2069,14 @@ async function loadPublicProfile(userId) {
               <div class="gb-trust-bar"><div class="gb-trust-fill" style="width:${profile.trust_score}%; background:${trustColor};"></div></div>
             </div>
             <div class="gb-profile-bio"><h3>About</h3><p>${escapeHTML(profile.bio || 'No bio.')}</p></div>
-            ${user && user.id !== userId ? `
-              <div class="gb-profile-actions">
-                <button onclick="toggleBuddy('${userId}')" class="gb-btn ${isBuddy ? 'gb-btn-primary' : 'gb-btn-outline'} gb-btn-block" id="buddyBtn-${userId}">${isBuddy ? '✓ Buddy' : '+ Add Buddy'}</button>
-                <button onclick="toggleSubscribe('${userId}')" class="gb-btn ${isSubscribed ? 'gb-btn-primary' : 'gb-btn-outline'} gb-btn-block" id="subBtn-${userId}">${isSubscribed ? '🔔 Subscribed' : '🔔 Subscribe'}</button>
-              </div>
-            ` : ''}
+${user && user.id !== userId ? `
+  <div class="gb-profile-actions">
+    <a href="buddies.html?id=${userId}" class="gb-btn gb-btn-outline gb-btn-block">👥 Buddies</a>
+    <a href="subscribers.html?id=${userId}" class="gb-btn gb-btn-outline gb-btn-block">👤 Subscribers</a>
+    <button onclick="toggleBuddy('${userId}')" class="gb-btn ${isBuddy ? 'gb-btn-primary' : 'gb-btn-outline'} gb-btn-block" id="buddyBtn-${userId}">${isBuddy ? '✓ Buddy' : '+ Add Buddy'}</button>
+    <button onclick="toggleSubscribe('${userId}')" class="gb-btn ${isSubscribed ? 'gb-btn-primary' : 'gb-btn-outline'} gb-btn-block" id="subBtn-${userId}">${isSubscribed ? '🔔 Subscribed' : '🔔 Subscribe'}</button>
+  </div>
+` : ''}
           </div>
         </div>
         <div class="gb-profile-main">

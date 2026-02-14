@@ -12,7 +12,6 @@
   <script src="js/supabase.min.js"></script>
   <script src="config.js"></script>
   <style>
-    /* reuse existing styles from profile */
     :root {
       --gb-primary: #00ff88;
       --gb-primary-dark: #00cc66;
@@ -104,7 +103,7 @@
   </nav>
   <main class="gb-main">
     <div class="gb-page-header">
-      <h1 id="pageTitle">Buddies</h1>
+      <h1>Buddies</h1>
       <p id="subtitle">Loading...</p>
     </div>
     <div id="buddiesContainer" class="gb-user-grid">
@@ -181,7 +180,6 @@
           }).join('');
         }
 
-        // Update pagination
         const totalPages = Math.ceil((count || 0) / limit);
         document.getElementById('pageInfo').textContent = `Page ${page} of ${totalPages || 1}`;
         document.getElementById('prevPage').disabled = page <= 1;
