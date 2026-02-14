@@ -25,7 +25,7 @@ const supabaseClient = window.__SUPABASE_CLIENT__;
 /* =========================
    MEGA BACKEND URL – REPLACE THIS!
 ========================= */
-const MEGA_BACKEND_URL = 'https://baldi-mods-hub-production.up.railway.app/';
+const MEGA_BACKEND_URL = 'https://baldi-mods-hub-production.up.railway.app/upload';
 
 /* =========================
    GLOBAL STATE MANAGEMENT
