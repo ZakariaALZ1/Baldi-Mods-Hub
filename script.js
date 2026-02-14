@@ -1915,67 +1915,58 @@ function renderComment(comment, replies, profileMap, reactionsMap, user) {
 
 async function addComment(modId, content, parentId = null) {
   const user = await getCurrentUser();
-  if (!user) { showNotification('Please login to comment', 'error'); return; }
-  if (!content.trim()) { showNotification('Comment cannot be empty', 'error'); return; }
-
-    // Check if user is muted
-  const { data: profile } = await supabaseClient
-    .from('profiles')
-    .select('muted_until')
-    .eq('id', user.id)
-    .single();
-
-  if (profile?.muted_until && new Date(profile.muted_until) > new Date()) {
-    showNotification('You are muted and cannot comment until ' + new Date(profile.muted_until).toLocaleDateString(), 'error');
+  if (!user) {
+    showNotification('Please login to comment', 'error');
     return;
   }
-  
+  if (!content.trim()) {
+    showNotification('Comment cannot be empty', 'error');
+    return;
+  }
+
+  // Check if user is muted
+  try {
+    const { data: profile, error: profileError } = await supabaseClient
+      .from('profiles')
+      .select('muted_until')
+      .eq('id', user.id)
+      .single();
+
+    if (profileError) {
+      console.warn('Could not check mute status:', profileError);
+    } else if (profile?.muted_until && new Date(profile.muted_until) > new Date()) {
+      showNotification(
+        `You are muted and cannot comment until ${new Date(profile.muted_until).toLocaleDateString()}`,
+        'error'
+      );
+      return;
+    }
+  } catch (err) {
+    console.error('Mute check failed:', err);
+    // Continue anyway? Probably safe to allow comment, but we'll log it.
+  }
+
   try {
     const { error } = await supabaseClient
       .from('comments')
-      .insert({ mod_id: modId, user_id: user.id, content: content.trim(), parent_id: parentId });
+      .insert({
+        mod_id: modId,
+        user_id: user.id,
+        content: content.trim(),
+        parent_id: parentId,
+        created_at: new Date().toISOString()
+      });
+
     if (error) throw error;
+
     showNotification('Comment added', 'success');
     document.getElementById('commentInput').value = '';
     loadComments(modId);
   } catch (err) {
     console.error('Failed to add comment:', err);
-    showNotification('Failed to add comment', 'error');
+    showNotification('Failed to add comment: ' + err.message, 'error');
   }
-}
-
-async function addComment(modId, content, parentId = null) {
-  const user = await getCurrentUser();
-  if (!user) { showNotification('Please login to comment', 'error'); return; }
-  if (!content.trim()) { showNotification('Comment cannot be empty', 'error'); return; }
-
-  // ===== MUTE CHECK =====
-  const { data: profile, error: profileError } = await supabaseClient
-    .from('profiles')
-    .select('muted_until')
-    .eq('id', user.id)
-    .single();
-
-  if (profileError) {
-    console.error('Failed to fetch profile:', profileError);
-  } else if (profile?.muted_until && new Date(profile.muted_until) > new Date()) {
-    showNotification('You are muted and cannot comment until ' + new Date(profile.muted_until).toLocaleDateString(), 'error');
-    return;
-  }
-  // ===== END MUTE CHECK =====
-
-  try {
-    const { error } = await supabaseClient
-      .from('comments')
-      .insert({ mod_id: modId, user_id: user.id, content: content.trim(), parent_id: parentId });
-    if (error) throw error;
-    showNotification('Comment added', 'success');
-    document.getElementById('commentInput').value = '';
-    loadComments(modId);
-  } catch (err) {
-    console.error('Failed to add comment:', err);
-    showNotification('Failed to add comment', 'error');
-  }
+} // <-- brace properly closed
 
 async function editComment(commentId) {
   const commentDiv = document.getElementById(`comment-text-${commentId}`);
