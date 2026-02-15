@@ -2653,44 +2653,6 @@ function renderUserCard(profile, userId) {
     </div>
   `;
 }
-
-// =========================
-// Warn Users
-// =========================
-if (profile.banned) {
-  showNotification('Your account has been banned.', 'error');
-  await supabaseClient.auth.signOut();
-  currentUser = null;
-  currentUserProfile = null;
-  currentUserRole = null;
-  isAuthenticated = false;
-  showPublicUI();
-  return;
-}
-
-async function warnUser(userId, reason, note = '') {
-  if (!await isModerator()) return;
-  const mod = await getCurrentUser();
-  if (!mod) return;
-  
-  try {
-    const { error } = await supabaseClient
-      .from('user_warnings')
-      .insert({
-        user_id: userId,
-        moderator_id: mod.id,
-        reason: reason,
-        note: note
-      });
-    if (error) throw error;
-    showNotification('User warned', 'success');
-    if (typeof loadRiskUsers === 'function') loadRiskUsers();
-  } catch (err) {
-    console.error('Failed to warn user:', err);
-    showNotification('Failed to warn user', 'error');
-  }
-}
-
 /* =========================
    EXPORT GLOBALS
 ========================= */
