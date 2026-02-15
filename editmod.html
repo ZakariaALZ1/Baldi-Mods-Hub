@@ -1,0 +1,843 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="X-Content-Type-Options" content="nosniff">
+  <meta http-equiv="Referrer-Policy" content="strict-origin-when-cross-origin">
+  <title>Edit Mod - Baldi Mods Hub</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90' fill='%2300ff88'>🎓</text></svg>">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+  <script src="js/supabase.min.js"></script>
+  <script src="config.js"></script>
+  <style>
+    /* GameBanana Edit Styles – full copy from upload.html with additions */
+    :root {
+      --gb-primary: #00ff88;
+      --gb-primary-dark: #00cc66;
+      --gb-secondary: #ffaa00;
+      --gb-danger: #ff4444;
+      --gb-info: #2196f3;
+      --gb-bg: #0a0a0a;
+      --gb-bg-light: #1a1a1a;
+      --gb-bg-lighter: #222;
+      --gb-border: #333;
+      --gb-text: #fff;
+      --gb-text-muted: #ccc;
+      --gb-text-dark: #666;
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      background: var(--gb-bg);
+      color: var(--gb-text);
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      line-height: 1.6;
+    }
+
+    /* GameBanana Header */
+    .gb-header {
+      background: linear-gradient(180deg, #1a1a1a 0%, #0f0f0f 100%);
+      border-bottom: 3px solid var(--gb-primary);
+      padding: 20px 0;
+      position: sticky;
+      top: 0;
+      z-index: 1000;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+    }
+
+    .gb-header-content {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 0 30px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .gb-logo {
+      display: flex;
+      align-items: center;
+      gap: 15px;
+    }
+
+    .gb-logo-icon {
+      font-size: 48px;
+      filter: drop-shadow(0 0 10px rgba(0,255,136,0.3));
+    }
+
+    .gb-logo-text h1 {
+      font-size: 28px;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+      background: linear-gradient(135deg, #fff 0%, #00ff88 100%);
+      -webkit-background-clip: text;
+      background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin-bottom: 5px;
+    }
+
+    .gb-logo-tagline {
+      color: var(--gb-text-muted);
+      font-size: 14px;
+      font-weight: 500;
+    }
+
+    /* GameBanana Navigation */
+    .gb-nav {
+      background: var(--gb-bg-light);
+      border-bottom: 1px solid var(--gb-border);
+      padding: 0;
+      position: sticky;
+      top: 120px;
+      z-index: 999;
+    }
+
+    .gb-nav-container {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 0 30px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 15px;
+    }
+
+    .gb-nav-links {
+      display: flex;
+      gap: 5px;
+      padding: 10px 0;
+      flex-wrap: wrap;
+    }
+
+    .gb-nav-item {
+      color: var(--gb-text-muted);
+      text-decoration: none;
+      padding: 12px 24px;
+      border-radius: 8px;
+      font-weight: 600;
+      font-size: 15px;
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      white-space: nowrap;
+    }
+
+    .gb-nav-item:hover {
+      color: var(--gb-text);
+      background: rgba(255,255,255,0.05);
+    }
+
+    .gb-nav-item.active {
+      color: var(--gb-text);
+      background: linear-gradient(135deg, rgba(0,255,136,0.15) 0%, rgba(0,255,136,0.05) 100%);
+      border-bottom: 2px solid var(--gb-primary);
+    }
+
+    .gb-nav-user {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+      flex-wrap: wrap;
+    }
+
+    .gb-user-badge {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 16px;
+      background: rgba(255,255,255,0.05);
+      border-radius: 30px;
+    }
+
+    .gb-user-avatar {
+      width: 32px;
+      height: 32px;
+      background: linear-gradient(135deg, var(--gb-primary), var(--gb-primary-dark));
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      color: black;
+    }
+
+    .gb-user-info {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .gb-user-name {
+      font-size: 14px;
+      font-weight: 600;
+    }
+
+    .gb-user-points {
+      font-size: 12px;
+      color: var(--gb-primary);
+    }
+
+    /* Main Content */
+    .gb-main {
+      max-width: 1000px;
+      margin: 40px auto;
+      padding: 0 30px;
+    }
+
+    .gb-edit-header {
+      margin-bottom: 30px;
+    }
+
+    .gb-edit-header h1 {
+      font-size: 48px;
+      font-weight: 800;
+      background: linear-gradient(135deg, #fff 0%, var(--gb-primary) 100%);
+      -webkit-background-clip: text;
+      background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin-bottom: 10px;
+    }
+
+    .gb-edit-header p {
+      color: var(--gb-text-muted);
+      font-size: 18px;
+    }
+
+    /* Form */
+    .gb-edit-form {
+      background: linear-gradient(135deg, #1a1a1a 0%, #151515 100%);
+      border: 1px solid var(--gb-border);
+      border-radius: 20px;
+      padding: 40px;
+    }
+
+    .gb-form-section {
+      margin-bottom: 30px;
+      padding-bottom: 30px;
+      border-bottom: 1px solid var(--gb-border);
+    }
+
+    .gb-form-section:last-child {
+      border-bottom: none;
+      padding-bottom: 0;
+    }
+
+    .gb-form-section h2 {
+      color: var(--gb-primary);
+      font-size: 20px;
+      font-weight: 700;
+      margin-bottom: 20px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .gb-form-group {
+      margin-bottom: 25px;
+    }
+
+    .gb-form-group label {
+      display: block;
+      margin-bottom: 10px;
+      color: var(--gb-text);
+      font-weight: 600;
+      font-size: 15px;
+    }
+
+    .gb-form-group label span {
+      color: var(--gb-primary);
+      margin-left: 5px;
+    }
+
+    .gb-form-group input,
+    .gb-form-group textarea,
+    .gb-form-group select {
+      width: 100%;
+      padding: 16px 20px;
+      background: rgba(0,0,0,0.3);
+      border: 2px solid var(--gb-border);
+      border-radius: 12px;
+      color: var(--gb-text);
+      font-size: 16px;
+      transition: all 0.2s;
+      font-family: 'Inter', sans-serif;
+    }
+
+    .gb-form-group input:focus,
+    .gb-form-group textarea:focus,
+    .gb-form-group select:focus {
+      outline: none;
+      border-color: var(--gb-primary);
+      background: rgba(0,255,136,0.05);
+      box-shadow: 0 0 0 4px rgba(0,255,136,0.1);
+    }
+
+    .gb-form-group input[type="file"] {
+      padding: 12px;
+      background: rgba(0,0,0,0.2);
+      border: 2px dashed var(--gb-border);
+      cursor: pointer;
+    }
+
+    .gb-form-group input[type="file"]:hover {
+      border-color: var(--gb-primary);
+    }
+
+    .gb-form-group input[type="file"]::-webkit-file-upload-button {
+      background: linear-gradient(135deg, var(--gb-primary), var(--gb-primary-dark));
+      border: none;
+      padding: 10px 20px;
+      border-radius: 8px;
+      color: black;
+      font-weight: 600;
+      margin-right: 20px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .gb-form-group input[type="file"]::-webkit-file-upload-button:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 5px 15px rgba(0,255,136,0.3);
+    }
+
+    .gb-hint {
+      display: block;
+      margin-top: 8px;
+      color: var(--gb-text-muted);
+      font-size: 13px;
+    }
+
+    .gb-char-counter {
+      display: block;
+      text-align: right;
+      font-size: 12px;
+      color: var(--gb-text-muted);
+      margin-top: 8px;
+    }
+
+    /* Screenshots grid */
+    .gb-current-screenshots {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+      gap: 15px;
+      margin: 20px 0;
+    }
+
+    .gb-screenshot-item {
+      position: relative;
+      border: 2px solid var(--gb-border);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+
+    .gb-screenshot-item img {
+      width: 100%;
+      height: 90px;
+      object-fit: cover;
+      display: block;
+    }
+
+    .gb-screenshot-item .remove {
+      position: absolute;
+      top: 5px;
+      right: 5px;
+      background: rgba(255,68,68,0.9);
+      color: white;
+      border: none;
+      border-radius: 50%;
+      width: 24px;
+      height: 24px;
+      cursor: pointer;
+      font-weight: bold;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .gb-screenshot-item .remove:hover {
+      background: #ff4444;
+    }
+
+    .gb-screenshot-item.main {
+      border-color: var(--gb-primary);
+    }
+
+    /* Danger Zone */
+    .gb-danger-zone {
+      background: rgba(255,68,68,0.1);
+      border: 1px solid #ff4444;
+      border-radius: 12px;
+      padding: 20px;
+    }
+
+    /* Form Actions */
+    .gb-form-actions {
+      display: flex;
+      gap: 20px;
+      margin-top: 40px;
+      flex-wrap: wrap;
+    }
+
+    .gb-btn {
+      padding: 18px 36px;
+      border: none;
+      border-radius: 12px;
+      font-weight: 700;
+      font-size: 16px;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      flex: 1;
+      min-width: 200px;
+      text-decoration: none;
+      text-align: center;
+    }
+
+    .gb-btn-primary {
+      background: linear-gradient(135deg, var(--gb-primary), var(--gb-primary-dark));
+      color: black;
+    }
+
+    .gb-btn-primary:hover:not(:disabled) {
+      transform: translateY(-3px);
+      box-shadow: 0 15px 30px rgba(0,255,136,0.3);
+    }
+
+    .gb-btn-danger {
+      background: linear-gradient(135deg, #ff4444, #cc0000);
+      color: white;
+    }
+
+    .gb-btn-danger:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 15px 30px rgba(255,68,68,0.3);
+    }
+
+    .gb-btn-secondary {
+      background: transparent;
+      border: 2px solid var(--gb-border);
+      color: var(--gb-text-muted);
+    }
+
+    .gb-btn-secondary:hover {
+      border-color: var(--gb-primary);
+      color: var(--gb-primary);
+    }
+
+    .gb-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    /* Back Link */
+    .gb-back-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--gb-text-muted);
+      text-decoration: none;
+      font-weight: 600;
+      margin-bottom: 30px;
+      transition: color 0.2s;
+    }
+
+    .gb-back-link:hover {
+      color: var(--gb-primary);
+    }
+
+    /* Loading / Error */
+    .gb-loading {
+      text-align: center;
+      padding: 80px;
+      color: var(--gb-text-muted);
+    }
+
+    .gb-loading-spinner {
+      width: 50px;
+      height: 50px;
+      border: 3px solid rgba(255,255,255,0.1);
+      border-top-color: var(--gb-primary);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      margin: 0 auto 20px;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .gb-error {
+      text-align: center;
+      padding: 60px;
+      background: linear-gradient(135deg, #1a1a1a 0%, #151515 100%);
+      border: 1px solid #ff4444;
+      border-radius: 20px;
+      color: #ff8888;
+    }
+
+    .gb-error h2 {
+      font-size: 32px;
+      margin-bottom: 20px;
+    }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+      .gb-header-content {
+        flex-direction: column;
+        gap: 20px;
+      }
+      .gb-nav-container {
+        flex-direction: column;
+      }
+      .gb-nav-links {
+        justify-content: center;
+      }
+      .gb-form-actions {
+        flex-direction: column;
+      }
+      .gb-edit-header h1 {
+        font-size: 36px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header class="gb-header">
+    <div class="gb-header-content">
+      <div class="gb-logo">
+        <span class="gb-logo-icon">🎓</span>
+        <div class="gb-logo-text">
+          <h1>BALDI MODS HUB</h1>
+          <span class="gb-logo-tagline">Edit Your Mod</span>
+        </div>
+      </div>
+    </div>
+  </header>
+  <nav class="gb-nav" id="main-nav"><!-- filled by JS --></nav>
+  <main class="gb-main">
+    <a href="javascript:history.back()" class="gb-back-link"><span>←</span> Back</a>
+    <div id="edit-content">
+      <div class="gb-edit-header">
+        <h1>✎ Edit Mod</h1>
+        <p>Update your mod's information and screenshots</p>
+      </div>
+      <div id="loading" class="gb-loading">
+        <div class="gb-loading-spinner"></div>
+        <p>Loading mod data...</p>
+      </div>
+      <form id="editForm" class="gb-edit-form" style="display: none;">
+        <input type="hidden" id="modId">
+        
+        <!-- Basic Information -->
+        <div class="gb-form-section">
+          <h2><span>📋</span> Basic Information</h2>
+          <div class="gb-form-group">
+            <label for="title">Mod Title <span>*</span></label>
+            <input type="text" id="title" maxlength="100" required>
+            <span class="gb-char-counter" id="titleCounter">0/100</span>
+          </div>
+          <div class="gb-form-group">
+            <label for="description">Description <span>*</span></label>
+            <textarea id="description" maxlength="5000" rows="6" required></textarea>
+            <span class="gb-char-counter" id="descCounter">0/5000</span>
+          </div>
+        </div>
+
+        <!-- Version Details -->
+        <div class="gb-form-section">
+          <h2><span>⚙️</span> Version Details</h2>
+          <div class="gb-form-group">
+            <label for="version">Version <span>*</span></label>
+            <input type="text" id="version" maxlength="20" required>
+          </div>
+          <div class="gb-form-group">
+            <label for="baldiVersion">Baldi's Basics Version</label>
+            <select id="baldiVersion">
+              <option value="">Select version (optional)</option>
+              <option value="1.4.3">1.4.3</option>
+              <option value="1.4.2">1.4.2</option>
+              <option value="1.4.1">1.4.1</option>
+              <option value="1.3">1.3</option>
+              <option value="1.2">1.2</option>
+              <option value="1.1">1.1</option>
+              <option value="1.0">1.0</option>
+            </select>
+          </div>
+          <div class="gb-form-group">
+            <label for="tags">Tags</label>
+            <input type="text" id="tags" placeholder="gameplay, graphics, audio, etc. (comma separated)">
+            <span class="gb-hint">Separate tags with commas</span>
+          </div>
+        </div>
+
+        <!-- Screenshots Management -->
+        <div class="gb-form-section">
+          <h2><span>🖼️</span> Screenshots</h2>
+          <div id="currentScreenshots" class="gb-current-screenshots"></div>
+          <div class="gb-form-group">
+            <label for="newScreenshots">Add New Screenshots (up to 4 additional)</label>
+            <input type="file" id="newScreenshots" accept="image/*" multiple>
+            <span class="gb-hint">You can select up to 4 images. Existing screenshots are shown above; click × to remove.</span>
+          </div>
+        </div>
+
+        <!-- Danger Zone -->
+        <div class="gb-form-section" style="border-bottom: none;">
+          <h2 style="color: #ff4444;"><span>⚠️</span> Danger Zone</h2>
+          <div class="gb-danger-zone">
+            <p style="margin-bottom:20px;">Once you delete a mod, there is no going back. Please be certain.</p>
+            <button type="button" id="deleteModBtn" class="gb-btn gb-btn-danger">🗑️ Permanently Delete Mod</button>
+          </div>
+        </div>
+
+        <!-- Form Actions -->
+        <div class="gb-form-actions">
+          <button type="submit" id="saveBtn" class="gb-btn gb-btn-primary">💾 Save Changes</button>
+          <a href="javascript:history.back()" class="gb-btn gb-btn-secondary">↩️ Cancel</a>
+        </div>
+      </form>
+    </div>
+  </main>
+  <script src="script.js"></script>
+  <script>
+    (async function() {
+      const waitForSupabase = async (maxAttempts = 30) => {
+        for (let i = 0; i < maxAttempts; i++) {
+          if (typeof window.supabaseClient !== 'undefined') return true;
+          await new Promise(resolve => setTimeout(resolve, 100));
+        }
+        return false;
+      };
+      await waitForSupabase();
+
+      // Update navigation
+      if (typeof window.checkAuthState === 'function') {
+        window.checkAuthState();
+      }
+
+      // Fallback for escapeHTML if not globally available
+      if (typeof window.escapeHTML !== 'function') {
+        window.escapeHTML = function(str) {
+          if (!str) return '';
+          const div = document.createElement('div');
+          div.textContent = str;
+          return div.innerHTML;
+        };
+      }
+
+      const modId = new URLSearchParams(window.location.search).get('id');
+      if (!modId) {
+        window.location.href = 'index.html';
+        return;
+      }
+
+      // Check if user is logged in
+      const user = await window.getCurrentUser();
+      if (!user) {
+        window.showNotification('Please login to edit mods', 'error');
+        setTimeout(() => window.location.href = 'index.html', 2000);
+        return;
+      }
+
+      // Fetch mod
+      const { data: mod, error } = await supabaseClient
+        .from('mods2')
+        .select('*')
+        .eq('id', modId)
+        .single();
+
+      if (error || !mod) {
+        document.getElementById('loading').innerHTML = '<div class="gb-error">Mod not found</div>';
+        return;
+      }
+
+      // Check ownership (allow admin/moderator)
+      const isModerator = await window.isModerator();
+      if (mod.user_id !== user.id && !isModerator) {
+        document.getElementById('loading').innerHTML = '<div class="gb-error">You do not have permission to edit this mod</div>';
+        return;
+      }
+
+      // Populate form
+      document.getElementById('modId').value = mod.id;
+      document.getElementById('title').value = mod.title || '';
+      document.getElementById('description').value = mod.description || '';
+      document.getElementById('version').value = mod.version || '1.0.0';
+      document.getElementById('baldiVersion').value = mod.baldi_version || '';
+      document.getElementById('tags').value = (mod.tags || []).join(', ');
+
+      // Update counters
+      document.getElementById('titleCounter').textContent = `${mod.title?.length || 0}/100`;
+      document.getElementById('descCounter').textContent = `${mod.description?.length || 0}/5000`;
+
+      // Display existing screenshots with remove buttons
+      const screenshotsContainer = document.getElementById('currentScreenshots');
+      if (mod.screenshots && mod.screenshots.length) {
+        mod.screenshots.sort((a,b) => (a.sort_order||0) - (b.sort_order||0));
+        mod.screenshots.forEach((s, index) => {
+          const div = document.createElement('div');
+          div.className = 'gb-screenshot-item' + (s.is_main ? ' main' : '');
+          div.innerHTML = `
+            <img src="${window.escapeHTML(s.url)}" alt="Screenshot">
+            <button type="button" class="remove" data-url="${window.escapeHTML(s.url)}" data-index="${index}" title="Remove this screenshot">×</button>
+          `;
+          screenshotsContainer.appendChild(div);
+        });
+      } else {
+        screenshotsContainer.innerHTML = '<p style="color:#ccc;">No screenshots yet.</p>';
+      }
+
+      // Handle remove screenshot buttons
+      document.querySelectorAll('.remove').forEach(btn => {
+        btn.addEventListener('click', function(e) {
+          e.preventDefault();
+          if (confirm('Remove this screenshot? This cannot be undone.')) {
+            this.closest('.gb-screenshot-item').remove();
+          }
+        });
+      });
+
+      // Hide loading, show form
+      document.getElementById('loading').style.display = 'none';
+      document.getElementById('editForm').style.display = 'block';
+
+      // Save changes
+      document.getElementById('editForm').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        const saveBtn = document.getElementById('saveBtn');
+        window.setLoading(saveBtn, true, 'Saving...');
+
+        try {
+          // Gather form data
+          const newTitle = document.getElementById('title').value.trim();
+          const newDesc = document.getElementById('description').value.trim();
+          const newVersion = document.getElementById('version').value.trim() || '1.0.0';
+          const newBaldi = document.getElementById('baldiVersion').value;
+          const tagsInput = document.getElementById('tags').value;
+          const newTags = tagsInput ? tagsInput.split(',').map(t => t.trim()).filter(t => t) : [];
+
+          // Collect removed screenshot URLs
+          const removedUrls = [];
+          const currentDisplayed = Array.from(document.querySelectorAll('#currentScreenshots .gb-screenshot-item img')).map(img => img.src);
+          const originalUrls = (mod.screenshots || []).map(s => s.url);
+          originalUrls.forEach(url => {
+            if (!currentDisplayed.includes(url)) {
+              removedUrls.push(url);
+            }
+          });
+
+          // Handle new screenshot uploads (to Supabase)
+          const newScreenshotFiles = document.getElementById('newScreenshots').files;
+          const newScreenshotUrls = [];
+          if (newScreenshotFiles.length > 0) {
+            for (let i = 0; i < Math.min(newScreenshotFiles.length, 4); i++) {
+              const file = newScreenshotFiles[i];
+              const ext = file.name.split('.').pop();
+              const path = `${user.id}/edit_${Date.now()}_${i}.${ext}`;
+              const { error: uploadError } = await supabaseClient.storage
+                .from('mod-screenshots')
+                .upload(path, file);
+              if (uploadError) throw uploadError;
+              const { data: urlData } = supabaseClient.storage
+                .from('mod-screenshots')
+                .getPublicUrl(path);
+              newScreenshotUrls.push(urlData.publicUrl);
+            }
+          }
+
+          // Build new screenshots array
+          let keptScreenshots = (mod.screenshots || []).filter(s => !removedUrls.includes(s.url));
+          const nextOrder = keptScreenshots.length;
+          newScreenshotUrls.forEach((url, idx) => {
+            keptScreenshots.push({
+              url,
+              is_main: false,
+              sort_order: nextOrder + idx
+            });
+          });
+
+          // Ensure at least one main screenshot
+          if (!keptScreenshots.some(s => s.is_main) && keptScreenshots.length > 0) {
+            keptScreenshots[0].is_main = true;
+          }
+
+          // Update mod in database
+          const { error: updateError } = await supabaseClient
+            .from('mods2')
+            .update({
+              title: newTitle,
+              description: newDesc,
+              version: newVersion,
+              baldi_version: newBaldi,
+              tags: newTags,
+              screenshots: keptScreenshots,
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', mod.id);
+
+          if (updateError) throw updateError;
+
+          // Delete removed screenshots from storage (if Supabase URLs)
+          for (const url of removedUrls) {
+            if (url.includes('supabase.co')) {
+              const parts = url.split('/');
+              const path = parts.slice(parts.indexOf('mod-screenshots') + 1).join('/');
+              if (path) {
+                await supabaseClient.storage.from('mod-screenshots').remove([path]);
+              }
+            }
+          }
+
+          window.showNotification('✅ Mod updated successfully!', 'success');
+          setTimeout(() => {
+            window.location.href = `mod.html?id=${mod.id}`;
+          }, 1500);
+        } catch (err) {
+          console.error('Update failed:', err);
+          window.showNotification('Update failed: ' + err.message, 'error');
+        } finally {
+          window.setLoading(saveBtn, false);
+        }
+      });
+
+      // Delete mod
+      document.getElementById('deleteModBtn').addEventListener('click', async function() {
+        if (!confirm('⚠️ Are you absolutely sure? This will permanently delete the mod and all its files. This action cannot be undone.')) return;
+        const deleteBtn = this;
+        window.setLoading(deleteBtn, true, 'Deleting...');
+        try {
+          await window.deleteMod(mod.id);
+          window.showNotification('Mod deleted', 'success');
+          setTimeout(() => {
+            window.location.href = 'profile.html';
+          }, 2000);
+        } catch (err) {
+          console.error('Delete failed:', err);
+          window.showNotification('Delete failed: ' + err.message, 'error');
+        } finally {
+          window.setLoading(deleteBtn, false);
+        }
+      });
+
+      // Character counters
+      document.getElementById('title').addEventListener('input', function() {
+        document.getElementById('titleCounter').textContent = `${this.value.length}/100`;
+      });
+      document.getElementById('description').addEventListener('input', function() {
+        document.getElementById('descCounter').textContent = `${this.value.length}/5000`;
+      });
+    })();
+  </script>
+</body>
+</html>
