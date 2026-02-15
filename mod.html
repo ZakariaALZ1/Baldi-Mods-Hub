@@ -592,6 +592,7 @@
         grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
       }
     }
+    
   </style>
 </head>
 <body>
@@ -645,6 +646,37 @@
     </div>
   </footer>
 
+  <!-- Comment Report Modal -->
+<div id="commentReportModal" class="gb-modal" style="display: none;">
+  <div class="gb-modal-content">
+    <span class="gb-modal-close" onclick="closeCommentReportModal()">&times;</span>
+    <h2>Report Comment</h2>
+    <form id="commentReportForm">
+      <input type="hidden" id="reportCommentId">
+      <div class="gb-form-group">
+        <label for="commentReportReason">Reason <span>*</span></label>
+        <select id="commentReportReason" required>
+          <option value="">Select a reason</option>
+          <option value="spam">Spam</option>
+          <option value="inappropriate">Inappropriate content</option>
+          <option value="harassment">Harassment</option>
+          <option value="offensive">Offensive language</option>
+          <option value="other">Other</option>
+        </select>
+      </div>
+      <div class="gb-form-group">
+        <label for="commentReportDescription">Description</label>
+        <textarea id="commentReportDescription" rows="4" placeholder="Provide more details..."></textarea>
+        <span class="gb-hint">Optional but helpful</span>
+      </div>
+      <div class="gb-form-actions">
+        <button type="submit" class="gb-btn gb-btn-primary">Submit Report</button>
+        <button type="button" class="gb-btn gb-btn-secondary" onclick="closeCommentReportModal()">Cancel</button>
+      </div>
+    </form>
+  </div>
+</div>
+
   <!-- Report Modal -->
   <div id="reportModal" class="gb-modal" style="display: none;">
     <div class="gb-modal-content">
@@ -677,6 +709,49 @@
     </div>
   </div>
 
+  <!-- Moderation Action Modal -->
+<div id="actionModal" class="gb-modal" style="display: none;">
+  <div class="gb-modal-content" style="max-width: 500px;">
+    <span class="gb-modal-close" onclick="closeActionModal()">&times;</span>
+    <h2>Moderate Report</h2>
+    <form id="actionForm" onsubmit="event.preventDefault(); executeAction();">
+      <input type="hidden" id="actionReportId">
+      <input type="hidden" id="actionCommentId">
+      <input type="hidden" id="actionTargetUserId">
+      
+      <div class="gb-form-group">
+        <label for="actionType">Action <span>*</span></label>
+        <select id="actionType" required onchange="toggleDurationField()">
+          <option value="">Select an action</option>
+          <option value="delete_comment">🗑️ Delete Comment</option>
+          <option value="warn_user">⚠️ Warn User</option>
+          <option value="mute_user">🔇 Mute User</option>
+        </select>
+      </div>
+
+      <div id="durationGroup" class="gb-form-group" style="display: none;">
+        <label for="muteDuration">Mute Duration</label>
+        <select id="muteDuration">
+          <option value="1 day">1 day</option>
+          <option value="3 days">3 days</option>
+          <option value="7 days">7 days</option>
+          <option value="permanent">Permanent</option>
+        </select>
+      </div>
+
+      <div class="gb-form-group">
+        <label for="actionNote">Moderator Note (optional)</label>
+        <textarea id="actionNote" rows="3" placeholder="Add a note..."></textarea>
+      </div>
+
+      <div class="gb-form-actions" style="display: flex; gap: 10px; justify-content: flex-end;">
+        <button type="submit" class="gb-btn gb-btn-primary">Apply Action</button>
+        <button type="button" class="gb-btn gb-btn-secondary" onclick="closeActionModal()">Cancel</button>
+      </div>
+    </form>
+  </div>
+</div>
+
   <script src="script.js"></script>
   <script>
     (async function() {
@@ -701,6 +776,79 @@
       document.getElementById('reportModId').value = modId;
       document.getElementById('reportModal').style.display = 'flex';
     }
+
+    // Comment report modal functions
+function openCommentReportModal(commentId) {
+  document.getElementById('reportCommentId').value = commentId;
+  document.getElementById('commentReportModal').style.display = 'flex';
+}
+
+function closeCommentReportModal() {
+  document.getElementById('commentReportModal').style.display = 'none';
+  document.getElementById('commentReportForm').reset();
+}
+
+// Submit comment report
+document.getElementById('commentReportForm').addEventListener('submit', async function(e) {
+  e.preventDefault();
+  const commentId = document.getElementById('reportCommentId').value;
+  const reason = document.getElementById('commentReportReason').value;
+  const description = document.getElementById('commentReportDescription').value;
+
+  if (!reason) {
+    showNotification('Please select a reason', 'error');
+    return;
+  }
+
+  const user = await getCurrentUser();
+  if (!user) {
+    showNotification('Please login to report', 'error');
+    closeCommentReportModal();
+    return;
+  }
+
+  // Prevent reporting own comment
+  try {
+    const { data: comment, error: commentError } = await supabaseClient
+      .from('comments')
+      .select('user_id')
+      .eq('id', commentId)
+      .single();
+
+    if (commentError) throw commentError;
+
+    if (comment.user_id === user.id) {
+      showNotification('You cannot report your own comment', 'error');
+      closeCommentReportModal();
+      return;
+    }
+  } catch (err) {
+    console.error('Failed to verify comment ownership:', err);
+    showNotification('Failed to process report', 'error');
+    closeCommentReportModal();
+    return;
+  }
+
+  try {
+    const { error } = await supabaseClient
+      .from('reports')
+      .insert({
+        comment_id: commentId,
+        reporter_id: user.id,
+        reason: reason,
+        description: description,
+        status: 'pending'
+      });
+
+    if (error) throw error;
+
+    showNotification('Report submitted successfully', 'success');
+    closeCommentReportModal();
+  } catch (err) {
+    console.error('Report failed:', err);
+    showNotification('Failed to submit report: ' + err.message, 'error');
+  }
+});
 
     function closeReportModal() {
       document.getElementById('reportModal').style.display = 'none';

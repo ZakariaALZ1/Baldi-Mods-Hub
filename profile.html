@@ -160,18 +160,58 @@
       padding: 0 30px;
     }
 
-    .gb-profile-grid {
-      display: grid;
-      grid-template-columns: 380px 1fr;
-      gap: 30px;
-    }
+.gb-user-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 15px;
+  margin-top: 15px;
+}
+.gb-user-card {
+  background: var(--gb-bg-light);
+  border: 1px solid var(--gb-border);
+  border-radius: 12px;
+  padding: 15px;
+  text-align: center;
+  transition: all 0.2s;
+}
+.gb-user-card:hover {
+  border-color: var(--gb-primary);
+  transform: translateY(-3px);
+  box-shadow: 0 8px 20px rgba(0,255,136,0.15);
+}
+.gb-user-avatar-lg {
+  width: 70px;
+  height: 70px;
+  background: linear-gradient(135deg, var(--gb-primary), var(--gb-primary-dark));
+  border-radius: 50%;
+  margin: 0 auto 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 32px;
+  font-weight: 800;
+  color: black;
+}
+.gb-user-card h3 {
+  margin: 0 0 5px;
+  font-size: 16px;
+  font-weight: 700;
+}
+.gb-user-card p {
+  color: var(--gb-text-muted);
+  font-size: 13px;
+  margin: 5px 0 0;
+}
+.gb-badge.admin { background: #ff4444; color: white; }
+.gb-badge.moderator { background: #ffaa00; color: black; }
+.gb-badge.verified { background: #00ff88; color: black; }
 
     /* Profile Sidebar - GameBanana Style */
     .gb-profile-sidebar {
       background: linear-gradient(135deg, #1a1a1a 0%, #151515 100%);
       border: 1px solid var(--gb-border);
       border-radius: 20px;
-      overflow: hidden;
+      overflow: visible;
       position: sticky;
       top: 200px;
       align-self: start;
@@ -183,29 +223,51 @@
       position: relative;
     }
 
-    .gb-profile-avatar {
-      position: absolute;
-      bottom: -50px;
-      left: 50%;
-      transform: translateX(-50%);
-      width: 100px;
-      height: 100px;
-      background: linear-gradient(135deg, #222, #1a1a1a);
-      border: 4px solid var(--gb-primary);
-      border-radius: 50%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 48px;
-      font-weight: 800;
-      color: var(--gb-primary);
-      box-shadow: 0 10px 20px rgba(0,0,0,0.3);
-    }
+/* ===== PROFILE INFO SPACING FIX ===== */
 
-    .gb-profile-info {
-      padding: 90px 30px 30px; /* increased from 70px */
-      text-align: center;
-    }
+.gb-profile-info {
+  padding: 70px 25px 30px;
+  text-align: center;
+  position: relative;
+  z-index: 1;
+}
+
+/* ===== AVATAR — PERFECT CIRCLE + SAFE OVERLAP ===== */
+
+.gb-profile-avatar {
+  width: 110px;
+  height: 110px;
+  aspect-ratio: 1 / 1;
+  border-radius: 50%;
+
+margin: 20px auto 16px;
+  position: relative;
+  z-index: 2;
+
+  background: linear-gradient(135deg, #1aff8c, #00cc66);
+  border: 4px solid #0f0f0f;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  font-size: 48px;
+  font-weight: 900;
+  color: #000;
+
+  overflow: hidden;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+}
+
+/* ===== IMAGE INSIDE AVATAR ===== */
+
+.gb-profile-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 50%;
+  display: block;
+}
 
     .gb-profile-name {
       font-size: 28px;
@@ -651,38 +713,43 @@
       }
     }
 
-    @media (max-width: 768px) {
-      .gb-profile-grid {
-        grid-template-columns: 1fr;
-      }
-      .gb-profile-stats {
-        grid-template-columns: 1fr;
-        gap: 10px;
-      }
-      .gb-stat-value {
-        font-size: 20px;
-      }
-      .gb-stat-label {
-        font-size: 11px;
-      }
-      .gb-tabs {
-        flex-wrap: wrap;
-        justify-content: center;
-      }
-      .gb-tab {
-        padding: 8px 16px;
-        font-size: 14px;
-      }
-      .gb-profile-avatar {
-        width: 80px;
-        height: 80px;
-        font-size: 36px;
-        bottom: -40px;
-      }
-      .gb-profile-info {
-        padding-top: 70px;
-      }
-    }
+@media (max-width: 768px) {
+
+  .gb-profile-info {
+    padding: 90px 20px 25px;
+  }
+
+  .gb-profile-avatar {
+    width: 80px;
+    height: 80px;
+    font-size: 36px;
+    margin: -40px auto 12px;
+  }
+
+}
+
+  .gb-profile-stats {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  .gb-stat-value {
+    font-size: 20px;
+  }
+
+  .gb-stat-label {
+    font-size: 11px;
+  }
+
+  .gb-tabs {
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  .gb-tab {
+    padding: 8px 16px;
+    font-size: 14px;
+  }
 
     @media (max-width: 480px) {
       .gb-profile-stats {
@@ -916,15 +983,15 @@
                 <h3>About</h3>
                 <p>${escapeHTML(profile?.bio || 'No bio yet. Click settings to add one!')}</p>
               </div>
-
-              <div class="gb-profile-actions">
-                <button onclick="logout()" class="gb-btn gb-btn-danger">
-                  🚪 Sign Out
-                </button>
               </div>
             </div>
           </div>
-
+          
+<div class="gb-profile-actions">
+  <a href="buddies.html?id=${user.id}" class="gb-btn gb-btn-outline gb-btn-block">👥 Buddies</a>
+  <a href="subscribers.html?id=${user.id}" class="gb-btn gb-btn-outline gb-btn-block">👤 Subscribers</a>
+  <button onclick="logout()" class="gb-btn gb-btn-danger gb-btn-block">🚪 Sign Out</button>
+</div>
           <!-- Main Content -->
           <div class="gb-profile-main">
             <div class="gb-tabs">
@@ -1054,27 +1121,6 @@
       div.textContent = str;
       return div.innerHTML;
     }
-
-    // ============================================
-    // TAB SWITCHING
-    // ============================================
-    window.switchTab = function(tabName) {
-      document.querySelectorAll('.gb-tab-content').forEach(tab => tab.classList.remove('active'));
-      document.querySelectorAll('.gb-tab').forEach(btn => btn.classList.remove('active'));
-
-      const tabEl = document.getElementById(`${tabName}-tab`);
-      if (tabEl) tabEl.classList.add('active');
-      if (event.target) event.target.classList.add('active');
-
-      if (tabName === 'stats') {
-        if (typeof loadUserStats === 'function') {
-          loadUserStats();
-        } else {
-          loadUserStatsFallback();
-        }
-      }
-    };
-
     // ============================================
     // CHARACTER COUNTERS
     // ============================================
@@ -1098,6 +1144,24 @@
         }
       }, 500);
     });
-  </script>
+  document.addEventListener('DOMContentLoaded', function() {
+    setTimeout(() => {
+      const displayName = document.getElementById('displayName');
+      const userBio = document.getElementById('userBio');
+      if (displayName) {
+        displayName.addEventListener('input', function() {
+          const counter = document.getElementById('nameCounter');
+          if (counter) counter.textContent = `${this.value.length}/30`;
+        });
+      }
+      if (userBio) {
+        userBio.addEventListener('input', function() {
+          const counter = document.getElementById('bioCounter');
+          if (counter) counter.textContent = `${this.value.length}/500`;
+        });
+      }
+    }, 500);
+  });
+</script>
 </body>
 </html>

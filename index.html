@@ -167,32 +167,153 @@
       padding: 10px 0;
       flex-wrap: wrap;
     }
-    .gb-card.mod-card {
+/* ---------- CARD LAYOUT FIX ---------- */
+
+.gb-card.mod-card {
+  background: linear-gradient(135deg, #1a1a1a 0%, #151515 100%);
+  border: 1px solid var(--gb-border);
+  border-radius: 16px;
+  overflow: hidden;
+
   display: flex;
   flex-direction: column;
   height: 100%;
+
+  transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
-.gb-card.mod-card > div:first-child {
-  padding-bottom: 15px; /* ensures space before buttons */
+.gb-card.mod-card:hover {
+  transform: translateY(-6px);
+  border-color: var(--gb-primary);
+  box-shadow: 0 12px 28px rgba(0,255,136,0.18);
 }
 
-.gb-card.mod-card .gb-mod-actions {
+/* ---------- MOD CONTENT PUSH FOOTER DOWN ---------- */
+
+.gb-mod-content {
+  padding: 25px;
+  flex: 1;
+}
+
+/* ---------- FOOTER ROW FIX ---------- */
+
+.gb-mod-footer {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 14px;
+
+  margin-top: 20px;
+  padding-top: 20px;
+  border-top: 1px solid var(--gb-border);
+}
+
+/* ---------- STATS GROUP ---------- */
+
+.gb-mod-stats {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: nowrap;
+}
+
+/* ---------- ACTION BUTTON GROUP ---------- */
+
+.gb-mod-actions {
   display: flex;
   gap: 10px;
-  margin-top: 15px;
-  padding-top: 15px;
-  border-top: 1px solid var(--gb-border);
-  justify-content: space-between;
+  flex-wrap: wrap;
+  justify-content: flex-end;
 }
 
-.gb-card.mod-card .gb-mod-actions a,
-.gb-card.mod-card .gb-mod-actions button {
-  flex: 1 1 0;
-  min-width: 120px;
-  text-align: center;
+.gb-mod-actions a,
+.gb-mod-actions button {
+  flex: 0 0 auto;
+}
+
+/* ---------- GLOBAL BUTTON FIX ---------- */
+
+.gb-btn {
+  border: none;
+  border-radius: 10px;
+  font-weight: 700;
+  font-size: 14px;
+  cursor: pointer;
+
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+
+  padding: 0 18px;
+  height: 44px;
+
+  flex: 0 0 auto;
+  min-width: auto;
+
+  transition: transform 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease;
+}
+
+.gb-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(0,0,0,0.35);
+  opacity: 0.96;
+}
+
+/* ---------- SMALLER CARD BUTTONS ---------- */
+
+.mod-card .gb-btn {
+  height: 38px;
+  padding: 0 16px;
+  font-size: 13px;
+  border-radius: 8px;
+}
+
+/* ---------- MOD BUTTON STYLE ---------- */
+
+.gb-mod-btn {
+  height: 40px;
+  padding: 0 18px;
+  border-radius: 10px;
+  font-weight: 700;
+  font-size: 14px;
+
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+
   white-space: nowrap;
 }
+
+/* ---------- GRID RESPONSIVE POLISH ---------- */
+
+.gb-mod-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(420px, 1fr));
+  gap: 40px;
+  margin-top: 30px;
+}
+
+/* ---------- MOBILE FIX ---------- */
+
+@media (max-width: 768px) {
+  .gb-mod-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .gb-mod-footer {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .gb-mod-actions {
+    justify-content: center;
+  }
+}
+
+
+
     .gb-nav-item {
       color: var(--gb-text-muted);
       text-decoration: none;
@@ -334,21 +455,29 @@
       flex-wrap: wrap;
     }
 
-    .gb-btn {
-      padding: 15px 30px;
-      border: none;
-      border-radius: 12px;
-      font-weight: 700;
-      font-size: 16px;
-      cursor: pointer;
-      transition: all 0.2s;
-      flex: 1;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 10px;
-      min-width: 150px;
-    }
+.gb-btn {
+  padding: 8px 16px;
+  border: none;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s;
+
+  /* FIX */
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-width: auto;
+}
+.mod-card .gb-btn {
+  padding: 6px 14px;
+  font-size: 13px;
+  border-radius: 6px;
+}
+
 
     .gb-btn-primary {
       background: linear-gradient(135deg, var(--gb-primary), var(--gb-primary-dark));
@@ -483,21 +612,12 @@
     }
 
     /* GameBanana Mod Grid - Responsive */
-    .gb-mod-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
-      gap: 30px;
-      margin-top: 30px;
-      align-items: stretch; /* ensures all cards have equal height */
-    }
-
-    .gb-card.mod-card {
-      display: flex;
-      flex-direction: column;
-      height: 100%;
-      transition: transform 0.2s, border-color 0.2s;
-    }
-
+.gb-mod-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(420px, 1fr));
+  gap: 40px;
+  margin-top: 30px;
+}
     .gb-card.mod-card:hover {
       transform: translateY(-5px);
       border-color: var(--gb-primary);
@@ -602,12 +722,12 @@
       border-top: 1px solid var(--gb-border);
     }
 
-    .gb-mod-stats {
-      flex-wrap: nowrap;      /* keep stats on one line */
-      display: flex;
-      flex-wrap: wrap;
-      gap: 15px;
-    }
+.gb-mod-stats {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 15px;
+}
+
 
     .gb-mod-stat {
       display: flex;
@@ -617,25 +737,19 @@
       font-weight: 600;
       white-space: nowrap;
     }
+.gb-mod-btn {
+  padding: 10px 20px;
+  border-radius: 10px;
+  font-weight: 600;
+  font-size: 14px;
+  text-decoration: none;
+  transition: all 0.2s;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+}
 
-    .gb-mod-actions {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 10px;
-    }
-
-    .gb-mod-btn {
-      padding: 10px 20px;
-      border-radius: 10px;
-      font-weight: 600;
-      font-size: 14px;
-      text-decoration: none;
-      transition: all 0.2s;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      white-space: nowrap;
-    }
 
     .gb-mod-btn-primary {
       background: linear-gradient(135deg, var(--gb-primary), var(--gb-primary-dark));
@@ -792,11 +906,13 @@
       .gb-mod-meta-grid {
         grid-template-columns: 1fr 1fr;
       }
-      .gb-btn-large,
-      .gb-btn {
-        width: 100%;
-        justify-content: center;
-      }
+.gb-btn-large,
+.gb-btn {
+  display: inline-flex;
+  flex: 0 0 auto;
+  min-width: auto;
+}
+
     }
 
     @media (max-width: 480px) {

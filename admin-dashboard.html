@@ -8,37 +8,29 @@
   <script src="js/supabase.min.js"></script>
   <script src="config.js"></script>
   <style>
-    /* Admin Dashboard Styles - Already in your file */
-    /* Keep all your existing admin dashboard styles */
+    /* Admin Dashboard Styles - keep your existing styles */
   </style>
 </head>
 <body>
   <header>
     <div class="header-content">
       <h1>🎓 Baldi Mods Hub - Admin Dashboard</h1>
-      <nav id="main-nav" class="main-nav">
-        <!-- Filled by JavaScript -->
-      </nav>
+      <nav id="main-nav" class="main-nav"><!-- Filled by JS --></nav>
     </div>
   </header>
 
   <main class="dashboard-container">
-    <div id="loading" class="loading">
-      <h2>Verifying admin permissions...</h2>
-    </div>
-    
+    <div id="loading" class="loading"><h2>Verifying admin permissions...</h2></div>
     <div id="content" style="display: none;">
       <div class="admin-nav">
-        <a href="#stats" onclick="document.getElementById('stats').scrollIntoView({behavior: 'smooth'})">📊 Statistics</a>
-        <a href="#flagged" onclick="document.getElementById('flagged').scrollIntoView({behavior: 'smooth'})">🚨 Flagged Mods</a>
-        <a href="#riskyUsers" onclick="document.getElementById('riskyUsers').scrollIntoView({behavior: 'smooth'})">👥 Risky Users</a>
-        <a href="#quarantineMods" onclick="document.getElementById('quarantineMods').scrollIntoView({behavior: 'smooth'})">☣️ Quarantine</a>
+        <a href="#stats" onclick="document.getElementById('stats').scrollIntoView({behavior:'smooth'})">📊 Statistics</a>
+        <a href="#flagged" onclick="document.getElementById('flagged').scrollIntoView({behavior:'smooth'})">🚨 Flagged Mods</a>
+        <a href="#riskyUsers" onclick="document.getElementById('riskyUsers').scrollIntoView({behavior:'smooth'})">👥 Risky Users</a>
+        <a href="#quarantineMods" onclick="document.getElementById('quarantineMods').scrollIntoView({behavior:'smooth'})">☣️ Quarantine</a>
       </div>
 
       <h1>🛡 Admin Dashboard</h1>
-      <div class="admin-warning">
-        ⚠️ This area is restricted to administrators only. All actions are logged and monitored.
-      </div>
+      <div class="admin-warning">⚠️ This area is restricted to administrators only. All actions are logged and monitored.</div>
 
       <div id="stats" class="dashboard-section">
         <h2>📊 System Statistics</h2>
@@ -55,6 +47,12 @@
         <div id="riskyUsers"></div>
       </div>
 
+      <!-- NEW: Deletion Requests Section – fixed ID conflict -->
+      <div id="deletionRequestsSection" class="dashboard-section">
+        <h2>🗑️ Pending Comment Deletions</h2>
+        <div id="deletionRequests"></div>  <!-- This is where the list goes -->
+      </div>
+
       <div id="quarantineMods" class="dashboard-section">
         <h2>☣️ Quarantined Mods</h2>
         <div id="quarantineMods"></div>
@@ -62,48 +60,58 @@
     </div>
   </main>
 
-  <footer>
-    <p>🔒 Admin Dashboard - All administrative actions are logged for security</p>
-  </footer>
+  <footer><p>🔒 Admin Dashboard - All administrative actions are logged for security</p></footer>
 
-<script src="script.js"></script>
-<script>
-  // Wait for supabase to be initialized
-  (async function() {
-    const waitForSupabase = async (maxAttempts = 30) => {
-      for (let i = 0; i < maxAttempts; i++) {
-        if (typeof window.supabaseClient !== 'undefined') {
-          return true;
-        }
-        await new Promise(resolve => setTimeout(resolve, 100));
-      }
-      return false;
-    };
-
-    await waitForSupabase();
-
-    const admin = await window.isAdmin?.();
-
-    if (!admin) {
-      if (typeof window.showNotification === 'function') {
-        window.showNotification('Access denied. Administrator privileges required.', 'error');
-      }
-      setTimeout(() => {
-        window.location.href = 'index.html';
-      }, 2000);
-      return;
+  <script src="script.js"></script>
+  <script>
+    // ===== SAFETY FALLBACK for escapeHTML =====
+    if (typeof escapeHTML !== 'function') {
+      window.escapeHTML = function(str) {
+        if (!str) return '';
+        const div = document.createElement('div');
+        div.textContent = str;
+        return div.innerHTML;
+      };
     }
 
-    // User is admin, show content
-    document.getElementById('loading').style.display = 'none';
-    document.getElementById('content').style.display = 'block';
+    // ===== Prompt for warning =====
+    window.promptWarn = function(userId) {
+      const reason = prompt('Enter warning reason:');
+      if (!reason) return;
+      const note = prompt('Enter additional note (optional):', '');
+      warnUser(userId, reason, note || '');
+    };
 
-    // Load admin dashboard data
-    if (typeof loadAdminStats === 'function') loadAdminStats();
-    if (typeof loadFlaggedMods === 'function') loadFlaggedMods();
-    if (typeof loadRiskUsers === 'function') loadRiskUsers();
-    if (typeof loadQuarantineMods === 'function') loadQuarantineMods();
-  })();
-</script>
+    // ===== Main Initialization =====
+    (async function() {
+      const waitForSupabase = async (maxAttempts = 30) => {
+        for (let i = 0; i < maxAttempts; i++) {
+          if (typeof window.supabaseClient !== 'undefined') return true;
+          await new Promise(resolve => setTimeout(resolve, 100));
+        }
+        return false;
+      };
+      await waitForSupabase();
+
+      const admin = await window.isAdmin?.();
+      if (!admin) {
+        if (typeof window.showNotification === 'function') {
+          window.showNotification('Access denied. Administrator privileges required.', 'error');
+        }
+        setTimeout(() => window.location.href = 'index.html', 2000);
+        return;
+      }
+
+      document.getElementById('loading').style.display = 'none';
+      document.getElementById('content').style.display = 'block';
+
+      // Load all dashboard data
+      if (typeof loadAdminStats === 'function') loadAdminStats();
+      if (typeof loadFlaggedMods === 'function') loadFlaggedMods();
+      if (typeof loadRiskUsers === 'function') loadRiskUsers();      // ← already present
+      if (typeof loadQuarantineMods === 'function') loadQuarantineMods();
+      if (typeof loadDeletionRequests === 'function') loadDeletionRequests(); // ← NEW
+    })();
+  </script>
 </body>
 </html>

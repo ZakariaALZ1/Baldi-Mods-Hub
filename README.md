@@ -4,7 +4,7 @@ A GameBanana-style mod hosting platform for Baldi's Basics mods, built with Supa
 
 ## Features
 - 🔐 Secure authentication with Supabase
-- 📤 2GB mod uploads with malware scanning
+- 📤 100MB mod uploads with malware scanning
 - 🛡️ Moderation system with admin dashboard
 - ⭐ Trust score system for users
 - 🔒 All files scanned for malware
