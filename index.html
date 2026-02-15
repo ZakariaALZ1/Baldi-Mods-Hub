@@ -984,15 +984,15 @@
     </div>
 
     <!-- GameBanana Style Search -->
-    <div class="gb-search-container">
-      <div class="gb-search-box">
-        <span class="gb-search-icon">🔍</span>
-        <input
-          id="search"
-          type="search"
-          placeholder="Search mods by title, author, or tags..."
-          oninput="loadMods()"
-          aria-label="Search mods"
+<div class="gb-search-container">
+  <div class="gb-search-box">
+    <span class="gb-search-icon">🔍</span>
+    <input
+      id="search"
+      type="search"
+      placeholder="Search mods by title, author, or tags..."
+      oninput="debouncedSearch()"
+      aria-label="Search mods"
         >
       </div>
       

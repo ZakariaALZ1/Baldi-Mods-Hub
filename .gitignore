@@ -1,23 +1,47 @@
-# Secrets - NEVER PUSH!
-# config.js is PUBLIC and should be committed!
-# .env.local is for local environment variables (NOT committed)
+# ========================
+# Secrets — NEVER PUSH
+# ========================
 .env
 .env.local
 .env.production
 
+# ========================
+# Node / Backend
+# ========================
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# ========================
 # Supabase local files
+# ========================
 supabase/.temp
 supabase/.branches
 
+# ========================
 # OS files
+# ========================
 .DS_Store
 Thumbs.db
 
-# Editor files (but keep .vscode settings)
+# ========================
+# Editor files
+# ========================
 *.swp
 *.swo
 .idea/
 
+# keep VSCode project settings if you want
+#.vscode/
+
+# ========================
 # Logs
+# ========================
 *.log
-npm-debug.log*
+
+# ========================
+# Temp upload folders (if any)
+# ========================
+tmp/
+uploads/

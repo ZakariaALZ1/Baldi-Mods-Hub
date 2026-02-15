@@ -1,182 +1,200 @@
 // mega-upload-backend/index.js
+
 const express = require('express');
 const multer = require('multer');
 const { Storage } = require('megajs');
 const cors = require('cors');
+const rateLimit = require('express-rate-limit');
+const jwt = require('jsonwebtoken');
 const fs = require('fs');
 const fsPromises = fs.promises;
 const os = require('os');
-const path = require('path');
 require('dotenv').config();
 
 const app = express();
 
-// Configure CORS – allow only your frontend
+/* =========================
+   CONFIG
+========================= */
+
+const FRONTEND_ORIGIN = 'https://zakariaalz1.github.io';
+
+const ALLOWED_EXT = ['.zip', '.rar', '.7z', '.baldimod'];
+const MAX_SIZE = 100 * 1024 * 1024;
+
+/* =========================
+   CORS
+========================= */
+
 app.use(cors({
-  origin: 'https://baldi-mods-hub.vercel.app',
+  origin: FRONTEND_ORIGIN,
   methods: ['POST', 'OPTIONS'],
-  allowedHeaders: ['Content-Type']
+  allowedHeaders: ['Content-Type', 'Authorization']
 }));
 
-// Use system temp directory (works reliably on Railway)
-const upload = multer({ 
-  dest: os.tmpdir(),
-  limits: { fileSize: 100 * 1024 * 1024 } // 100MB limit
+/* =========================
+   RATE LIMIT
+========================= */
+
+const uploadLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  message: { error: "Too many uploads — try later" }
 });
+
+/* =========================
+   MULTER
+========================= */
+
+const upload = multer({
+  dest: os.tmpdir(),
+  limits: { fileSize: MAX_SIZE }
+});
+
+/* =========================
+   ENV CHECK
+========================= */
 
 const MEGA_EMAIL = process.env.MEGA_EMAIL;
 const MEGA_PASSWORD = process.env.MEGA_PASSWORD;
 
 if (!MEGA_EMAIL || !MEGA_PASSWORD) {
-  console.error('❌ Missing Mega credentials in .env');
+  console.error('Missing MEGA credentials');
   process.exit(1);
 }
 
-// Helper to add random delay (optional)
-const randomDelay = () => new Promise(resolve => setTimeout(resolve, Math.floor(Math.random() * 3000) + 1000));
+/* =========================
+   SUPABASE TOKEN VERIFY
+========================= */
 
-// Helper to upload a single file to Mega
-async function uploadFile(file, prefix, uploadFolder) {
-  if (!file) throw new Error('No file provided');
-  
-  const filePath = file.path;
+function requireAuth(req, res, next) {
   try {
-    await fsPromises.access(filePath, fs.constants.R_OK);
-  } catch (err) {
-    throw new Error(`File not accessible: ${filePath}`);
-  }
+    const header = req.headers.authorization;
+    if (!header) return res.status(401).json({ error: "Missing auth header" });
 
-  const stats = await fsPromises.stat(filePath);
-  const fileName = `${prefix}_${Date.now()}_${file.originalname.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
-  
-  const readStream = fs.createReadStream(filePath);
-  
-  try {
-    const uploaded = await uploadFolder.upload({
-      name: fileName,
-      size: stats.size
-    }, readStream).complete;
-    return uploaded;
-  } catch (err) {
-    throw new Error(`Mega upload failed for ${fileName}: ${err.message}`);
-  } finally {
-    readStream.destroy();
+    const token = header.split(' ')[1];
+    const decoded = jwt.decode(token);
+
+    if (!decoded || !decoded.sub) {
+      return res.status(401).json({ error: "Invalid token" });
+    }
+
+    req.userId = decoded.sub;
+    next();
+
+  } catch {
+    res.status(401).json({ error: "Auth failed" });
   }
 }
 
-// Clean up temporary files
-function cleanupFiles(files) {
-  files.forEach(file => {
-    if (file && file.path) {
-      fs.unlink(file.path, (err) => {
-        if (err) console.warn(`Failed to delete temp file ${file.path}:`, err.message);
-      });
-    }
+/* =========================
+   HELPERS
+========================= */
+
+function cleanup(files) {
+  files.forEach(f => {
+    if (f?.path) fs.unlink(f.path, () => {});
   });
 }
 
-// Check if temp directory is writable
-try {
-  fs.accessSync(os.tmpdir(), fs.constants.W_OK);
-  console.log(`✅ Temp directory is writable: ${os.tmpdir()}`);
-} catch (e) {
-  console.error(`❌ Temp directory not writable: ${os.tmpdir()}`, e);
-  process.exit(1);
+function validateExt(name) {
+  const ext = '.' + name.split('.').pop().toLowerCase();
+  return ALLOWED_EXT.includes(ext);
 }
 
-// Main upload endpoint with multer error handling
-app.post('/upload', (req, res) => {
-  const uploadMiddleware = upload.fields([
+async function uploadFile(file, prefix, folder) {
+  const stats = await fsPromises.stat(file.path);
+  const safe = file.originalname.replace(/[^a-zA-Z0-9.-]/g, '_');
+  const name = `${prefix}_${Date.now()}_${safe}`;
+  const stream = fs.createReadStream(file.path);
+
+  const uploaded = await folder.upload({
+    name,
+    size: stats.size
+  }, stream).complete;
+
+  stream.destroy();
+  return uploaded;
+}
+
+/* =========================
+   ROUTE
+========================= */
+
+app.post('/upload', uploadLimiter, requireAuth, (req, res) => {
+
+  const mw = upload.fields([
     { name: 'mainScreenshot', maxCount: 1 },
     { name: 'screenshots', maxCount: 4 },
     { name: 'modFile', maxCount: 1 }
   ]);
 
-  uploadMiddleware(req, res, async (err) => {
-    // Handle multer errors (e.g., file too large, wrong field name)
-    if (err) {
-      console.error('Multer error:', err);
-      return res.status(400).json({ error: err.message });
-    }
+  mw(req, res, async err => {
 
-    // Log received files for debugging
-    console.log('req.files:', JSON.stringify(req.files, (key, value) => {
-      if (key === 'path') return '[path]'; // hide full path
-      return value;
-    }, 2));
-    console.log('req.body:', req.body);
+    if (err) return res.status(400).json({ error: err.message });
 
-    const allFiles = [];
+    const files = [];
     try {
-      // Collect all files for cleanup later
-      if (req.files) {
-        if (req.files.mainScreenshot) allFiles.push(...req.files.mainScreenshot);
-        if (req.files.screenshots) allFiles.push(...req.files.screenshots);
-        if (req.files.modFile) allFiles.push(...req.files.modFile);
-      }
 
-      // Validate required files
       if (!req.files?.mainScreenshot || !req.files?.modFile) {
-        throw new Error('Missing required files (mainScreenshot or modFile)');
+        throw new Error("Missing required files");
       }
 
-      // Optional delay
-      await randomDelay();
+      files.push(...req.files.mainScreenshot);
+      files.push(...req.files.modFile);
+      if (req.files.screenshots) files.push(...req.files.screenshots);
 
-      // Connect to Mega
-      console.log('Connecting to Mega...');
-      const storage = await new Storage({ email: MEGA_EMAIL, password: MEGA_PASSWORD }).ready;
-      const folderName = `baldi_mod_${Date.now()}`;
-      const uploadFolder = await storage.mkdir(folderName);
-      console.log(`Created Mega folder: ${folderName}`);
+      if (!validateExt(req.files.modFile[0].originalname)) {
+        throw new Error("Invalid mod file type");
+      }
 
-      // Upload main screenshot
-      console.log('Uploading main screenshot...');
-      const mainFile = req.files.mainScreenshot[0];
-      const mainUpload = await uploadFile(mainFile, 'main', uploadFolder);
+      console.log("Auth user:", req.userId);
 
-      // Upload additional screenshots (max 4)
-      const extraFiles = req.files.screenshots || [];
-      console.log(`Uploading ${extraFiles.length} additional screenshots...`);
-      const extraUploads = await Promise.all(extraFiles.map(f => uploadFile(f, 'extra', uploadFolder)));
+      const storage = await new Storage({
+        email: MEGA_EMAIL,
+        password: MEGA_PASSWORD
+      }).ready;
 
-      // Upload mod file
-      console.log('Uploading mod file...');
-      const modFile = req.files.modFile[0];
-      const modUpload = await uploadFile(modFile, 'mod', uploadFolder);
+      const folder = await storage.mkdir(`mod_${Date.now()}`);
 
-      // Generate shareable links
-      console.log('Generating links...');
-      const mainLink = await mainUpload.link();
-      const extraLinks = await Promise.all(extraUploads.map(f => f.link()));
-      const modLink = await modUpload.link();
+      const main = await uploadFile(req.files.mainScreenshot[0], 'main', folder);
 
-      // Close Mega session
+      const extras = await Promise.all(
+        (req.files.screenshots || []).map(f =>
+          uploadFile(f, 'extra', folder)
+        )
+      );
+
+      const mod = await uploadFile(req.files.modFile[0], 'mod', folder);
+
+      const result = {
+        mainScreenshotUrl: await main.link(),
+        screenshotUrls: await Promise.all(extras.map(x => x.link())),
+        modFileUrl: await mod.link()
+      };
+
       await storage.close();
-      console.log('Mega session closed.');
+      cleanup(files);
 
-      // Clean up temp files
-      cleanupFiles(allFiles);
+      res.json(result);
 
-      // Send response
-      res.json({
-        mainScreenshotUrl: mainLink,
-        screenshotUrls: extraLinks,
-        modFileUrl: modLink
-      });
-
-    } catch (error) {
-      console.error('Upload error:', error);
-      cleanupFiles(allFiles);
-      res.status(500).json({ error: error.message });
+    } catch (e) {
+      cleanup(files);
+      res.status(500).json({ error: e.message });
     }
   });
 });
 
-// Health check endpoint
-app.get('/health', (req, res) => {
-  res.send('OK');
-});
+/* =========================
+   HEALTH
+========================= */
+
+app.get('/health', (req,res)=>res.send('OK'));
+
+app.listen(process.env.PORT || 3000, () =>
+  console.log("Backend running")
+);
+
 
 // Optional test endpoint to verify file reception (remove in production)
 app.post('/test-upload', upload.fields([

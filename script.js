@@ -622,11 +622,26 @@ async function uploadMod() {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 300000); // 5 min
 
-    const response = await fetch(MEGA_BACKEND_URL, {
-      method: 'POST',
-      body: formData,
-      signal: controller.signal
-    }).finally(() => clearTimeout(timeoutId));
+// Get Supabase session token
+const { data: sessionData } = await supabaseClient.auth.getSession();
+
+if (!sessionData.session) {
+  throw new Error("Not logged in");
+}
+
+const accessToken = sessionData.session.access_token;
+
+const response = await fetch(MEGA_BACKEND_URL, {
+  method: 'POST',
+  headers: {
+    Authorization: `Bearer ${accessToken}`
+  },
+  body: formData,
+  signal: controller.signal
+});
+
+
+
 
     if (!response.ok) {
       let errorText;
@@ -718,6 +733,7 @@ async function uploadMod() {
     setLoading(button, false);
   }
 }
+
   /* =========================
      MOD PAGE
   ========================= */
@@ -1050,6 +1066,14 @@ async function loadModPage() {
       box.innerHTML = '<div class="gb-error">❌ Failed to load mods. Please refresh.</div>';
     }
   }
+
+  let searchTimeout;
+window.debouncedSearch = function() {
+  clearTimeout(searchTimeout);
+  searchTimeout = setTimeout(() => {
+    loadMods();
+  }, 300); // wait 300ms after user stops typing
+};
 
   /* =========================
      TRACK DOWNLOAD
