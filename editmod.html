@@ -788,17 +788,26 @@
 
           if (updateError) throw updateError;
 
-          // Delete removed screenshots from storage (if Supabase URLs)
-          for (const url of removedUrls) {
-            if (url.includes('supabase.co')) {
-              const parts = url.split('/');
-              const path = parts.slice(parts.indexOf('mod-screenshots') + 1).join('/');
-              if (path) {
-                await supabaseClient.storage.from('mod-screenshots').remove([path]);
-              }
-            }
-          }
-
+console.log('Removed URLs:', removedUrls);
+for (const url of removedUrls) {
+  if (url.includes('supabase.co')) {
+    const match = url.match(/\/mod-screenshots\/(.+)$/);
+    if (match && match[1]) {
+      const path = match[1];
+      console.log(`Deleting screenshot: ${path}`);
+      const { error } = await supabaseClient.storage
+        .from('mod-screenshots')
+        .remove([path]);
+      if (error) {
+        console.error('Delete error:', error);
+      } else {
+        console.log('Deleted successfully');
+      }
+    } else {
+      console.warn('Could not extract path from URL:', url);
+    }
+  }
+}
           window.showNotification('✅ Mod updated successfully!', 'success');
           setTimeout(() => {
             window.location.href = `mod.html?id=${mod.id}`;

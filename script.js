@@ -240,6 +240,24 @@
     }
   }
 
+    // ===== BAD WORD FILTER =====
+  const badWords = [
+    'fuck', 'shit', 'ass', 'bitch', 'cunt', 'dick', 'pussy', 'whore', 'slut',
+    'nigger', 'nigga', 'faggot', 'retard', 'bastard', 'piss', 'cock', 'balls',
+    'asshole', 'motherfucker', 'damn', 'hell'
+  ];
+
+  function filterBadWords(text) {
+    if (!text) return text;
+    let filtered = text;
+    badWords.forEach(word => {
+      const regex = new RegExp('\\b' + word + '\\b', 'gi');
+      filtered = filtered.replace(regex, '*'.repeat(word.length));
+    });
+    return filtered;
+  }
+
+
   /* =========================
      AUTH STATE MANAGEMENT
   ========================= */
@@ -589,13 +607,16 @@ async function uploadMod() {
 
     const formData = new FormData();
     formData.append('mainScreenshot', mainScreenshot);          // send original file
-    additionalScreenshots?.forEach(f => formData.append('screenshots', f)); // send additional
+    // Send additional screenshots – convert FileList to array before forEach
+    if (additionalScreenshots) {
+      Array.from(additionalScreenshots).forEach(f => formData.append('screenshots', f));
+    }
     formData.append('modFile', file);
 
     // Log what's being sent (for debugging)
     console.log('Sending to Mega backend:');
     for (let pair of formData.entries()) {
-      console.log(pair[0], pair[1].name || pair[1]);
+      console.log(pair[0], pair[1] instanceof File ? pair[1].name : pair[1]);
     }
 
     const controller = new AbortController();
@@ -720,8 +741,38 @@ async function loadModPage() {
 
     const user = await getCurrentUser();
 
-    // Increment view count only if the viewer is NOT the author
-    if (!user || user.id !== mod.user_id) {
+    // ===== VIEW COUNT LOGIC (unique per user / per browser) =====
+    let shouldIncrement = false;
+
+    if (user) {
+      // Logged‑in user: check user_views table
+      if (user.id !== mod.user_id) {
+        const { data: existingView } = await supabaseClient
+          .from('user_views')
+          .select('id')
+          .eq('user_id', user.id)
+          .eq('mod_id', mod.id)
+          .maybeSingle();
+
+        if (!existingView) {
+          shouldIncrement = true;
+          // Record the view for next time
+          await supabaseClient
+            .from('user_views')
+            .insert({ user_id: user.id, mod_id: mod.id })
+            .catch(err => console.warn("Failed to record user view:", err));
+        }
+      }
+    } else {
+      // Anonymous user: use localStorage
+      const storageKey = `viewed_mod_${mod.id}`;
+      if (!localStorage.getItem(storageKey)) {
+        shouldIncrement = true;
+        localStorage.setItem(storageKey, 'true');
+      }
+    }
+
+    if (shouldIncrement) {
       try {
         await supabaseClient.rpc('increment_view_count', { mod_id: mod.id });
       } catch (err) {
@@ -736,14 +787,14 @@ async function loadModPage() {
       .eq("id", mod.user_id)
       .single();
 
-      if (authorProfile && authorProfile.download_count === undefined) {
-  const { data: userMods } = await supabaseClient
-    .from("mods2")
-    .select("download_count")
-    .eq("user_id", mod.user_id);
-  const totalDownloads = userMods?.reduce((sum, m) => sum + (m.download_count || 0), 0) || 0;
-  authorProfile.download_count = totalDownloads;
-}
+    if (authorProfile && authorProfile.download_count === undefined) {
+      const { data: userMods } = await supabaseClient
+        .from("mods2")
+        .select("download_count")
+        .eq("user_id", mod.user_id);
+      const totalDownloads = userMods?.reduce((sum, m) => sum + (m.download_count || 0), 0) || 0;
+      authorProfile.download_count = totalDownloads;
+    }
 
     // Fetch buddy, subscriber, thank status for current user
     let isBuddy = false, isSubscribed = false, hasThanked = false;
@@ -1766,7 +1817,7 @@ async function deleteMod(id) {
   if (!confirm('⚠️ Permanently delete this mod? This cannot be undone.')) return;
 
   try {
-    // Fetch mod data to get screenshot URLs and file_storage_path (if any)
+    // Fetch mod data to get screenshot URLs
     const { data: mod, error: fetchError } = await supabaseClient
       .from("mods2")
       .select("screenshots, file_storage_path")
@@ -1774,6 +1825,8 @@ async function deleteMod(id) {
       .single();
 
     if (fetchError) throw fetchError;
+
+    console.log('Deleting mod, screenshots:', mod?.screenshots);
 
     // Delete the mod record from database
     const { error } = await supabaseClient
@@ -1783,30 +1836,36 @@ async function deleteMod(id) {
 
     if (error) throw error;
 
-    // Delete all screenshots from storage if they are in Supabase
+    // Delete all screenshots from storage
     if (mod?.screenshots && Array.isArray(mod.screenshots)) {
       for (const screenshot of mod.screenshots) {
         const url = screenshot.url;
         if (url && url.includes('supabase.co')) {
-          // Extract the path from the URL (after 'mod-screenshots/')
-          const parts = url.split('/');
-          const bucketIndex = parts.indexOf('mod-screenshots');
-          if (bucketIndex !== -1) {
-            const path = parts.slice(bucketIndex + 1).join('/');
-            if (path) {
-              try {
-                await supabaseClient.storage.from('mod-screenshots').remove([path]);
-                console.log(`Deleted screenshot: ${path}`);
-              } catch (storageErr) {
-                console.warn("Failed to delete screenshot:", storageErr);
+          // Extract path: everything after 'mod-screenshots/'
+          const match = url.match(/\/mod-screenshots\/(.+)$/);
+          if (match && match[1]) {
+            const path = match[1];
+            console.log(`Attempting to delete screenshot: ${path}`);
+            try {
+              const { error: deleteError } = await supabaseClient.storage
+                .from('mod-screenshots')
+                .remove([path]);
+              if (deleteError) {
+                console.error('Failed to delete screenshot:', deleteError);
+              } else {
+                console.log('Successfully deleted:', path);
               }
+            } catch (storageErr) {
+              console.error('Exception deleting screenshot:', storageErr);
             }
+          } else {
+            console.warn('Could not extract path from URL:', url);
           }
         }
       }
     }
 
-    // Delete mod file if stored in Supabase (for compatibility, though we use Mega now)
+    // Delete mod file if stored in Supabase (optional)
     if (mod?.file_storage_path) {
       try {
         await supabaseClient.storage.from("baldi-mods").remove([mod.file_storage_path]);
@@ -1824,7 +1883,6 @@ async function deleteMod(id) {
     showNotification("Failed to delete mod", "error");
   }
 }
-
   async function clearReport(id) {
     if (!await isModerator()) return;
     try {
@@ -2252,13 +2310,16 @@ async function deleteMod(id) {
       return;
     }
 
+    // Filter bad words
+    const filteredContent = filterBadWords(content.trim());
+
     try {
       const { error } = await supabaseClient
         .from('comments')
         .insert({
           mod_id: modId,
           user_id: user.id,
-          content: content.trim(),
+          content: filteredContent,
           parent_id: parentId,
           created_at: new Date().toISOString()
         });
@@ -2274,16 +2335,18 @@ async function deleteMod(id) {
     }
   }
 
-  async function editComment(commentId) {
+   async function editComment(commentId) {
     const commentDiv = document.getElementById(`comment-text-${commentId}`);
     const currentText = commentDiv.innerText;
     const newText = prompt('Edit your comment:', currentText);
     if (newText === null || newText.trim() === '') return;
 
+    const filteredNew = filterBadWords(newText.trim());
+
     try {
       const { error } = await supabaseClient
         .from('comments')
-        .update({ content: newText.trim(), updated_at: new Date().toISOString() })
+        .update({ content: filteredNew, updated_at: new Date().toISOString() })
         .eq('id', commentId);
       if (error) throw error;
       showNotification('Comment updated', 'success');
@@ -2294,7 +2357,6 @@ async function deleteMod(id) {
       showNotification('Failed to edit comment', 'error');
     }
   }
-
   async function deleteComment(commentId) {
     if (!confirm('Delete this comment?')) return;
     try {

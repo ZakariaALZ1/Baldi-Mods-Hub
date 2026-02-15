@@ -167,152 +167,121 @@
       padding: 10px 0;
       flex-wrap: wrap;
     }
-/* ---------- CARD LAYOUT FIX ---------- */
 
-.gb-card.mod-card {
-  background: linear-gradient(135deg, #1a1a1a 0%, #151515 100%);
-  border: 1px solid var(--gb-border);
-  border-radius: 16px;
-  overflow: hidden;
+    /* ---------- CARD LAYOUT FIX ---------- */
+    .gb-card.mod-card {
+      background: linear-gradient(135deg, #1a1a1a 0%, #151515 100%);
+      border: 1px solid var(--gb-border);
+      border-radius: 16px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+      transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+    }
 
-  display: flex;
-  flex-direction: column;
-  height: 100%;
+    .gb-card.mod-card:hover {
+      transform: translateY(-6px);
+      border-color: var(--gb-primary);
+      box-shadow: 0 12px 28px rgba(0,255,136,0.18);
+    }
 
-  transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
-}
+    .gb-mod-content {
+      padding: 25px;
+      flex: 1;
+    }
 
-.gb-card.mod-card:hover {
-  transform: translateY(-6px);
-  border-color: var(--gb-primary);
-  box-shadow: 0 12px 28px rgba(0,255,136,0.18);
-}
+    .gb-mod-footer {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: center;
+      gap: 14px;
+      margin-top: 20px;
+      padding-top: 20px;
+      border-top: 1px solid var(--gb-border);
+    }
 
-/* ---------- MOD CONTENT PUSH FOOTER DOWN ---------- */
+    .gb-mod-stats {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      flex-wrap: nowrap;
+    }
 
-.gb-mod-content {
-  padding: 25px;
-  flex: 1;
-}
+    .gb-mod-actions {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
 
-/* ---------- FOOTER ROW FIX ---------- */
+    .gb-mod-actions a,
+    .gb-mod-actions button {
+      flex: 0 0 auto;
+    }
 
-.gb-mod-footer {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: space-between;
-  align-items: center;
-  gap: 14px;
+    .gb-btn {
+      border: none;
+      border-radius: 10px;
+      font-weight: 700;
+      font-size: 14px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 0 18px;
+      height: 44px;
+      flex: 0 0 auto;
+      min-width: auto;
+      transition: transform 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease;
+    }
 
-  margin-top: 20px;
-  padding-top: 20px;
-  border-top: 1px solid var(--gb-border);
-}
+    .gb-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 20px rgba(0,0,0,0.35);
+      opacity: 0.96;
+    }
 
-/* ---------- STATS GROUP ---------- */
+    .mod-card .gb-btn {
+      height: 38px;
+      padding: 0 16px;
+      font-size: 13px;
+      border-radius: 8px;
+    }
 
-.gb-mod-stats {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  flex-wrap: nowrap;
-}
+    .gb-mod-btn {
+      height: 40px;
+      padding: 0 18px;
+      border-radius: 10px;
+      font-weight: 700;
+      font-size: 14px;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      white-space: nowrap;
+    }
 
-/* ---------- ACTION BUTTON GROUP ---------- */
+    .gb-mod-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(420px, 1fr));
+      gap: 40px;
+      margin-top: 30px;
+    }
 
-.gb-mod-actions {
-  display: flex;
-  gap: 10px;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-}
-
-.gb-mod-actions a,
-.gb-mod-actions button {
-  flex: 0 0 auto;
-}
-
-/* ---------- GLOBAL BUTTON FIX ---------- */
-
-.gb-btn {
-  border: none;
-  border-radius: 10px;
-  font-weight: 700;
-  font-size: 14px;
-  cursor: pointer;
-
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-
-  padding: 0 18px;
-  height: 44px;
-
-  flex: 0 0 auto;
-  min-width: auto;
-
-  transition: transform 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease;
-}
-
-.gb-btn:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 8px 20px rgba(0,0,0,0.35);
-  opacity: 0.96;
-}
-
-/* ---------- SMALLER CARD BUTTONS ---------- */
-
-.mod-card .gb-btn {
-  height: 38px;
-  padding: 0 16px;
-  font-size: 13px;
-  border-radius: 8px;
-}
-
-/* ---------- MOD BUTTON STYLE ---------- */
-
-.gb-mod-btn {
-  height: 40px;
-  padding: 0 18px;
-  border-radius: 10px;
-  font-weight: 700;
-  font-size: 14px;
-
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-
-  white-space: nowrap;
-}
-
-/* ---------- GRID RESPONSIVE POLISH ---------- */
-
-.gb-mod-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(420px, 1fr));
-  gap: 40px;
-  margin-top: 30px;
-}
-
-/* ---------- MOBILE FIX ---------- */
-
-@media (max-width: 768px) {
-  .gb-mod-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .gb-mod-footer {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  .gb-mod-actions {
-    justify-content: center;
-  }
-}
-
-
+    @media (max-width: 768px) {
+      .gb-mod-grid {
+        grid-template-columns: 1fr;
+      }
+      .gb-mod-footer {
+        flex-direction: column;
+        align-items: stretch;
+      }
+      .gb-mod-actions {
+        justify-content: center;
+      }
+    }
 
     .gb-nav-item {
       color: var(--gb-text-muted);
@@ -455,30 +424,6 @@
       flex-wrap: wrap;
     }
 
-.gb-btn {
-  padding: 8px 16px;
-  border: none;
-  border-radius: 8px;
-  font-weight: 600;
-  font-size: 14px;
-  cursor: pointer;
-  transition: all 0.2s;
-
-  /* FIX */
-  flex: 0 0 auto;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  min-width: auto;
-}
-.mod-card .gb-btn {
-  padding: 6px 14px;
-  font-size: 13px;
-  border-radius: 6px;
-}
-
-
     .gb-btn-primary {
       background: linear-gradient(135deg, var(--gb-primary), var(--gb-primary-dark));
       color: black;
@@ -611,13 +556,6 @@
       color: black;
     }
 
-    /* GameBanana Mod Grid - Responsive */
-.gb-mod-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(420px, 1fr));
-  gap: 40px;
-  margin-top: 30px;
-}
     .gb-card.mod-card:hover {
       transform: translateY(-5px);
       border-color: var(--gb-primary);
@@ -637,7 +575,7 @@
 
     .gb-mod-content {
       padding: 25px;
-      flex: 1; /* pushes footer down */
+      flex: 1;
     }
 
     .gb-mod-header {
@@ -722,12 +660,11 @@
       border-top: 1px solid var(--gb-border);
     }
 
-.gb-mod-stats {
-  display: flex;
-  flex-wrap: nowrap;
-  gap: 15px;
-}
-
+    .gb-mod-stats {
+      display: flex;
+      flex-wrap: nowrap;
+      gap: 15px;
+    }
 
     .gb-mod-stat {
       display: flex;
@@ -737,19 +674,19 @@
       font-weight: 600;
       white-space: nowrap;
     }
-.gb-mod-btn {
-  padding: 10px 20px;
-  border-radius: 10px;
-  font-weight: 600;
-  font-size: 14px;
-  text-decoration: none;
-  transition: all 0.2s;
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  white-space: nowrap;
-}
 
+    .gb-mod-btn {
+      padding: 10px 20px;
+      border-radius: 10px;
+      font-weight: 600;
+      font-size: 14px;
+      text-decoration: none;
+      transition: all 0.2s;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      white-space: nowrap;
+    }
 
     .gb-mod-btn-primary {
       background: linear-gradient(135deg, var(--gb-primary), var(--gb-primary-dark));
@@ -906,13 +843,12 @@
       .gb-mod-meta-grid {
         grid-template-columns: 1fr 1fr;
       }
-.gb-btn-large,
-.gb-btn {
-  display: inline-flex;
-  flex: 0 0 auto;
-  min-width: auto;
-}
-
+      .gb-btn-large,
+      .gb-btn {
+        display: inline-flex;
+        flex: 0 0 auto;
+        min-width: auto;
+      }
     }
 
     @media (max-width: 480px) {
@@ -969,6 +905,7 @@
         <a href="admin-dashboard.html" class="gb-nav-item" id="nav-dashboard" style="display: none;">📊 Dashboard</a>
       </div>
       
+      <!-- User section with logout button – shown/hidden by script -->
       <div class="gb-nav-user" id="user-section" style="display: none;">
         <div class="gb-user-badge">
           <div class="gb-user-avatar" id="userAvatar">?</div>
@@ -977,35 +914,32 @@
             <span class="gb-user-points" id="userTrustScore">⭐ 0</span>
           </div>
         </div>
-        <button onclick="logout()" class="gb-btn gb-btn-secondary" style="padding: 10px 20px;">
-          🚪 Logout
-        </button>
+        <button onclick="logout()" class="gb-btn gb-btn-secondary" style="padding: 10px 20px;">🚪 Logout</button>
       </div>
     </div>
   </nav>
 
   <!-- Rules Section (visible to all) -->
-<div class="gb-rules-section" style="margin-bottom: 40px; background: var(--gb-bg-light); padding: 25px; border-radius: 16px; border: 1px solid var(--gb-border);">
-  <h2 style="color: var(--gb-primary); margin-bottom: 20px;">📋 Community Rules</h2>
-  <ul style="color: var(--gb-text-muted); list-style: none; padding: 0;">
-    <li style="margin-bottom: 10px; display: flex; gap: 10px;"><span style="color: var(--gb-primary);">✓</span> Be respectful to other members.</li>
-    <li style="margin-bottom: 10px; display: flex; gap: 10px;"><span style="color: var(--gb-primary);">✓</span> No malware, viruses, or harmful content.</li>
-    <li style="margin-bottom: 10px; display: flex; gap: 10px;"><span style="color: var(--gb-primary);">✓</span> Credit original authors when using assets.</li>
-    <li style="margin-bottom: 10px; display: flex; gap: 10px;"><span style="color: var(--gb-primary);">✓</span> Do not reupload mods without permission.</li>
-    <li style="margin-bottom: 10px; display: flex; gap: 10px;"><span style="color: var(--gb-primary);">✓</span> Keep content appropriate for all ages.</li>
-    <li style="margin-bottom: 10px; display: flex; gap: 10px;"><span style="color: var(--gb-primary);">✓</span> Maximum file size: 100 MB.</li>
-  </ul>
-</div>
-
-<!-- Admin Announcement Section (visible only to admins) -->
-<div id="admin-announcement" class="gb-admin-section" style="display: none; margin-bottom: 40px; background: linear-gradient(135deg, rgba(255,68,68,0.1) 0%, rgba(255,68,68,0.05) 100%); border: 1px solid #ff4444; border-radius: 16px; padding: 25px;">
-  <h2 style="color: #ff4444; margin-bottom: 20px;">📢 Admin Announcement</h2>
-  <div id="announcementContent" style="color: var(--gb-text); background: rgba(0,0,0,0.2); padding: 15px; border-radius: 8px; margin-bottom: 15px;">
-    <p>Welcome admins! You can post important updates here. This section is only visible to administrators.</p>
-    <p><em>To edit this message, modify the HTML in index.html (look for #announcementContent).</em></p>
+  <div class="gb-rules-section" style="margin-bottom: 40px; background: var(--gb-bg-light); padding: 25px; border-radius: 16px; border: 1px solid var(--gb-border);">
+    <h2 style="color: var(--gb-primary); margin-bottom: 20px;">📋 Community Rules</h2>
+    <ul style="color: var(--gb-text-muted); list-style: none; padding: 0;">
+      <li style="margin-bottom: 10px; display: flex; gap: 10px;"><span style="color: var(--gb-primary);">✓</span> Be respectful to other members.</li>
+      <li style="margin-bottom: 10px; display: flex; gap: 10px;"><span style="color: var(--gb-primary);">✓</span> No malware, viruses, or harmful content.</li>
+      <li style="margin-bottom: 10px; display: flex; gap: 10px;"><span style="color: var(--gb-primary);">✓</span> Credit original authors when using assets.</li>
+      <li style="margin-bottom: 10px; display: flex; gap: 10px;"><span style="color: var(--gb-primary);">✓</span> Do not reupload mods without permission.</li>
+      <li style="margin-bottom: 10px; display: flex; gap: 10px;"><span style="color: var(--gb-primary);">✓</span> Keep content appropriate for all ages.</li>
+      <li style="margin-bottom: 10px; display: flex; gap: 10px;"><span style="color: var(--gb-primary);">✓</span> Maximum file size: 100 MB.</li>
+    </ul>
   </div>
-  <!-- Optional: Add a textarea for admins to edit on the fly? That would require backend. For now, static. -->
-</div>
+
+  <!-- Admin Announcement Section (visible only to admins) -->
+  <div id="admin-announcement" class="gb-admin-section" style="display: none; margin-bottom: 40px; background: linear-gradient(135deg, rgba(255,68,68,0.1) 0%, rgba(255,68,68,0.05) 100%); border: 1px solid #ff4444; border-radius: 16px; padding: 25px;">
+    <h2 style="color: #ff4444; margin-bottom: 20px;">📢 Admin Announcement</h2>
+    <div id="announcementContent" style="color: var(--gb-text); background: rgba(0,0,0,0.2); padding: 15px; border-radius: 8px; margin-bottom: 15px;">
+      <p>Welcome admins! You can post important updates here. This section is only visible to administrators.</p>
+      <p><em>To edit this message, modify the HTML in index.html (look for #announcementContent).</em></p>
+    </div>
+  </div>
 
   <!-- GameBanana Style Auth Card (shown when logged out) -->
   <div class="gb-auth-container" id="auth-section">
@@ -1139,62 +1073,70 @@
     </div>
   </footer>
 
-<script src="script.js"></script>
-<script>
-async function waitForSupabase(maxAttempts = 30) {
-  for (let i = 0; i < maxAttempts; i++) {
-    if (typeof window.supabaseClient !== 'undefined' && 
-        typeof window.supabaseClient.from === 'function') {
-      return true;
+  <script src="script.js"></script>
+  <script>
+    async function waitForSupabase(maxAttempts = 30) {
+      for (let i = 0; i < maxAttempts; i++) {
+        if (typeof window.supabaseClient !== 'undefined' && 
+            typeof window.supabaseClient.from === 'function') {
+          return true;
+        }
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
+      return false;
     }
-    await new Promise(resolve => setTimeout(resolve, 100));
-  }
-  return false;
-}
 
-async function loadHeaderStats() {
-  try {
-    if (!await waitForSupabase()) {
-      setTimeout(loadHeaderStats, 1000);
-      return;
-    }
-    const { count: modCount } = await window.supabaseClient
-      .from('mods2')
-      .select('*', { count: 'exact', head: true })
-      .eq('approved', true);
-      
-    const { count: userCount } = await window.supabaseClient
-      .from('profiles')
-      .select('*', { count: 'exact', head: true });
-      
-    const { data: mods } = await window.supabaseClient
-      .from('mods2')
-      .select('download_count');
+    async function loadHeaderStats() {
+      try {
+        if (!await waitForSupabase()) {
+          setTimeout(loadHeaderStats, 1000);
+          return;
+        }
+        const { count: modCount } = await window.supabaseClient
+          .from('mods2')
+          .select('*', { count: 'exact', head: true })
+          .eq('approved', true);
           
-    const downloadCount = mods?.reduce((sum, m) => sum + (m.download_count || 0), 0) || 0;
-    
-    document.getElementById('headerTotalMods').textContent = modCount || 0;
-    document.getElementById('headerTotalUsers').textContent = userCount || 0;
-    document.getElementById('headerTotalDownloads').textContent = downloadCount.toLocaleString();
-    document.getElementById('modCount').textContent = modCount || 0;
+        const { count: userCount } = await window.supabaseClient
+          .from('profiles')
+          .select('*', { count: 'exact', head: true });
+          
+        const { data: mods } = await window.supabaseClient
+          .from('mods2')
+          .select('download_count');
+              
+        const downloadCount = mods?.reduce((sum, m) => sum + (m.download_count || 0), 0) || 0;
         
-  } catch (err) {
-    console.error('Failed to load stats:', err);
-    setTimeout(loadHeaderStats, 2000);
-  }
-}
+        // Safely update elements only if they exist
+        const headerTotalMods = document.getElementById('headerTotalMods');
+        if (headerTotalMods) headerTotalMods.textContent = modCount || 0;
+        
+        const headerTotalUsers = document.getElementById('headerTotalUsers');
+        if (headerTotalUsers) headerTotalUsers.textContent = userCount || 0;
+        
+        const headerTotalDownloads = document.getElementById('headerTotalDownloads');
+        if (headerTotalDownloads) headerTotalDownloads.textContent = downloadCount.toLocaleString();
+        
+        const modCountEl = document.getElementById('modCount');
+        if (modCountEl) modCountEl.textContent = modCount || 0;
+            
+      } catch (err) {
+        console.error('Failed to load stats:', err);
+        setTimeout(loadHeaderStats, 2000);
+      }
+    }
 
-document.addEventListener('DOMContentLoaded', async function() {
-  if (await waitForSupabase()) {
-    setTimeout(() => {
-      if (typeof window.checkAuthState === 'function') window.checkAuthState();
-      if (typeof window.loadMods === 'function') window.loadMods();
-      loadHeaderStats();
-    }, 200);
-  } else {
-    console.error('Supabase failed to initialize after multiple attempts');
-  }
-});
-</script>
+    document.addEventListener('DOMContentLoaded', async function() {
+      if (await waitForSupabase()) {
+        setTimeout(() => {
+          if (typeof window.checkAuthState === 'function') window.checkAuthState();
+          if (typeof window.loadMods === 'function') window.loadMods();
+          loadHeaderStats();
+        }, 200);
+      } else {
+        console.error('Supabase failed to initialize after multiple attempts');
+      }
+    });
+  </script>
 </body>
 </html>
