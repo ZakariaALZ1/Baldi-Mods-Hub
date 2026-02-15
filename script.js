@@ -549,10 +549,10 @@ async function uploadMod() {
   document.querySelector('.gb-upload-form')?.appendChild(progressDiv);
 
   try {
-    // ===== 1. Upload screenshots to Supabase Storage =====
-    progressDiv.innerHTML = '<div class="gb-progress-spinner"></div> Uploading screenshots (1/2)...';
+    // ===== 1. Upload screenshots to Supabase Storage (for display) =====
+    progressDiv.innerHTML = '<div class="gb-progress-spinner"></div> Uploading screenshots...';
 
-    // Upload main screenshot
+    // Upload main screenshot to Supabase
     const mainExt = mainScreenshot.name.split('.').pop();
     const mainPath = `${user.id}/main_${Date.now()}.${mainExt}`;
     const { error: mainUploadError } = await supabaseClient.storage
@@ -564,13 +564,13 @@ async function uploadMod() {
       .getPublicUrl(mainPath);
     const mainScreenshotUrl = mainUrlData.publicUrl;
 
-    // Upload additional screenshots (max 2)
+    // Upload additional screenshots to Supabase (max 2)
     const screenshotUrls = [];
     if (additionalScreenshots && additionalScreenshots.length > 0) {
       const maxAdditional = 2;
       for (let i = 0; i < Math.min(additionalScreenshots.length, maxAdditional); i++) {
         const file = additionalScreenshots[i];
-        progressDiv.innerHTML = `<div class="gb-progress-spinner"></div> Uploading screenshot ${i+1} of ${additionalScreenshots.length}...`;
+        progressDiv.innerHTML = `<div class="gb-progress-spinner"></div> Uploading screenshot ${i+1}...`;
         const ext = file.name.split('.').pop();
         const path = `${user.id}/add_${Date.now()}_${i}.${ext}`;
         const { error: addUploadError } = await supabaseClient.storage
@@ -584,11 +584,19 @@ async function uploadMod() {
       }
     }
 
-    // ===== 2. Upload mod file to Mega with timeout =====
-    progressDiv.innerHTML = '<div class="gb-progress-spinner"></div> Uploading mod file to Mega (2/2) – this may take a few minutes...';
+    // ===== 2. Upload all files to Mega backend (to satisfy backend validation) =====
+    progressDiv.innerHTML = '<div class="gb-progress-spinner"></div> Uploading mod file to Mega...';
 
     const formData = new FormData();
+    formData.append('mainScreenshot', mainScreenshot);          // send original file
+    additionalScreenshots?.forEach(f => formData.append('screenshots', f)); // send additional
     formData.append('modFile', file);
+
+    // Log what's being sent (for debugging)
+    console.log('Sending to Mega backend:');
+    for (let pair of formData.entries()) {
+      console.log(pair[0], pair[1].name || pair[1]);
+    }
 
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 300000); // 5 min
@@ -599,35 +607,23 @@ async function uploadMod() {
       signal: controller.signal
     }).finally(() => clearTimeout(timeoutId));
 
-    // Handle HTTP errors
     if (!response.ok) {
       let errorText;
       try {
-        // Try to parse error as JSON
         const errorJson = await response.json();
         errorText = errorJson.error || errorJson.message || JSON.stringify(errorJson);
       } catch {
-        // If not JSON, get as text
         errorText = await response.text();
       }
       throw new Error(`Server error ${response.status}: ${errorText || 'Unknown error'}`);
     }
 
-    // Parse successful response
-    let result;
-    try {
-      result = await response.json();
-    } catch (e) {
-      throw new Error(`Invalid JSON response from server: ${e.message}`);
-    }
+    const result = await response.json();
+    const { modFileUrl } = result; // we ignore screenshot URLs from Mega
 
-    const { mainScreenshotUrl: megaMainUrl, screenshotUrls: megaScreenshotUrls, modFileUrl } = result;
     if (!modFileUrl) {
       throw new Error('Server response missing modFileUrl');
     }
-
-    // Note: We're not using Mega's screenshot URLs because we use Supabase for screenshots.
-    // But if the backend returns them, we ignore them.
 
     // ===== 3. Build screenshots array (using Supabase URLs) =====
     const screenshotsArray = [
@@ -637,7 +633,7 @@ async function uploadMod() {
 
     const tagArray = tags ? tags.split(',').map(t => t.trim()).filter(t => t) : [];
 
-    // ===== 4. Insert mod record =====
+    // ===== 4. Insert mod record into database =====
     progressDiv.innerHTML = '<div class="gb-progress-spinner"></div> Saving mod data...';
     const { error: dbError } = await supabaseClient
       .from("mods2")
