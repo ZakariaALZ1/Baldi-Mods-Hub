@@ -1144,6 +1144,24 @@ margin: 20px auto 16px;
         }
       }, 500);
     });
-  </script>
+  document.addEventListener('DOMContentLoaded', function() {
+    setTimeout(() => {
+      const displayName = document.getElementById('displayName');
+      const userBio = document.getElementById('userBio');
+      if (displayName) {
+        displayName.addEventListener('input', function() {
+          const counter = document.getElementById('nameCounter');
+          if (counter) counter.textContent = `${this.value.length}/30`;
+        });
+      }
+      if (userBio) {
+        userBio.addEventListener('input', function() {
+          const counter = document.getElementById('bioCounter');
+          if (counter) counter.textContent = `${this.value.length}/500`;
+        });
+      }
+    }, 500);
+  });
+</script>
 </body>
 </html>

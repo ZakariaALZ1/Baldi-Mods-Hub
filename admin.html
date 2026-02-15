@@ -510,36 +510,23 @@ window.executeAction = async function() {
     showNotification('Cannot delete: missing comment ID', 'error');
     return;
   }
-  if (actionType === 'mute_user' && !targetUserId) {
-    console.error('Missing targetUserId for mute');
-    showNotification('Cannot mute: missing user ID', 'error');
+  if ((actionType === 'mute_user' || actionType === 'unmute_user') && !targetUserId) {
+    console.error('Missing targetUserId for mute/unmute');
+    showNotification('Cannot perform action: missing user ID', 'error');
     return;
   }
-  else if (actionType === 'unmute_user') {
-  console.log('Unmuting user:', targetUserId);
-  const { error } = await supabaseClient
-    .from('profiles')
-    .update({ muted_until: null })
-    .eq('id', targetUserId);
-  if (error) throw error;
-  showNotification('User unmuted', 'success');
-}
 
   try {
     if (actionType === 'delete_comment') {
-      console.log('Deleting comment:', commentId);
-      const { error, data } = await supabaseClient
-        .from('comments')
-        .delete()
-        .eq('id', commentId);
-      
-      if (error) throw error;
-      console.log('Delete result:', data);
-      showNotification('Comment deleted', 'success');
+      // Create deletion request instead of direct delete
+      console.log('Creating deletion request for comment:', commentId);
+      await createDeletionRequest(commentId, note || 'Reported comment');
+      showNotification('Deletion request sent to admin', 'success');
       
     } else if (actionType === 'warn_user') {
-      // You can expand this to log to a warnings table
-      showNotification(`User warned (note: ${note || 'none'})`, 'success');
+      // Use the warnUser function (requires reason and note)
+      const reason = prompt('Enter warning reason:') || 'No reason provided';
+      await warnUser(targetUserId, reason, note);
       
     } else if (actionType === 'mute_user') {
       let muteUntil = null;
@@ -556,6 +543,15 @@ window.executeAction = async function() {
         .eq('id', targetUserId);
       if (error) throw error;
       showNotification(`User muted until ${muteUntil.toLocaleDateString()}`, 'success');
+      
+    } else if (actionType === 'unmute_user') {
+      console.log('Unmuting user:', targetUserId);
+      const { error } = await supabaseClient
+        .from('profiles')
+        .update({ muted_until: null })
+        .eq('id', targetUserId);
+      if (error) throw error;
+      showNotification('User unmuted', 'success');
     }
 
     // Mark report as reviewed after action

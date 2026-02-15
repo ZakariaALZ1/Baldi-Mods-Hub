@@ -314,6 +314,18 @@ async function checkAuthState() {
       profile = newProfile;
     }
     
+    // ===== BANNED CHECK =====
+    if (profile.banned) {
+      showNotification('Your account has been banned.', 'error');
+      await supabaseClient.auth.signOut();
+      currentUser = null;
+      currentUserProfile = null;
+      currentUserRole = null;
+      isAuthenticated = false;
+      showPublicUI();
+      return;
+    }
+    
     currentUser = user;
     currentUserProfile = profile;
     currentUserRole = profile.role || 'user';
@@ -1524,7 +1536,7 @@ async function warnUser(userId, reason, note = '') {
       });
     if (error) throw error;
     showNotification('User warned', 'success');
-    if (typeof loadRiskUsers === 'function') loadRiskUsers(); // refresh
+    if (typeof loadRiskUsers === 'function') loadRiskUsers();
   } catch (err) {
     console.error('Failed to warn user:', err);
     showNotification('Failed to warn user', 'error');
@@ -1582,7 +1594,7 @@ async function loadUserWarnings(userId) {
   return data || [];
 }
 
-// Enhanced loadRiskUsers (replace the existing one)
+// Enhanced loadRiskUsers (single version)
 window.loadRiskUsers = async function() {
   const box = document.getElementById('riskyUsers');
   if (!box || !await isAdmin()) return;
@@ -1594,9 +1606,9 @@ window.loadRiskUsers = async function() {
       .select(`
         id, username, email, trust_score, spam_flags, 
         is_shadow_banned, is_verified, upload_count, download_count, 
-        join_date, muted_until
+        join_date, muted_until, banned
       `)
-      .or(`trust_score.lt.50,spam_flags.gt.5,is_shadow_banned.eq.true,muted_until.gt.${now}`)
+      .or(`trust_score.lt.50,spam_flags.gt.5,is_shadow_banned.eq.true,muted_until.gt.${now},banned.eq.true`)
       .order('trust_score', { ascending: true })
       .limit(20);
     
@@ -1612,13 +1624,14 @@ window.loadRiskUsers = async function() {
     box.innerHTML = usersWithWarnings.map(user => {
       const isMuted = user.muted_until && new Date(user.muted_until) > new Date();
       const muteInfo = isMuted ? `<div style="margin-bottom: 5px;"><span style="background:#ffaa00; padding:2px 8px; border-radius:4px;">🔇 Muted until ${new Date(user.muted_until).toLocaleDateString()}</span></div>` : '';
+      const bannedInfo = user.banned ? `<div style="margin-bottom: 5px;"><span style="background:#ff4444; padding:2px 8px; border-radius:4px;">🚫 Banned</span></div>` : '';
       
       // Show warning count
       const warningCount = user.warnings.length;
       const warningBadge = warningCount > 0 ? `<span class="gb-badge" style="background:#ffaa00;">⚠️ ${warningCount} warning(s)</span>` : '';
 
       return `
-        <div class="gb-card" style="border-left: 4px solid ${user.is_shadow_banned ? '#ff4444' : (isMuted ? '#ffaa00' : '#ffaa00')}; margin-bottom: 15px;">
+        <div class="gb-card" style="border-left: 4px solid ${user.is_shadow_banned ? '#ff4444' : (isMuted ? '#ffaa00' : (user.banned ? '#ff4444' : '#ffaa00'))}; margin-bottom: 15px;">
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
             <h3 style="margin: 0; color: #fff;">${escapeHTML(user.username || 'Unknown')}</h3>
             <div>
@@ -1632,14 +1645,19 @@ window.loadRiskUsers = async function() {
             <span>📤 Uploads: ${user.upload_count || 0}</span>
           </div>
           ${muteInfo}
+          ${bannedInfo}
           <div style="margin-bottom: 15px; padding: 8px 12px; background: ${user.is_shadow_banned ? '#2a1a1a' : '#1a2a1a'}; border-radius: 5px; color: ${user.is_shadow_banned ? '#ff8888' : '#00ff88'};">
-            ${user.is_shadow_banned ? '🔇 Shadow Banned' : '✅ Active'}
+            ${user.is_shadow_banned ? '🔇 Shadow Banned' : (user.banned ? '🚫 Banned' : '✅ Active')}
           </div>
           <div style="display: flex; gap: 10px; flex-wrap: wrap;">
             <button onclick="warnUser('${user.id}')" class="gb-btn gb-btn-warning">⚠️ Warn</button>
-            ${!user.is_shadow_banned ? 
+            ${!user.is_shadow_banned && !user.banned ? 
               `<button onclick="shadowBanUser('${user.id}')" class="gb-btn gb-btn-warning">🔇 Shadow Ban</button>` : 
-              `<button onclick="unbanUser('${user.id}')" class="gb-btn gb-btn-primary">✓ Unban</button>`
+              (user.is_shadow_banned ? `<button onclick="unbanUser('${user.id}')" class="gb-btn gb-btn-primary">✓ Unban (Shadow)</button>` : '')
+            }
+            ${user.banned ? 
+              `<button onclick="unbanUser('${user.id}')" class="gb-btn gb-btn-primary">✓ Unban</button>` : 
+              ''
             }
             ${isMuted ? 
               `<button onclick="unmuteUser('${user.id}')" class="gb-btn gb-btn-secondary">🔊 Unmute</button>` : 
@@ -1988,6 +2006,156 @@ async function clearFlags(modId) {
   }
 }
 
+// =========================
+// BAN / UNBAN
+// =========================
+async function banUser(userId, reason = '') {
+  if (!await isAdmin()) return;
+  if (!confirm('Ban this user? They will not be able to log in.')) return;
+  try {
+    const { error } = await supabaseClient
+      .from('profiles')
+      .update({ 
+        banned: true, 
+        banned_at: new Date().toISOString(),
+        trust_score: 0 
+      })
+      .eq('id', userId);
+    if (error) throw error;
+    showNotification('User banned', 'success');
+    if (typeof loadRiskUsers === 'function') loadRiskUsers();
+  } catch (err) {
+    console.error('Failed to ban user:', err);
+    showNotification('Failed to ban user', 'error');
+  }
+}
+
+async function unbanUser(userId) {
+  if (!await isAdmin()) return;
+  try {
+    const { error } = await supabaseClient
+      .from('profiles')
+      .update({ banned: false, banned_at: null, trust_score: 50 })
+      .eq('id', userId);
+    if (error) throw error;
+    showNotification('User unbanned', 'success');
+    if (typeof loadRiskUsers === 'function') loadRiskUsers();
+  } catch (err) {
+    console.error('Failed to unban user:', err);
+    showNotification('Failed to unban user', 'error');
+  }
+}
+
+// =========================
+// COMMENT DELETION REQUESTS
+// =========================
+async function createDeletionRequest(commentId, reason = '') {
+  const mod = await getCurrentUser();
+  if (!mod || !await isModerator()) return;
+  try {
+    const { error } = await supabaseClient
+      .from('comment_deletion_requests')
+      .insert({
+        comment_id: commentId,
+        moderator_id: mod.id,
+        reason: reason,
+        status: 'pending'
+      });
+    if (error) throw error;
+    showNotification('Deletion request submitted to admin', 'success');
+  } catch (err) {
+    console.error('Failed to create deletion request:', err);
+    showNotification('Failed to create request', 'error');
+  }
+}
+
+async function approveDeletionRequest(requestId) {
+  if (!await isAdmin()) return;
+  try {
+    const { data: request, error: fetchError } = await supabaseClient
+      .from('comment_deletion_requests')
+      .select('comment_id')
+      .eq('id', requestId)
+      .single();
+    if (fetchError) throw fetchError;
+
+    const { error: deleteError } = await supabaseClient
+      .from('comments')
+      .delete()
+      .eq('id', request.comment_id);
+    if (deleteError) throw deleteError;
+
+    const { error: updateError } = await supabaseClient
+      .from('comment_deletion_requests')
+      .update({ status: 'approved', updated_at: new Date().toISOString() })
+      .eq('id', requestId);
+    if (updateError) throw updateError;
+
+    showNotification('Comment deleted', 'success');
+    if (typeof loadDeletionRequests === 'function') loadDeletionRequests();
+  } catch (err) {
+    console.error('Failed to approve deletion:', err);
+    showNotification('Failed to approve deletion', 'error');
+  }
+}
+
+async function rejectDeletionRequest(requestId) {
+  if (!await isAdmin()) return;
+  try {
+    const { error } = await supabaseClient
+      .from('comment_deletion_requests')
+      .update({ status: 'rejected', updated_at: new Date().toISOString() })
+      .eq('id', requestId);
+    if (error) throw error;
+    showNotification('Request rejected', 'success');
+    if (typeof loadDeletionRequests === 'function') loadDeletionRequests();
+  } catch (err) {
+    console.error('Failed to reject request:', err);
+    showNotification('Failed to reject request', 'error');
+  }
+}
+
+// Load deletion requests (for admin dashboard)
+async function loadDeletionRequests() {
+  const box = document.getElementById('deletionRequests');
+  if (!box) return;
+  try {
+    const { data, error } = await supabaseClient
+      .from('comment_deletion_requests')
+      .select(`
+        *,
+        comments (id, content, user_id, profiles:user_id (username), mods2 (title, id)),
+        profiles:moderator_id (username)
+      `)
+      .eq('status', 'pending')
+      .order('created_at', { ascending: true });
+    if (error) throw error;
+    if (!data?.length) {
+      box.innerHTML = '<div class="gb-no-results">No pending deletion requests</div>';
+      return;
+    }
+    box.innerHTML = data.map(req => `
+      <div class="gb-card" style="border-left: 4px solid #ffaa00; margin-bottom: 15px;">
+        <div style="margin-bottom: 10px;">
+          <strong>Comment:</strong> ${escapeHTML(req.comments?.content?.substring(0,100))}...<br>
+          <strong>Author:</strong> ${escapeHTML(req.comments?.profiles?.username || 'Unknown')}<br>
+          <strong>In mod:</strong> <a href="mod.html?id=${req.comments?.mods2?.id}" target="_blank">${escapeHTML(req.comments?.mods2?.title || 'Unknown')}</a><br>
+          <strong>Requested by:</strong> ${escapeHTML(req.profiles?.username || 'Unknown')}<br>
+          <strong>Reason:</strong> ${escapeHTML(req.reason || 'No reason')}<br>
+          <strong>Date:</strong> ${new Date(req.created_at).toLocaleString()}
+        </div>
+        <div style="display: flex; gap: 10px;">
+          <button onclick="approveDeletionRequest('${req.id}')" class="gb-btn gb-btn-primary">✅ Approve</button>
+          <button onclick="rejectDeletionRequest('${req.id}')" class="gb-btn gb-btn-danger">❌ Reject</button>
+        </div>
+      </div>
+    `).join('');
+  } catch (err) {
+    console.error('Failed to load deletion requests:', err);
+    box.innerHTML = '<div class="gb-error">Failed to load requests</div>';
+  }
+}
+
 /* =========================
    COMMENTS & FAVORITES
 ========================= */
@@ -2008,11 +2176,17 @@ async function loadComments(modId) {
     const userIds = [...new Set(comments.map(c => c.user_id))];
     const { data: profiles } = await supabaseClient
       .from('profiles')
-      .select('id, username')
+      .select('id, username, is_shadow_banned, banned')
       .in('id', userIds);
 
     const profileMap = {};
-    profiles?.forEach(p => profileMap[p.id] = p.username);
+    const shadowBannedMap = {};
+    const bannedMap = {};
+    profiles?.forEach(p => {
+      profileMap[p.id] = p.username;
+      shadowBannedMap[p.id] = p.is_shadow_banned;
+      bannedMap[p.id] = p.banned;
+    });
 
     let reactionsMap = {};
     if (comments.length) {
@@ -2028,12 +2202,20 @@ async function loadComments(modId) {
     }
 
     const user = await getCurrentUser();
+    const isModOrAdmin = user && (await isModerator());
+
     const topLevel = comments.filter(c => !c.parent_id);
     const replies = comments.filter(c => c.parent_id);
 
-    container.innerHTML = topLevel.map(comment => 
-      renderComment(comment, replies.filter(r => r.parent_id === comment.id), profileMap, reactionsMap, user)
-    ).join('');
+    container.innerHTML = topLevel.map(comment => {
+      const isShadowBanned = shadowBannedMap[comment.user_id];
+      const isBanned = bannedMap[comment.user_id];
+      // If user is shadow banned or banned, and current user is not mod/admin, hide content
+      const shouldHide = (isShadowBanned || isBanned) && !isModOrAdmin;
+      
+      // For hidden comments, we pass a special flag to renderComment
+      return renderComment(comment, replies.filter(r => r.parent_id === comment.id), profileMap, reactionsMap, user, shouldHide);
+    }).join('');
 
   } catch (err) {
     console.error('Failed to load comments:', err);
@@ -2041,11 +2223,37 @@ async function loadComments(modId) {
   }
 }
 
-function renderComment(comment, replies, profileMap, reactionsMap, user) {
+// Modify renderComment to accept a hidden flag and add a reveal button
+function renderComment(comment, replies, profileMap, reactionsMap, user, hidden = false) {
   const isAuthor = user && user.id === comment.user_id;
   const reactionCount = reactionsMap[comment.id]?.length || 0;
   const userReacted = user && reactionsMap[comment.id]?.includes(user.id);
 
+  if (hidden) {
+    // Show placeholder with reveal button
+    return `
+      <div class="gb-comment" data-comment-id="${comment.id}" id="comment-${comment.id}">
+        <div class="gb-comment-avatar">${profileMap[comment.user_id]?.charAt(0).toUpperCase() || '?'}</div>
+        <div class="gb-comment-content">
+          <div class="gb-comment-header">
+            <span class="gb-comment-author">${escapeHTML(profileMap[comment.user_id] || 'Unknown')}</span>
+            <span class="gb-comment-date">${new Date(comment.created_at).toLocaleString()}</span>
+            <span class="gb-badge" style="background:#ff4444;">🔇 Hidden</span>
+          </div>
+          <div class="gb-comment-text" style="color: #666; font-style: italic;">
+            This comment is hidden due to user restriction.
+            <button onclick="revealComment('${comment.id}')" class="gb-btn gb-btn-small">Reveal</button>
+          </div>
+          <div class="gb-comment-footer">
+            <button onclick="toggleCommentReaction('${comment.id}')" class="gb-btn gb-btn-small ${userReacted ? 'gb-btn-primary' : 'gb-btn-secondary'}">❤️ ${reactionCount}</button>
+            <button onclick="openCommentReportModal('${comment.id}')" class="gb-btn gb-btn-small gb-btn-secondary">🚩 Report</button>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  // Normal rendering
   return `
     <div class="gb-comment" data-comment-id="${comment.id}" id="comment-${comment.id}">
       <div class="gb-comment-avatar">${profileMap[comment.user_id]?.charAt(0).toUpperCase() || '?'}</div>
@@ -2061,11 +2269,31 @@ function renderComment(comment, replies, profileMap, reactionsMap, user) {
           <button onclick="toggleCommentReaction('${comment.id}')" class="gb-btn gb-btn-small ${userReacted ? 'gb-btn-primary' : 'gb-btn-secondary'}">❤️ ${reactionCount}</button>
           <button onclick="openCommentReportModal('${comment.id}')" class="gb-btn gb-btn-small gb-btn-secondary">🚩 Report</button>
         </div>
-        ${replies.length ? `<div class="gb-comment-replies">${replies.map(r => renderComment(r, [], profileMap, reactionsMap, user)).join('')}</div>` : ''}
+        ${replies.length ? `<div class="gb-comment-replies">${replies.map(r => renderComment(r, [], profileMap, reactionsMap, user, hidden)).join('')}</div>` : ''}
       </div>
     </div>
   `;
 }
+
+// Function to reveal a hidden comment (temporarily show it)
+window.revealComment = function(commentId) {
+  const commentDiv = document.getElementById(`comment-${commentId}`);
+  if (!commentDiv) return;
+  // Fetch the full comment and replace content
+  supabaseClient
+    .from('comments')
+    .select('content')
+    .eq('id', commentId)
+    .single()
+    .then(({ data, error }) => {
+      if (error) return;
+      const textDiv = commentDiv.querySelector('.gb-comment-text');
+      if (textDiv) {
+        textDiv.innerHTML = escapeHTML(data.content);
+      }
+    });
+};
+
 
 async function addComment(modId, content, parentId = null) {
   const user = await getCurrentUser();
@@ -2247,6 +2475,17 @@ async function loadPublicProfile(userId) {
   try {
     const { data: profile, error } = await supabaseClient.from('profiles').select('*').eq('id', userId).single();
     if (error || !profile) { container.innerHTML = '<div class="gb-error">User not found</div>'; return; }
+
+    // ===== BANNED CHECK =====
+    if (profile.banned) {
+      const user = await getCurrentUser();
+      const isModOrAdmin = user && (await isModerator());
+      if (!isModOrAdmin) {
+        container.innerHTML = '<div class="gb-error">This user has been banned.</div>';
+        return;
+      }
+    }
+
     const user = await getCurrentUser();
     let isBuddy = false, isSubscribed = false;
     if (user) {
@@ -2416,6 +2655,43 @@ function renderUserCard(profile, userId) {
 }
 
 /* =========================
+   Warn Users
+========================= */
+if (profile.banned) {
+  showNotification('Your account has been banned.', 'error');
+  await supabaseClient.auth.signOut();
+  currentUser = null;
+  currentUserProfile = null;
+  currentUserRole = null;
+  isAuthenticated = false;
+  showPublicUI();
+  return;
+}
+
+async function warnUser(userId, reason, note = '') {
+  if (!await isModerator()) return;
+  const mod = await getCurrentUser();
+  if (!mod) return;
+  
+  try {
+    const { error } = await supabaseClient
+      .from('user_warnings')
+      .insert({
+        user_id: userId,
+        moderator_id: mod.id,
+        reason: reason,
+        note: note
+      });
+    if (error) throw error;
+    showNotification('User warned', 'success');
+    if (typeof loadRiskUsers === 'function') loadRiskUsers();
+  } catch (err) {
+    console.error('Failed to warn user:', err);
+    showNotification('Failed to warn user', 'error');
+  }
+}
+
+/* =========================
    EXPORT GLOBALS
 ========================= */
 
@@ -2482,6 +2758,16 @@ window.loadPublicProfile = loadPublicProfile;
 window.loadProfileBuddies = loadProfileBuddies;
 window.loadProfileSubscribers = loadProfileSubscribers;
 window.renderUserCard = renderUserCard;
+// ban & unban and moderation stuff
+window.warnUser = warnUser;
+window.unmuteUser = unmuteUser;
+window.unbanUser = unbanUser;
+window.banUser = banUser;
+window.createDeletionRequest = createDeletionRequest;
+window.approveDeletionRequest = approveDeletionRequest;
+window.rejectDeletionRequest = rejectDeletionRequest;
+window.loadDeletionRequests = loadDeletionRequests;
+window.revealComment = revealComment;
 
 // Also expose as window.supabaseClient for clarity
 window.supabaseClient = supabaseClient;
