@@ -2654,9 +2654,9 @@ function renderUserCard(profile, userId) {
   `;
 }
 
-/* =========================
-   Warn Users
-========================= */
+// =========================
+// Warn Users
+// =========================
 if (profile.banned) {
   showNotification('Your account has been banned.', 'error');
   await supabaseClient.auth.signOut();
