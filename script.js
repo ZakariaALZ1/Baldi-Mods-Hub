@@ -1,4 +1,7 @@
-if (window.__SUPABASE_INIT_DONE__) throw new Error("Duplicate Supabase init block in script.js");
+if (window.__SUPABASE_INIT_DONE__) {
+  console.warn("Supabase already initialized – skipping duplicate script.");
+  return; // Stop execution
+}
 window.__SUPABASE_INIT_DONE__ = true;
 
 /* =========================
