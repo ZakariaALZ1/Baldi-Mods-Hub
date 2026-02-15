@@ -189,12 +189,10 @@ app.post('/upload', uploadLimiter, requireAuth, (req, res) => {
    HEALTH
 ========================= */
 
-app.get('/health', (req,res)=>res.send('OK'));
-
-app.listen(process.env.PORT || 3000, () =>
-  console.log("Backend running")
-);
-
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+  console.log(`Backend running on port ${PORT}`);
+});
 
 // Optional test endpoint to verify file reception (remove in production)
 app.post('/test-upload', upload.fields([
@@ -212,9 +210,4 @@ app.post('/test-upload', upload.fields([
     }));
   }
   res.json({ files: fileInfo });
-});
-
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log(`✅ Mega upload backend running on port ${PORT}`);
 });

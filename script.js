@@ -27,7 +27,7 @@
   /* =========================
      MEGA BACKEND URL
   ========================= */
-  const MEGA_BACKEND_URL = 'https://baldi-mods-hub-production.up.railway.app/upload';
+  const MEGA_BACKEND_URL = 'https://baldi-mods-hub-production-701e.up.railway.app/upload';
 
   /* =========================
      GLOBAL STATE MANAGEMENT
