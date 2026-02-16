@@ -11,10 +11,13 @@ const axios = require('axios');
 const fs = require('fs');
 const fsPromises = fs.promises;
 const os = require('os');
-require('dotenv').config();
 const { createRemoteJWKSet, jwtVerify } = require('jose');
 
 const app = express();
+
+/* =========================
+   CORS — MUST BE FIRST
+========================= */
 
 const allowedOrigins = [
   'https://zakariaalz1.github.io',
@@ -23,28 +26,34 @@ const allowedOrigins = [
 ];
 
 app.use(cors({
-  origin: function (origin, callback) {
-    // allow no-origin requests (like curl, server-to-server)
-    if (!origin) return callback(null, true);
-
-    if (allowedOrigins.includes(origin)) {
-      return callback(null, true);
-    } else {
-      return callback(new Error('CORS blocked'));
-    }
+  origin(origin, cb) {
+    if (!origin) return cb(null, true);
+    if (allowedOrigins.includes(origin)) return cb(null, true);
+    return cb(new Error("CORS blocked"));
   },
   methods: ['GET','POST','PUT','DELETE','OPTIONS'],
   allowedHeaders: ['Content-Type','Authorization','X-CSRF-Token'],
   credentials: true,
-  maxAge: 86400
+  optionsSuccessStatus: 204
 }));
 
-app.options('/*', cors());
 app.use(express.json());
+
+
+require('dotenv').config();
+
+console.log("ENV STATUS", {
+  MEGA_EMAIL: !!process.env.MEGA_EMAIL,
+  MEGA_PASSWORD: !!process.env.MEGA_PASSWORD,
+  DOWNLOAD_SECRET: !!process.env.DOWNLOAD_SECRET,
+  SUPABASE_URL: !!process.env.SUPABASE_URL,
+  SUPABASE_ANON_KEY: !!process.env.SUPABASE_ANON_KEY
+});
+
+
 
 /* ================= ENV ================= */
 
-const FRONTEND_ORIGIN = process.env.FRONTEND_ORIGIN || '*';
 const DOWNLOAD_SECRET = process.env.DOWNLOAD_SECRET;
 const MEGA_EMAIL = process.env.MEGA_EMAIL;
 const MEGA_PASSWORD = process.env.MEGA_PASSWORD;
@@ -140,13 +149,6 @@ async function verifySupabaseJWT(token) {
   });
   return payload;
 }
-/* ================= SECURITY ================= */
-
-app.use(cors({
-  origin: FRONTEND_ORIGIN,
-  methods:['GET','POST','OPTIONS'],
-  allowedHeaders:['Content-Type','Authorization','X-CSRF-Token']
-}));
 
 app.use((req,res,next)=>{
   if(bannedIPs.has(getIP(req)))
@@ -160,6 +162,7 @@ app.use(rateLimit({
 }));
 
 async function requireAuth(req,res,next){
+  if (req.method === 'OPTIONS') return next(); // ⭐ allow preflight
   try{
     const h = req.headers.authorization;
     if (!h) return res.status(401).json({error:"Missing auth"});
@@ -187,6 +190,7 @@ function requireAdmin(req,res,next){
 }
 
 function requireCSRF(req,res,next){
+  if (req.method === 'OPTIONS') return next(); // ⭐ allow preflight
   if(!req.headers['x-csrf-token'])
     return res.status(403).json({error:"Missing CSRF"});
   next();
@@ -201,86 +205,138 @@ const upload = multer({
 
 /* ================= UPLOAD ================= */
 
-app.post('/upload',
+/* ================= UPLOAD ================= */
+
+app.post(
+  '/upload',
   requireAuth,
   requireCSRF,
   upload.fields([
-    {name:'mainScreenshot',maxCount:1},
-    {name:'screenshots',maxCount:2},
-    {name:'modFile',maxCount:1}
+    { name: 'mainScreenshot', maxCount: 1 },
+    { name: 'screenshots', maxCount: 2 },
+    { name: 'modFile', maxCount: 1 }
   ]),
-async (req,res)=>{
+  async (req, res) => {
 
-  const files=[];
-  try{
+    const files = [];
 
-    if(!req.files?.mainScreenshot || !req.files?.modFile)
-      throw new Error("Missing files");
+    try {
+      /* ---------- Required files ---------- */
 
-    files.push(...req.files.mainScreenshot, ...req.files.modFile);
-    if(req.files.screenshots) files.push(...req.files.screenshots);
+      if (!req.files?.mainScreenshot || !req.files?.modFile) {
+        return res.status(400).json({ error: "Missing required files" });
+      }
 
-    const mod=req.files.modFile[0];
+      files.push(...req.files.mainScreenshot);
+      files.push(...req.files.modFile);
+      if (req.files.screenshots) files.push(...req.files.screenshots);
 
-    if(!validExt(mod.originalname))
-      throw new Error("Invalid file type");
+      const mod = req.files.modFile[0];
 
-    const hash=await sha256File(mod.path);
+      /* ---------- Extension validation ---------- */
 
-    if(hashStore.has(hash))
-      throw new Error("Duplicate file already uploaded");
+      if (!validExt(mod.originalname)) {
+        return res.status(400).json({ error: "Invalid file type" });
+      }
 
-    const scan=await malwareScanHook(mod.path);
-    if(!scan.clean) throw new Error("Malware detected");
+      /* ---------- Hash dedup ---------- */
 
-    const vt=await virusTotalCheck(hash);
-    if(vt.malicious>0) throw new Error("VirusTotal flagged file");
+      const hash = await sha256File(mod.path);
 
-    const storage = await new Storage({
-      email:MEGA_EMAIL,
-      password:MEGA_PASSWORD
-    }).ready;
+      if (hashStore.has(hash)) {
+        return res.status(409).json({
+          error: "Duplicate file already uploaded"
+        });
+      }
 
-    const folder = await storage.mkdir(`mod_${Date.now()}`);
+      /* ---------- Malware scan ---------- */
 
-    const main = await uploadFile(req.files.mainScreenshot[0],'main',folder);
-    const extras = await Promise.all(
-      (req.files.screenshots||[]).map(f=>uploadFile(f,'extra',folder))
-    );
-    const modUp = await uploadFile(mod,'mod',folder);
+      const scan = await malwareScanHook(mod.path);
+      if (!scan.clean) {
+        return res.status(400).json({
+          error: "Malware detected"
+        });
+      }
 
-    const modId = crypto.randomUUID();
+      /* ---------- VirusTotal ---------- */
 
-    moderationQueue.set(modId,{
-      id:modId,
-      user:req.userId,
-      hash,
-      created:Date.now(),
-      status:"pending",
-      risk: vt.malicious + vt.suspicious
-    });
+      const vt = await virusTotalCheck(hash);
 
-    hashStore.set(hash,modId);
+      if (vt.malicious > 0) {
+        return res.status(400).json({
+          error: "VirusTotal flagged file"
+        });
+      }
 
-    const result={
-      modId,
-      mainScreenshotUrl: await main.link(),
-      screenshotUrls: await Promise.all(extras.map(x=>x.link())),
-      modFileUrl: await modUp.link(),
-      fileHash: hash,
-      riskScore: vt.malicious + vt.suspicious,
-      moderationStatus:"pending"
-    };
+      /* ---------- MEGA upload ---------- */
 
-    await storage.close();
-    cleanup(files);
-    res.json(result);
+      const storage = await new Storage({
+        email: MEGA_EMAIL,
+        password: MEGA_PASSWORD
+      }).ready;
 
-  }catch(e){
-    cleanup(files);
-    res.status(500).json({error:e.message});
+      const folder = await storage.mkdir(`mod_${Date.now()}`);
+
+      const main = await uploadFile(
+        req.files.mainScreenshot[0],
+        'main',
+        folder
+      );
+
+      const extras = await Promise.all(
+        (req.files.screenshots || []).map(f =>
+          uploadFile(f, 'extra', folder)
+        )
+      );
+
+      const modUp = await uploadFile(mod, 'mod', folder);
+
+      /* ---------- Moderation queue ---------- */
+
+      const modId = crypto.randomUUID();
+
+      moderationQueue.set(modId, {
+        id: modId,
+        user: req.userId,
+        hash,
+        created: Date.now(),
+        status: "pending",
+        risk: vt.malicious + vt.suspicious
+      });
+
+      hashStore.set(hash, modId);
+
+      /* ---------- Response ---------- */
+
+      const result = {
+        modId,
+        mainScreenshotUrl: await main.link(),
+        screenshotUrls: await Promise.all(
+          extras.map(x => x.link())
+        ),
+        modFileUrl: await modUp.link(),
+        fileHash: hash,
+        riskScore: vt.malicious + vt.suspicious,
+        moderationStatus: "pending"
+      };
+
+      await storage.close();
+
+      cleanup(files);
+
+      return res.json(result);
+
+    } catch (e) {
+      console.error("UPLOAD ERROR:", e);
+
+      cleanup(files);
+
+      return res.status(500).json({
+        error: e.message || "Upload failed"
+      });
+    }
   }
-});
+);
 
 /* ================= SIGNED DOWNLOAD ================= */
 
@@ -329,12 +385,6 @@ app.post('/admin/approve/:id', requireAuth, requireAdmin,
     if(!m) return res.status(404).send("Not found");
     m.status="approved";
     res.json(m);
-  });
-
-app.post('/admin/ban-ip', requireAuth, requireAdmin,
-  (req,res)=>{
-    bannedIPs.add(req.body.ip);
-    res.json({banned:true});
   });
 
 /* ================= REPORT ================= */
