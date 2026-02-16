@@ -563,8 +563,6 @@ async function uploadMod() {
 
   const accessToken = sessionData.session.access_token;
 
-  console.log("Upload using token:", accessToken.slice(0, 20)); // debug (remove later)
-
   // ✅ Ensure CSRF token exists
   if (!getCSRFToken()) generateCSRFToken();
 

@@ -1,4 +1,4 @@
-// ===== Baldi Mods Hub — Production Secure Backend (FINAL) =====
+// ===== Baldi Mods Hub — Production Secure Backend =====
 
 const express = require('express');
 const multer = require('multer');
@@ -12,20 +12,22 @@ const fs = require('fs');
 const fsPromises = fs.promises;
 const os = require('os');
 require('dotenv').config();
+const { createRemoteJWKSet, jwtVerify } = require('jose');
 
 const app = express();
 app.use(express.json());
 
 /* ================= ENV ================= */
 
-const FRONTEND_ORIGIN = 'https://zakariaalz1.github.io';
-const SUPABASE_JWT_SECRET = process.env.SUPABASE_JWT_SECRET;
+const FRONTEND_ORIGIN = process.env.FRONTEND_ORIGIN || '*';
 const DOWNLOAD_SECRET = process.env.DOWNLOAD_SECRET;
 const MEGA_EMAIL = process.env.MEGA_EMAIL;
 const MEGA_PASSWORD = process.env.MEGA_PASSWORD;
 const VT_API_KEY = process.env.VT_API_KEY || null;
+const SUPABASE_URL = process.env.SUPABASE_URL;
+const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY;
 
-if (!MEGA_EMAIL || !MEGA_PASSWORD || !SUPABASE_JWT_SECRET || !DOWNLOAD_SECRET) {
+if (!MEGA_EMAIL || !MEGA_PASSWORD || !DOWNLOAD_SECRET || !SUPABASE_URL || !SUPABASE_ANON_KEY) {
   console.error("❌ Missing required env vars");
   process.exit(1);
 }
@@ -98,6 +100,21 @@ async function uploadFile(file,prefix,folder){
   return up;
 }
 
+
+/* ================= SUPABASE JWT VERIFY ================= */
+
+const JWKS = createRemoteJWKSet(
+  new URL(`${SUPABASE_URL}/auth/v1/jwks`),
+  { headers: { apikey: SUPABASE_ANON_KEY } }
+);
+
+async function verifySupabaseJWT(token) {
+  const { payload } = await jwtVerify(token, JWKS, {
+    issuer: `${SUPABASE_URL}/auth/v1`,
+    audience: "authenticated"
+  });
+  return payload;
+}
 /* ================= SECURITY ================= */
 
 app.use(cors({
@@ -117,19 +134,26 @@ app.use(rateLimit({
   max: 200
 }));
 
-function requireAuth(req,res,next){
+async function requireAuth(req,res,next){
   try{
-    const h=req.headers.authorization;
-    if(!h) return res.status(401).json({error:"Missing auth"});
-    const token=h.split(' ')[1];
-    const decoded=jwt.verify(token, SUPABASE_JWT_SECRET);
-    req.userId=decoded.sub;
-    req.userRole=decoded.role || "user";
+    const h = req.headers.authorization;
+    if (!h) return res.status(401).json({error:"Missing auth"});
+
+    const token = h.split(' ')[1];
+
+    const payload = await verifySupabaseJWT(token);
+
+    req.userId = payload.sub;
+    req.userRole = payload.role || "authenticated";
+
     next();
-  }catch{
+
+  } catch (e){
+    console.error("JWT verify failed:", e.message);
     res.status(401).json({error:"Invalid token"});
   }
 }
+
 
 function requireAdmin(req,res,next){
   if(req.userRole !== 'service_role' && req.userRole !== 'admin')
@@ -268,39 +292,33 @@ app.get('/download/:id',(req,res)=>{
   }
 });
 
-/* ================= MODERATION ================= */
+/* ================= ADMIN ================= */
 
-app.get('/admin/moderation', requireAuth, requireAdmin, (req,res)=>{
-  res.json([...moderationQueue.values()]);
-});
+app.get('/admin/moderation', requireAuth, requireAdmin,
+  (req,res)=>res.json([...moderationQueue.values()])
+);
 
-app.post('/admin/approve/:id', requireAuth, requireAdmin, (req,res)=>{
-  const m=moderationQueue.get(req.params.id);
-  if(!m) return res.status(404).send("Not found");
-  m.status="approved";
-  res.json(m);
-});
-
-app.post('/admin/reject/:id', requireAuth, requireAdmin, (req,res)=>{
-  moderationQueue.delete(req.params.id);
-  res.json({removed:true});
-});
-
-/* ================= ABUSE ================= */
-
-app.post('/report', requireAuth, (req,res)=>{
-  abuseReports.push({
-    user:req.userId,
-    ...req.body,
-    time:Date.now()
+app.post('/admin/approve/:id', requireAuth, requireAdmin,
+  (req,res)=>{
+    const m=moderationQueue.get(req.params.id);
+    if(!m) return res.status(404).send("Not found");
+    m.status="approved";
+    res.json(m);
   });
-  res.json({ok:true});
-});
 
-app.get('/admin/reports', requireAuth, requireAdmin, (req,res)=>{
-  res.json(abuseReports);
-});
+app.post('/admin/ban-ip', requireAuth, requireAdmin,
+  (req,res)=>{
+    bannedIPs.add(req.body.ip);
+    res.json({banned:true});
+  });
 
+/* ================= REPORT ================= */
+
+app.post('/report', requireAuth,
+  (req,res)=>{
+    abuseReports.push({user:req.userId,...req.body,time:Date.now()});
+    res.json({ok:true});
+  });
 /* ================= IP BAN ================= */
 
 app.post('/admin/ban-ip', requireAuth, requireAdmin, (req,res)=>{
