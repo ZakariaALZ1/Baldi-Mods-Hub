@@ -15,6 +15,31 @@ require('dotenv').config();
 const { createRemoteJWKSet, jwtVerify } = require('jose');
 
 const app = express();
+
+const allowedOrigins = [
+  'https://zakariaalz1.github.io',
+  'http://localhost:5500',
+  'http://127.0.0.1:5500'
+];
+
+app.use(cors({
+  origin: function (origin, callback) {
+    // allow no-origin requests (like curl, server-to-server)
+    if (!origin) return callback(null, true);
+
+    if (allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    } else {
+      return callback(new Error('CORS blocked'));
+    }
+  },
+  methods: ['GET','POST','PUT','DELETE','OPTIONS'],
+  allowedHeaders: ['Content-Type','Authorization','X-CSRF-Token'],
+  credentials: true,
+  maxAge: 86400
+}));
+
+app.options('*', cors());
 app.use(express.json());
 
 /* ================= ENV ================= */
