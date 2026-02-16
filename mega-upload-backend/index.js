@@ -1,4 +1,4 @@
-// mega-upload-backend/index.js
+// ===== Baldi Mods Hub — Production Secure Backend (FINAL) =====
 
 const express = require('express');
 const multer = require('multer');
@@ -6,208 +6,318 @@ const { Storage } = require('megajs');
 const cors = require('cors');
 const rateLimit = require('express-rate-limit');
 const jwt = require('jsonwebtoken');
+const crypto = require('crypto');
+const axios = require('axios');
 const fs = require('fs');
 const fsPromises = fs.promises;
 const os = require('os');
 require('dotenv').config();
 
 const app = express();
+app.use(express.json());
 
-/* =========================
-   CONFIG
-========================= */
+/* ================= ENV ================= */
 
 const FRONTEND_ORIGIN = 'https://zakariaalz1.github.io';
+const SUPABASE_JWT_SECRET = process.env.SUPABASE_JWT_SECRET;
+const DOWNLOAD_SECRET = process.env.DOWNLOAD_SECRET;
+const MEGA_EMAIL = process.env.MEGA_EMAIL;
+const MEGA_PASSWORD = process.env.MEGA_PASSWORD;
+const VT_API_KEY = process.env.VT_API_KEY || null;
 
-const ALLOWED_EXT = ['.zip', '.rar', '.7z', '.baldimod'];
+if (!MEGA_EMAIL || !MEGA_PASSWORD || !SUPABASE_JWT_SECRET || !DOWNLOAD_SECRET) {
+  console.error("❌ Missing required env vars");
+  process.exit(1);
+}
+
+/* ================= CONFIG ================= */
+
 const MAX_SIZE = 100 * 1024 * 1024;
+const ALLOWED_EXT = ['.zip','.rar','.7z','.baldimod'];
 
-/* =========================
-   CORS
-========================= */
+const hashStore = new Map();       // hash → modId
+const moderationQueue = new Map(); // modId → meta
+const abuseReports = [];
+const bannedIPs = new Set();
+
+/* ================= HELPERS ================= */
+
+function getIP(req){
+  return (
+    req.headers['x-forwarded-for']?.split(',')[0] ||
+    req.socket.remoteAddress ||
+    '0.0.0.0'
+  );
+}
+
+function cleanup(files){
+  files.forEach(f=>f?.path && fs.unlink(f.path,()=>{}));
+}
+
+function validExt(name){
+  const ext='.'+name.split('.').pop().toLowerCase();
+  return ALLOWED_EXT.includes(ext);
+}
+
+function sha256File(path){
+  return new Promise((resolve,reject)=>{
+    const h=crypto.createHash('sha256');
+    const s=fs.createReadStream(path);
+    s.on('data',d=>h.update(d));
+    s.on('end',()=>resolve(h.digest('hex')));
+    s.on('error',reject);
+  });
+}
+
+async function malwareScanHook(path){
+  // future: ClamAV hook
+  return { clean:true, score:0 };
+}
+
+async function virusTotalCheck(hash){
+  if(!VT_API_KEY) return {malicious:0,suspicious:0};
+  try{
+    const r=await axios.get(
+      `https://www.virustotal.com/api/v3/files/${hash}`,
+      { headers:{'x-apikey':VT_API_KEY}}
+    );
+    const s=r.data.data.attributes.last_analysis_stats;
+    return { malicious:s.malicious, suspicious:s.suspicious };
+  }catch{
+    return {malicious:0,suspicious:0};
+  }
+}
+
+async function uploadFile(file,prefix,folder){
+  const stats=await fsPromises.stat(file.path);
+  const safe=file.originalname.replace(/[^a-zA-Z0-9.-]/g,'_');
+  const name=`${prefix}_${Date.now()}_${safe}`;
+  const stream=fs.createReadStream(file.path);
+  const up=await folder.upload({name,size:stats.size},stream).complete;
+  stream.destroy();
+  return up;
+}
+
+/* ================= SECURITY ================= */
 
 app.use(cors({
   origin: FRONTEND_ORIGIN,
-  methods: ['POST', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
+  methods:['GET','POST','OPTIONS'],
+  allowedHeaders:['Content-Type','Authorization','X-CSRF-Token']
 }));
 
-/* =========================
-   RATE LIMIT
-========================= */
-
-const uploadLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 10,
-  message: { error: "Too many uploads — try later" }
+app.use((req,res,next)=>{
+  if(bannedIPs.has(getIP(req)))
+    return res.status(403).send("IP banned");
+  next();
 });
 
-/* =========================
-   MULTER
-========================= */
+app.use(rateLimit({
+  windowMs: 15*60*1000,
+  max: 200
+}));
+
+function requireAuth(req,res,next){
+  try{
+    const h=req.headers.authorization;
+    if(!h) return res.status(401).json({error:"Missing auth"});
+    const token=h.split(' ')[1];
+    const decoded=jwt.verify(token, SUPABASE_JWT_SECRET);
+    req.userId=decoded.sub;
+    req.userRole=decoded.role || "user";
+    next();
+  }catch{
+    res.status(401).json({error:"Invalid token"});
+  }
+}
+
+function requireAdmin(req,res,next){
+  if(req.userRole !== 'service_role' && req.userRole !== 'admin')
+    return res.status(403).json({error:"Admin only"});
+  next();
+}
+
+function requireCSRF(req,res,next){
+  if(!req.headers['x-csrf-token'])
+    return res.status(403).json({error:"Missing CSRF"});
+  next();
+}
+
+/* ================= MULTER ================= */
 
 const upload = multer({
   dest: os.tmpdir(),
   limits: { fileSize: MAX_SIZE }
 });
 
-/* =========================
-   ENV CHECK
-========================= */
+/* ================= UPLOAD ================= */
 
-const MEGA_EMAIL = process.env.MEGA_EMAIL;
-const MEGA_PASSWORD = process.env.MEGA_PASSWORD;
+app.post('/upload',
+  requireAuth,
+  requireCSRF,
+  upload.fields([
+    {name:'mainScreenshot',maxCount:1},
+    {name:'screenshots',maxCount:2},
+    {name:'modFile',maxCount:1}
+  ]),
+async (req,res)=>{
 
-if (!MEGA_EMAIL || !MEGA_PASSWORD) {
-  console.error('Missing MEGA credentials');
-  process.exit(1);
-}
+  const files=[];
+  try{
 
-/* =========================
-   SUPABASE TOKEN VERIFY
-========================= */
+    if(!req.files?.mainScreenshot || !req.files?.modFile)
+      throw new Error("Missing files");
 
-function requireAuth(req, res, next) {
-  try {
-    const header = req.headers.authorization;
-    if (!header) return res.status(401).json({ error: "Missing auth header" });
+    files.push(...req.files.mainScreenshot, ...req.files.modFile);
+    if(req.files.screenshots) files.push(...req.files.screenshots);
 
-    const token = header.split(' ')[1];
-    const decoded = jwt.decode(token);
+    const mod=req.files.modFile[0];
 
-    if (!decoded || !decoded.sub) {
-      return res.status(401).json({ error: "Invalid token" });
-    }
+    if(!validExt(mod.originalname))
+      throw new Error("Invalid file type");
 
-    req.userId = decoded.sub;
-    next();
+    const hash=await sha256File(mod.path);
 
-  } catch {
-    res.status(401).json({ error: "Auth failed" });
+    if(hashStore.has(hash))
+      throw new Error("Duplicate file already uploaded");
+
+    const scan=await malwareScanHook(mod.path);
+    if(!scan.clean) throw new Error("Malware detected");
+
+    const vt=await virusTotalCheck(hash);
+    if(vt.malicious>0) throw new Error("VirusTotal flagged file");
+
+    const storage = await new Storage({
+      email:MEGA_EMAIL,
+      password:MEGA_PASSWORD
+    }).ready;
+
+    const folder = await storage.mkdir(`mod_${Date.now()}`);
+
+    const main = await uploadFile(req.files.mainScreenshot[0],'main',folder);
+    const extras = await Promise.all(
+      (req.files.screenshots||[]).map(f=>uploadFile(f,'extra',folder))
+    );
+    const modUp = await uploadFile(mod,'mod',folder);
+
+    const modId = crypto.randomUUID();
+
+    moderationQueue.set(modId,{
+      id:modId,
+      user:req.userId,
+      hash,
+      created:Date.now(),
+      status:"pending",
+      risk: vt.malicious + vt.suspicious
+    });
+
+    hashStore.set(hash,modId);
+
+    const result={
+      modId,
+      mainScreenshotUrl: await main.link(),
+      screenshotUrls: await Promise.all(extras.map(x=>x.link())),
+      modFileUrl: await modUp.link(),
+      fileHash: hash,
+      riskScore: vt.malicious + vt.suspicious,
+      moderationStatus:"pending"
+    };
+
+    await storage.close();
+    cleanup(files);
+    res.json(result);
+
+  }catch(e){
+    cleanup(files);
+    res.status(500).json({error:e.message});
   }
-}
-
-/* =========================
-   HELPERS
-========================= */
-
-function cleanup(files) {
-  files.forEach(f => {
-    if (f?.path) fs.unlink(f.path, () => {});
-  });
-}
-
-function validateExt(name) {
-  const ext = '.' + name.split('.').pop().toLowerCase();
-  return ALLOWED_EXT.includes(ext);
-}
-
-async function uploadFile(file, prefix, folder) {
-  const stats = await fsPromises.stat(file.path);
-  const safe = file.originalname.replace(/[^a-zA-Z0-9.-]/g, '_');
-  const name = `${prefix}_${Date.now()}_${safe}`;
-  const stream = fs.createReadStream(file.path);
-
-  const uploaded = await folder.upload({
-    name,
-    size: stats.size
-  }, stream).complete;
-
-  stream.destroy();
-  return uploaded;
-}
-
-/* =========================
-   ROUTE
-========================= */
-
-app.post('/upload', uploadLimiter, requireAuth, (req, res) => {
-
-  const mw = upload.fields([
-    { name: 'mainScreenshot', maxCount: 1 },
-    { name: 'screenshots', maxCount: 4 },
-    { name: 'modFile', maxCount: 1 }
-  ]);
-
-  mw(req, res, async err => {
-
-    if (err) return res.status(400).json({ error: err.message });
-
-    const files = [];
-    try {
-
-      if (!req.files?.mainScreenshot || !req.files?.modFile) {
-        throw new Error("Missing required files");
-      }
-
-      files.push(...req.files.mainScreenshot);
-      files.push(...req.files.modFile);
-      if (req.files.screenshots) files.push(...req.files.screenshots);
-
-      if (!validateExt(req.files.modFile[0].originalname)) {
-        throw new Error("Invalid mod file type");
-      }
-
-      console.log("Auth user:", req.userId);
-
-      const storage = await new Storage({
-        email: MEGA_EMAIL,
-        password: MEGA_PASSWORD
-      }).ready;
-
-      const folder = await storage.mkdir(`mod_${Date.now()}`);
-
-      const main = await uploadFile(req.files.mainScreenshot[0], 'main', folder);
-
-      const extras = await Promise.all(
-        (req.files.screenshots || []).map(f =>
-          uploadFile(f, 'extra', folder)
-        )
-      );
-
-      const mod = await uploadFile(req.files.modFile[0], 'mod', folder);
-
-      const result = {
-        mainScreenshotUrl: await main.link(),
-        screenshotUrls: await Promise.all(extras.map(x => x.link())),
-        modFileUrl: await mod.link()
-      };
-
-      await storage.close();
-      cleanup(files);
-
-      res.json(result);
-
-    } catch (e) {
-      cleanup(files);
-      res.status(500).json({ error: e.message });
-    }
-  });
 });
 
-/* =========================
-   HEALTH
-========================= */
+/* ================= SIGNED DOWNLOAD ================= */
+
+app.post('/make-download-token', requireAuth, (req,res)=>{
+  const {modId,url}=req.body;
+
+  const token=jwt.sign({
+    modId,
+    url,
+    ip:getIP(req),
+    ua:req.headers['user-agent']
+  }, DOWNLOAD_SECRET, {expiresIn:'5m'});
+
+  res.send(token);
+});
+
+app.get('/download/:id',(req,res)=>{
+  try{
+    const decoded=jwt.verify(req.query.token,DOWNLOAD_SECRET);
+
+    if(decoded.modId !== req.params.id)
+      return res.status(403).send("Invalid mod");
+
+    if(decoded.ip !== getIP(req))
+      return res.status(403).send("IP mismatch");
+
+    if(decoded.ua !== req.headers['user-agent'])
+      return res.status(403).send("UA mismatch");
+
+    res.redirect(decoded.url);
+
+  }catch{
+    res.status(403).send("Expired");
+  }
+});
+
+/* ================= MODERATION ================= */
+
+app.get('/admin/moderation', requireAuth, requireAdmin, (req,res)=>{
+  res.json([...moderationQueue.values()]);
+});
+
+app.post('/admin/approve/:id', requireAuth, requireAdmin, (req,res)=>{
+  const m=moderationQueue.get(req.params.id);
+  if(!m) return res.status(404).send("Not found");
+  m.status="approved";
+  res.json(m);
+});
+
+app.post('/admin/reject/:id', requireAuth, requireAdmin, (req,res)=>{
+  moderationQueue.delete(req.params.id);
+  res.json({removed:true});
+});
+
+/* ================= ABUSE ================= */
+
+app.post('/report', requireAuth, (req,res)=>{
+  abuseReports.push({
+    user:req.userId,
+    ...req.body,
+    time:Date.now()
+  });
+  res.json({ok:true});
+});
+
+app.get('/admin/reports', requireAuth, requireAdmin, (req,res)=>{
+  res.json(abuseReports);
+});
+
+/* ================= IP BAN ================= */
+
+app.post('/admin/ban-ip', requireAuth, requireAdmin, (req,res)=>{
+  bannedIPs.add(req.body.ip);
+  res.json({banned:true});
+});
+
+app.post('/admin/unban-ip', requireAuth, requireAdmin, (req,res)=>{
+  bannedIPs.delete(req.body.ip);
+  res.json({unbanned:true});
+});
+
+/* ================= HEALTH ================= */
+
+app.get('/health',(req,res)=>res.send("OK"));
+
+/* ================= START ================= */
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log(`Backend running on port ${PORT}`);
-});
-
-// Optional test endpoint to verify file reception (remove in production)
-app.post('/test-upload', upload.fields([
-  { name: 'mainScreenshot', maxCount: 1 },
-  { name: 'screenshots', maxCount: 4 },
-  { name: 'modFile', maxCount: 1 }
-]), (req, res) => {
-  console.log('Test upload received');
-  const fileInfo = {};
-  for (const field in req.files) {
-    fileInfo[field] = req.files[field].map(f => ({
-      originalname: f.originalname,
-      size: f.size,
-      mimetype: f.mimetype
-    }));
-  }
-  res.json({ files: fileInfo });
-});
+app.listen(PORT,()=>console.log("✅ Secure backend running on",PORT));
