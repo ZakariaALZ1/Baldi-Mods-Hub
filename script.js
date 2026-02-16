@@ -540,8 +540,30 @@ function resetInactivityTimer() {
   ========================= */
 
 async function uploadMod() {
-  const user = await getCurrentUser();
-  if (!user) return showNotification("Please login to upload", "error");
+ const user = await getCurrentUser();
+  if (!user) {
+    showNotification("Please login to upload", "error");
+    return;
+  }
+
+  // Get Supabase session safely
+  const { data: sessionData, error: sessErr } =
+    await supabaseClient.auth.getSession();
+
+  if (sessErr) {
+    console.error("Session error:", sessErr);
+    showNotification("Auth error — reload page", "error");
+    return;
+  }
+
+  if (!sessionData?.session?.access_token) {
+    showNotification("Login expired — please sign in again", "error");
+    return;
+  }
+
+  const accessToken = sessionData.session.access_token;
+
+  console.log("Upload using token:", accessToken.slice(0, 20)); // debug (remove later)
 
   // ✅ Ensure CSRF token exists
   if (!getCSRFToken()) generateCSRFToken();
