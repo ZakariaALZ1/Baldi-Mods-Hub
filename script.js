@@ -43,36 +43,48 @@
   /* =========================
      SECURITY HELPERS
   ========================= */
-  function generateCSRFToken() {
-    csrfToken = crypto.randomUUID?.() || Math.random().toString(36).substring(2);
-    sessionStorage.setItem('csrf_token', csrfToken);
-    return csrfToken;
+function generateCSRFToken() {
+  try {
+    csrfToken = crypto.randomUUID();
+  } catch {
+    csrfToken = Math.random().toString(36).slice(2) + Date.now();
   }
-  function validateCSRFToken(token) {
-    const stored = sessionStorage.getItem('csrf_token');
-    return stored && token === stored;
-  }
-  function sanitizeInput(str) {
-    if (!str) return '';
-    return str
-      .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
-      .replace(/on\w+="[^"]*"/gi, '')
-      .replace(/javascript:/gi, '')
-      .trim();
-  }
-  function resetInactivityTimer() {
-    if (inactivityTimer) clearTimeout(inactivityTimer);
-    inactivityTimer = setTimeout(async () => {
-      if (isAuthenticated) {
-        await logout();
-        showNotification('Session expired due to inactivity', 'info');
-      }
-    }, 3600000);
-  }
-  ['click', 'keypress', 'scroll', 'mousemove'].forEach(event => {
-    document.addEventListener(event, resetInactivityTimer);
-  });
+  sessionStorage.setItem('csrf_token', csrfToken);
+  return csrfToken;
+}
 
+function getCSRFToken() {
+  return sessionStorage.getItem('csrf_token');
+}
+
+function validateCSRFToken(token) {
+  const stored = getCSRFToken();
+  return !!stored && token === stored;
+}
+
+/* ---- Stronger sanitizer ---- */
+function sanitizeInput(str) {
+  if (!str) return '';
+
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.textContent.trim();
+}
+
+/* ---- Auto logout on inactivity ---- */
+function resetInactivityTimer() {
+  if (inactivityTimer) clearTimeout(inactivityTimer);
+
+  inactivityTimer = setTimeout(async () => {
+    if (isAuthenticated) {
+      await logout();
+      showNotification('Session expired due to inactivity', 'info');
+    }
+  }, 60 * 60 * 1000); // 1 hour
+}
+
+['click','keypress','scroll','mousemove','touchstart']
+  .forEach(e => document.addEventListener(e, resetInactivityTimer));
   /* =========================
      GAMEBANANA STYLE NOTIFICATIONS
   ========================= */
@@ -531,31 +543,42 @@ async function uploadMod() {
   const user = await getCurrentUser();
   if (!user) return showNotification("Please login to upload", "error");
 
-  const title = val("title");
-  const description = val("description");
+  // ✅ Ensure CSRF token exists
+  if (!getCSRFToken()) generateCSRFToken();
+
+  const titleRaw = val("title");
+  const descriptionRaw = val("description");
   const version = val("version") || "1.0.0";
   const baldiVersion = val("baldiVersion");
   const tags = val("tags");
+
   const file = fileEl("file");
   const mainScreenshot = fileEl("mainScreenshot");
   const additionalScreenshots = document.getElementById('screenshots')?.files;
 
-  // Validation
-  if (!title || title.length < 3 || title.length > 100) 
+  // ✅ sanitize text inputs
+  const title = sanitizeInput(titleRaw);
+  const description = sanitizeInput(descriptionRaw);
+
+  // ===== Validation =====
+  if (!title || title.length < 3 || title.length > 100)
     return showNotification("Title must be 3-100 characters", "error");
-  if (!description || description.length < 10 || description.length > 5000) 
+
+  if (!description || description.length < 10 || description.length > 5000)
     return showNotification("Description must be 10-5000 characters", "error");
+
   if (!file) return showNotification("Please select a mod file", "error");
   if (!mainScreenshot) return showNotification("Please select a main screenshot", "error");
 
   const allowedExtensions = window.ENV?.ALLOWED_FILE_TYPES || ['.zip', '.rar', '.7z', '.baldimod'];
-  const maxSize = window.ENV?.MAX_UPLOAD_SIZE || 100 * 1024 * 1024; // 100MB default
+  const maxSize = window.ENV?.MAX_UPLOAD_SIZE || 100 * 1024 * 1024;
 
   const fileExt = '.' + file.name.split('.').pop().toLowerCase();
-  if (!allowedExtensions.includes(fileExt)) 
+
+  if (!allowedExtensions.includes(fileExt))
     return showNotification(`Only ${allowedExtensions.join(', ')} files allowed`, "error");
 
-  if (file.size > maxSize) 
+  if (file.size > maxSize)
     return showNotification(`File size exceeds ${Math.round(maxSize / (1024*1024))}MB limit`, "error");
 
   const button = document.querySelector('button[onclick="uploadMod()"]');
@@ -567,134 +590,140 @@ async function uploadMod() {
   document.querySelector('.gb-upload-form')?.appendChild(progressDiv);
 
   try {
-    // ===== 1. Upload screenshots to Supabase Storage (for display) =====
+
+    // ===============================
+    // 1️⃣ Upload screenshots to Supabase
+    // ===============================
     progressDiv.innerHTML = '<div class="gb-progress-spinner"></div> Uploading screenshots...';
 
-    // Upload main screenshot to Supabase
     const mainExt = mainScreenshot.name.split('.').pop();
     const mainPath = `${user.id}/main_${Date.now()}.${mainExt}`;
+
     const { error: mainUploadError } = await supabaseClient.storage
       .from('mod-screenshots')
       .upload(mainPath, mainScreenshot);
+
     if (mainUploadError) throw mainUploadError;
+
     const { data: mainUrlData } = supabaseClient.storage
       .from('mod-screenshots')
       .getPublicUrl(mainPath);
+
     const mainScreenshotUrl = mainUrlData.publicUrl;
 
-    // Upload additional screenshots to Supabase (max 2)
     const screenshotUrls = [];
-    if (additionalScreenshots && additionalScreenshots.length > 0) {
-      const maxAdditional = 2;
-      for (let i = 0; i < Math.min(additionalScreenshots.length, maxAdditional); i++) {
-        const file = additionalScreenshots[i];
-        progressDiv.innerHTML = `<div class="gb-progress-spinner"></div> Uploading screenshot ${i+1}...`;
-        const ext = file.name.split('.').pop();
+
+    if (additionalScreenshots?.length) {
+      for (let i = 0; i < Math.min(additionalScreenshots.length, 2); i++) {
+        const shot = additionalScreenshots[i];
+
+        progressDiv.innerHTML =
+          `<div class="gb-progress-spinner"></div> Uploading screenshot ${i + 1}...`;
+
+        const ext = shot.name.split('.').pop();
         const path = `${user.id}/add_${Date.now()}_${i}.${ext}`;
-        const { error: addUploadError } = await supabaseClient.storage
+
+        const { error } = await supabaseClient.storage
           .from('mod-screenshots')
-          .upload(path, file);
-        if (addUploadError) throw addUploadError;
-        const { data: urlData } = supabaseClient.storage
+          .upload(path, shot);
+
+        if (error) throw error;
+
+        const { data } = supabaseClient.storage
           .from('mod-screenshots')
           .getPublicUrl(path);
-        screenshotUrls.push(urlData.publicUrl);
+
+        screenshotUrls.push(data.publicUrl);
       }
     }
 
-    // ===== 2. Upload all files to Mega backend (to satisfy backend validation) =====
-    progressDiv.innerHTML = '<div class="gb-progress-spinner"></div> Uploading mod file to Mega...';
+    // ===============================
+    // 2️⃣ Upload files to Mega backend
+    // ===============================
+    progressDiv.innerHTML = '<div class="gb-progress-spinner"></div> Uploading mod file...';
 
     const formData = new FormData();
-    formData.append('mainScreenshot', mainScreenshot);          // send original file
-    // Send additional screenshots – convert FileList to array before forEach
-    if (additionalScreenshots) {
-      Array.from(additionalScreenshots).forEach(f => formData.append('screenshots', f));
-    }
+    formData.append('mainScreenshot', mainScreenshot);
     formData.append('modFile', file);
 
-    // Log what's being sent (for debugging)
-    console.log('Sending to Mega backend:');
-    for (let pair of formData.entries()) {
-      console.log(pair[0], pair[1] instanceof File ? pair[1].name : pair[1]);
+    if (additionalScreenshots) {
+      Array.from(additionalScreenshots).forEach(f =>
+        formData.append('screenshots', f)
+      );
     }
 
+    const { data: sessionData } = await supabaseClient.auth.getSession();
+    if (!sessionData.session) throw new Error("Not logged in");
+
+    const accessToken = sessionData.session.access_token;
+
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 300000); // 5 min
+    const timeoutId = setTimeout(() => controller.abort(), 300000);
 
-// Get Supabase session token
-const { data: sessionData } = await supabaseClient.auth.getSession();
+    const response = await fetch(MEGA_BACKEND_URL, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        'X-CSRF-Token': getCSRFToken()   // ✅ fixed comma bug
+      },
+      body: formData,
+      signal: controller.signal
+    });
 
-if (!sessionData.session) {
-  throw new Error("Not logged in");
-}
-
-const accessToken = sessionData.session.access_token;
-
-const response = await fetch(MEGA_BACKEND_URL, {
-  method: 'POST',
-  headers: {
-    Authorization: `Bearer ${accessToken}`
-  },
-  body: formData,
-  signal: controller.signal
-});
-
-
-
+    clearTimeout(timeoutId);
 
     if (!response.ok) {
-      let errorText;
+      let msg;
       try {
-        const errorJson = await response.json();
-        errorText = errorJson.error || errorJson.message || JSON.stringify(errorJson);
+        const j = await response.json();
+        msg = j.error || j.message;
       } catch {
-        errorText = await response.text();
+        msg = await response.text();
       }
-      throw new Error(`Server error ${response.status}: ${errorText || 'Unknown error'}`);
+      throw new Error(`Server error ${response.status}: ${msg}`);
     }
 
     const result = await response.json();
-    const { modFileUrl } = result; // we ignore screenshot URLs from Mega
+    if (!result.modFileUrl) throw new Error("Missing modFileUrl");
 
-    if (!modFileUrl) {
-      throw new Error('Server response missing modFileUrl');
-    }
-
-    // ===== 3. Build screenshots array (using Supabase URLs) =====
+    // ===============================
+    // 3️⃣ Build screenshot array
+    // ===============================
     const screenshotsArray = [
       { url: mainScreenshotUrl, is_main: true, sort_order: 0 },
-      ...screenshotUrls.map((url, i) => ({ url, is_main: false, sort_order: i + 1 }))
+      ...screenshotUrls.map((u, i) => ({
+        url: u,
+        is_main: false,
+        sort_order: i + 1
+      }))
     ];
 
-    const tagArray = tags ? tags.split(',').map(t => t.trim()).filter(t => t) : [];
+    const tagArray = tags
+      ? tags.split(',').map(t => sanitizeInput(t)).filter(Boolean)
+      : [];
 
-    // ===== 4. Insert mod record into database =====
-    progressDiv.innerHTML = '<div class="gb-progress-spinner"></div> Saving mod data...';
+    // ===============================
+    // 4️⃣ Insert DB record
+    // ===============================
+    progressDiv.innerHTML = '<div class="gb-progress-spinner"></div> Saving data...';
+
     const { error: dbError } = await supabaseClient
       .from("mods2")
       .insert([{
-        title: title.trim(),
-        description: description.trim(),
-        version: version,
+        title,
+        description,
+        version,
         baldi_version: baldiVersion,
         tags: tagArray,
-        file_url: modFileUrl,
-        file_storage_path: null,
+        file_url: result.modFileUrl,
         user_id: user.id,
         author_name: currentUserProfile?.username || user.email?.split('@')[0],
-        approved: false,
-        reported: false,
-        quarantine: false,
-        file_hash: null,
         file_size: file.size,
         file_extension: fileExt,
         original_filename: file.name,
-        scan_status: 'pending',
-        risk_score: 0,
-        threat_cluster: null,
-        scan_reason: null,
         screenshots: screenshotsArray,
+        approved: false,
+        scan_status: 'pending',
         download_count: 0,
         view_count: 0,
         created_at: new Date().toISOString(),
@@ -703,36 +732,18 @@ const response = await fetch(MEGA_BACKEND_URL, {
 
     if (dbError) throw dbError;
 
-    // Update user profile upload count
-    await supabaseClient
-      .from("profiles")
-      .update({ upload_count: supabaseClient.rpc('increment', { x: 1 }) })
-      .eq("id", user.id);
-
     progressDiv.remove();
     showNotification("✅ Mod uploaded! Pending review.", "success", 8000);
 
-    // Clear form
-    ['title', 'description', 'version', 'baldiVersion', 'tags', 'file', 'mainScreenshot', 'screenshots'].forEach(id => {
-      const el = document.getElementById(id);
-      if (el) el.value = id === 'version' ? '1.0.0' : '';
-    });
-    document.getElementById('screenshotPreviews').innerHTML = '';
-
-    setTimeout(() => window.location.href = "profile.html", 2000);
-
   } catch (err) {
-    console.error("Upload failed:", err);
-    progressDiv.remove();
-    if (err.name === 'AbortError') {
-      showNotification("Upload timed out – please try again or check your connection.", "error");
-    } else {
-      showNotification("Upload failed: " + err.message, "error");
-    }
+    console.error(err);
+    progressDiv?.remove();
+    showNotification("Upload failed: " + err.message, "error");
   } finally {
     setLoading(button, false);
   }
 }
+
 
   /* =========================
      MOD PAGE
