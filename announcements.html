@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="X-Content-Type-Options" content="nosniff">
+  <meta http-equiv="Referrer-Policy" content="strict-origin-when-cross-origin">
+  <title>Announcements - Baldi Mods Hub</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90' fill='%2300ff88'>🎓</text></svg>">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+  <script src="js/supabase.min.js"></script>
+  <script src="config.js"></script>
+  <style>
+    :root {
+      --gb-primary: #00ff88;
+      --gb-primary-dark: #00cc66;
+      --gb-secondary: #ffaa00;
+      --gb-danger: #ff4444;
+      --gb-info: #2196f3;
+      --gb-bg: #0a0a0a;
+      --gb-bg-light: #1a1a1a;
+      --gb-bg-lighter: #222;
+      --gb-border: #333;
+      --gb-text: #fff;
+      --gb-text-muted: #ccc;
+    }
+    * { margin:0; padding:0; box-sizing:border-box; }
+    body { background: var(--gb-bg); color: var(--gb-text); font-family: 'Inter', sans-serif; line-height:1.6; }
+    /* Header and nav styles from other pages – assume they're in style.css */
+    .gb-main { max-width: 1200px; margin: 40px auto; padding: 0 30px; }
+    .gb-announcement-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; }
+    .gb-announcement-header h1 { font-size: 36px; font-weight: 800; background: linear-gradient(135deg, #fff 0%, var(--gb-primary) 100%); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
+    .gb-btn { padding: 12px 24px; border-radius: 8px; font-weight: bold; cursor: pointer; transition: all 0.2s; display: inline-flex; align-items: center; gap: 8px; }
+    .gb-btn-primary { background: linear-gradient(135deg, var(--gb-primary), var(--gb-primary-dark)); color: black; }
+    .gb-btn-secondary { background: transparent; border: 2px solid var(--gb-border); color: var(--gb-text-muted); }
+    .gb-btn-secondary:hover { border-color: var(--gb-primary); color: var(--gb-primary); }
+    .gb-announcement-card { background: linear-gradient(135deg, #1a1a1a 0%, #151515 100%); border: 1px solid var(--gb-border); border-radius: 16px; padding: 25px; margin-bottom: 25px; }
+    .gb-announcement-title { font-size: 24px; font-weight: 700; color: var(--gb-primary); margin-bottom: 10px; }
+    .gb-announcement-meta { display: flex; gap: 20px; color: var(--gb-text-muted); font-size: 14px; margin-bottom: 15px; }
+    .gb-announcement-content { color: var(--gb-text); line-height: 1.6; margin-bottom: 15px; white-space: pre-wrap; }
+    .gb-announcement-images { display: flex; gap: 15px; margin-bottom: 15px; flex-wrap: wrap; }
+    .gb-announcement-images img { max-width: 200px; border-radius: 8px; border: 2px solid var(--gb-border); }
+    .gb-announcement-actions { display: flex; gap: 10px; justify-content: flex-end; }
+    .gb-badge { background: var(--gb-primary); color: black; padding: 4px 8px; border-radius: 20px; font-size: 12px; }
+    .gb-modal { position: fixed; z-index: 10000; left:0; top:0; width:100%; height:100%; background: rgba(0,0,0,0.7); display: flex; align-items: center; justify-content: center; }
+    .gb-modal-content { background: var(--gb-bg-light); padding: 30px; border-radius: 20px; max-width: 600px; width:90%; }
+    .gb-modal-close { float:right; font-size:28px; cursor: pointer; color: var(--gb-text-muted); }
+    .gb-form-group { margin-bottom:20px; }
+    .gb-form-group label { display:block; margin-bottom:8px; color: var(--gb-text-muted); }
+    .gb-form-group input, .gb-form-group textarea, .gb-form-group select { width:100%; padding:12px; background: rgba(0,0,0,0.3); border:2px solid var(--gb-border); border-radius:8px; color: var(--gb-text); }
+    .gb-form-group input:focus, .gb-form-group textarea:focus { border-color: var(--gb-primary); outline:none; }
+    .gb-hint { color: var(--gb-text-muted); font-size:12px; margin-top:5px; }
+    .gb-preview-grid { display:grid; grid-template-columns: repeat(auto-fill, minmax(100px,1fr)); gap:10px; margin-top:10px; }
+    .gb-preview-item { position:relative; border:2px solid var(--gb-border); border-radius:8px; overflow:hidden; }
+    .gb-preview-item img { width:100%; height:80px; object-fit:cover; }
+    .gb-preview-remove { position:absolute; top:2px; right:2px; background: rgba(255,68,68,0.9); color:white; border:none; border-radius:50%; width:20px; height:20px; cursor:pointer; }
+    .gb-loading { text-align:center; padding:60px; color: var(--gb-text-muted); }
+    .gb-no-results { text-align:center; padding:60px; color: var(--gb-text-muted); }
+  </style>
+</head>
+<body>
+  <header class="gb-header"><!-- same as other pages --></header>
+  <nav class="gb-nav" id="main-nav"><!-- filled by JS --></nav>
+  <main class="gb-main">
+    <div class="gb-announcement-header">
+      <h1>📢 Announcements</h1>
+      <button id="createAnnouncementBtn" class="gb-btn gb-btn-primary" style="display: none;">➕ New Announcement</button>
+    </div>
+    <div id="announcementsContainer" class="gb-announcements-list">
+      <div class="gb-loading">Loading announcements...</div>
+    </div>
+  </main>
+
+  <!-- Create/Edit Modal -->
+  <div id="announcementModal" class="gb-modal" style="display: none;">
+    <div class="gb-modal-content">
+      <span class="gb-modal-close" onclick="closeAnnouncementModal()">&times;</span>
+      <h2 id="modalTitle">Create Announcement</h2>
+      <form id="announcementForm" onsubmit="event.preventDefault(); saveAnnouncement();">
+        <input type="hidden" id="announcementId">
+        <div class="gb-form-group">
+          <label>Title <span>*</span></label>
+          <input type="text" id="announcementTitle" maxlength="200" required>
+        </div>
+        <div class="gb-form-group">
+          <label>Content <span>*</span></label>
+          <textarea id="announcementContent" rows="6" maxlength="5000" required></textarea>
+        </div>
+        <div class="gb-form-group">
+          <label>Images (up to 2)</label>
+          <input type="file" id="announcementImages" accept="image/*" multiple>
+          <span class="gb-hint">You can select up to 2 images. They will be uploaded when you save.</span>
+          <div id="imagePreviews" class="gb-preview-grid"></div>
+        </div>
+        <div class="gb-form-group">
+          <label>
+            <input type="checkbox" id="mentionsEveryone"> 🔴 Mention everyone (red notification for all users)
+          </label>
+        </div>
+        <div class="gb-form-actions" style="display: flex; gap: 10px; justify-content: flex-end;">
+          <button type="submit" class="gb-btn gb-btn-primary">💾 Save</button>
+          <button type="button" class="gb-btn gb-btn-secondary" onclick="closeAnnouncementModal()">Cancel</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script src="script.js"></script>
+  <script>
+  (async function() {
+    const waitForSupabase = async (maxAttempts=30) => {
+      for (let i=0; i<maxAttempts; i++) {
+        if (typeof window.supabaseClient !== 'undefined') return true;
+        await new Promise(r => setTimeout(r,100));
+      }
+      return false;
+    };
+    await waitForSupabase();
+    if (typeof window.checkAuthState === 'function') window.checkAuthState();
+    loadAnnouncementsPage();
+  })();
+
+  let selectedImageFiles = [];
+
+  async function loadAnnouncementsPage() {
+    const container = document.getElementById('announcementsContainer');
+    container.innerHTML = '<div class="gb-loading">Loading announcements...</div>';
+
+    const user = await getCurrentUser();
+    // ✅ FIX: use a different variable name (isAdminUser) to avoid conflict
+    const isAdminUser = user && (await isAdmin());
+
+    const createBtn = document.getElementById('createAnnouncementBtn');
+    if (createBtn) createBtn.style.display = isAdminUser ? 'inline-flex' : 'none';
+
+    const { data: announcements, error } = await supabaseClient
+      .from('announcements')
+      .select('*, profiles:created_by (username)')
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('Failed to load announcements:', error);
+      container.innerHTML = '<div class="gb-error">Failed to load announcements</div>';
+      return;
+    }
+
+    if (!announcements || announcements.length === 0) {
+      container.innerHTML = '<div class="gb-no-results">No announcements yet.</div>';
+      return;
+    }
+
+    let reads = [];
+    if (user) {
+      const { data: userReads } = await supabaseClient
+        .from('announcement_reads')
+        .select('announcement_id')
+        .eq('user_id', user.id);
+      reads = (userReads || []).map(r => r.announcement_id);
+    }
+
+    container.innerHTML = announcements.map(a => {
+      const isUnread = a.mentions_everyone && user && !reads.includes(a.id);
+      return `
+        <div class="gb-announcement-card" data-id="${a.id}">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+            <h2 class="gb-announcement-title">${escapeHTML(a.title)} ${isUnread ? '<span class="gb-badge">NEW</span>' : ''}</h2>
+            ${a.mentions_everyone ? '<span style="color: #ff4444;">🔴 Everyone</span>' : ''}
+          </div>
+          <div class="gb-announcement-meta">
+            <span>👤 ${escapeHTML(a.profiles?.username || 'Unknown')}</span>
+            <span>📅 ${new Date(a.created_at).toLocaleDateString()}</span>
+          </div>
+          <div class="gb-announcement-content">${escapeHTML(a.content).replace(/\n/g, '<br>')}</div>
+          ${a.images && a.images.length ? `
+            <div class="gb-announcement-images">
+              ${a.images.map(url => `<img src="${escapeHTML(url)}" alt="Announcement image">`).join('')}
+            </div>
+          ` : ''}
+          ${isAdminUser ? `
+            <div class="gb-announcement-actions">
+              <button onclick="editAnnouncement('${a.id}')" class="gb-btn gb-btn-secondary">✎ Edit</button>
+              <button onclick="deleteAnnouncement('${a.id}')" class="gb-btn gb-btn-danger">🗑️ Delete</button>
+            </div>
+          ` : ''}
+        </div>
+      `;
+    }).join('');
+
+    if (user) {
+      const unreadAnnouncements = announcements.filter(a => a.mentions_everyone && !reads.includes(a.id));
+      for (const a of unreadAnnouncements) {
+        await supabaseClient
+          .from('announcement_reads')
+          .insert({ announcement_id: a.id, user_id: user.id })
+          .catch(err => console.warn('Could not mark read:', err));
+      }
+      if (typeof updateNotificationCount === 'function') updateNotificationCount();
+    }
+  }
+
+    // Modal functions
+    window.openAnnouncementModal = function(announcement = null) {
+      const modal = document.getElementById('announcementModal');
+      const titleEl = document.getElementById('modalTitle');
+      const idField = document.getElementById('announcementId');
+      const titleInput = document.getElementById('announcementTitle');
+      const contentInput = document.getElementById('announcementContent');
+      const mentionsCheck = document.getElementById('mentionsEveryone');
+      const previews = document.getElementById('imagePreviews');
+
+      if (announcement) {
+        titleEl.textContent = 'Edit Announcement';
+        idField.value = announcement.id;
+        titleInput.value = announcement.title;
+        contentInput.value = announcement.content;
+        mentionsCheck.checked = announcement.mentions_everyone || false;
+      } else {
+        titleEl.textContent = 'Create Announcement';
+        idField.value = '';
+        titleInput.value = '';
+        contentInput.value = '';
+        mentionsCheck.checked = false;
+      }
+      selectedImageFiles = [];
+      previews.innerHTML = '';
+      modal.style.display = 'flex';
+    };
+
+    window.closeAnnouncementModal = function() {
+      document.getElementById('announcementModal').style.display = 'none';
+      document.getElementById('announcementForm').reset();
+      selectedImageFiles = [];
+      document.getElementById('imagePreviews').innerHTML = '';
+    };
+
+    // Handle image preview
+    document.getElementById('announcementImages')?.addEventListener('change', function(e) {
+      const previews = document.getElementById('imagePreviews');
+      previews.innerHTML = '';
+      selectedImageFiles = Array.from(e.target.files).slice(0, 2);
+      selectedImageFiles.forEach((file, index) => {
+        const reader = new FileReader();
+        reader.onload = function(ev) {
+          const div = document.createElement('div');
+          div.className = 'gb-preview-item';
+          div.innerHTML = `<img src="${ev.target.result}" alt="Preview"><button type="button" class="gb-preview-remove" data-index="${index}">×</button>`;
+          previews.appendChild(div);
+        };
+        reader.readAsDataURL(file);
+      });
+    });
+
+    // Remove preview
+    document.getElementById('imagePreviews')?.addEventListener('click', function(e) {
+      if (e.target.classList.contains('gb-preview-remove')) {
+        const index = e.target.dataset.index;
+        selectedImageFiles.splice(index, 1);
+        e.target.closest('.gb-preview-item').remove();
+      }
+    });
+
+    async function saveAnnouncement() {
+      const user = await getCurrentUser();
+      if (!user) { showNotification('Please login', 'error'); return; }
+
+      const id = document.getElementById('announcementId').value;
+      const title = document.getElementById('announcementTitle').value.trim();
+      const content = document.getElementById('announcementContent').value.trim();
+      const mentionsEveryone = document.getElementById('mentionsEveryone').checked;
+
+      if (!title || !content) {
+        showNotification('Title and content are required', 'error');
+        return;
+      }
+
+      const button = document.querySelector('#announcementForm button[type="submit"]');
+      setLoading(button, true, 'Saving...');
+
+      try {
+        // Upload new images if any
+        let imageUrls = [];
+        if (selectedImageFiles.length > 0) {
+          for (let i = 0; i < selectedImageFiles.length; i++) {
+            const file = selectedImageFiles[i];
+            const ext = file.name.split('.').pop();
+            const path = `announcements/${user.id}/${Date.now()}_${i}.${ext}`;
+            const { error: uploadError } = await supabaseClient.storage
+              .from('announcement-images') // create this bucket (public)
+              .upload(path, file);
+            if (uploadError) throw uploadError;
+            const { data: urlData } = supabaseClient.storage
+              .from('announcement-images')
+              .getPublicUrl(path);
+            imageUrls.push(urlData.publicUrl);
+          }
+        }
+
+        const announcementData = {
+          title,
+          content,
+          mentions_everyone: mentionsEveryone,
+          updated_at: new Date().toISOString()
+        };
+        if (imageUrls.length) {
+          announcementData.images = imageUrls;
+        }
+
+        if (id) {
+          // Update existing
+          const { error } = await supabaseClient
+            .from('announcements')
+            .update(announcementData)
+            .eq('id', id);
+          if (error) throw error;
+          showNotification('Announcement updated', 'success');
+        } else {
+          // Create new
+          announcementData.created_by = user.id;
+          announcementData.created_at = new Date().toISOString();
+          const { error } = await supabaseClient
+            .from('announcements')
+            .insert([announcementData]);
+          if (error) throw error;
+          showNotification('Announcement created', 'success');
+        }
+
+        closeAnnouncementModal();
+        loadAnnouncementsPage();
+      } catch (err) {
+        console.error('Save announcement failed:', err);
+        showNotification('Failed: ' + err.message, 'error');
+      } finally {
+        setLoading(button, false);
+      }
+    }
+
+    window.editAnnouncement = async function(announcementId) {
+      const { data, error } = await supabaseClient
+        .from('announcements')
+        .select('*')
+        .eq('id', announcementId)
+        .single();
+      if (error || !data) {
+        showNotification('Announcement not found', 'error');
+        return;
+      }
+      openAnnouncementModal(data);
+    };
+
+    window.deleteAnnouncement = async function(announcementId) {
+      if (!confirm('Are you sure you want to delete this announcement?')) return;
+      const { error } = await supabaseClient
+        .from('announcements')
+        .delete()
+        .eq('id', announcementId);
+      if (error) {
+        showNotification('Delete failed: ' + error.message, 'error');
+      } else {
+        showNotification('Announcement deleted', 'success');
+        loadAnnouncementsPage();
+      }
+    };
+
+    // Create button
+    document.getElementById('createAnnouncementBtn')?.addEventListener('click', () => openAnnouncementModal());
+
+    // Helper escapeHTML (if not defined)
+    if (typeof window.escapeHTML !== 'function') {
+      window.escapeHTML = function(str) {
+        if (!str) return '';
+        const div = document.createElement('div');
+        div.textContent = str;
+        return div.innerHTML;
+      };
+    }
+  </script>
+</body>
+</html>

@@ -1,19 +1,25 @@
 // ===== Baldi Mods Hub — Production Secure Backend =====
 
+require('dotenv').config();   // ✅ MUST be first
+
 const express = require('express');
 const multer = require('multer');
 const { Storage } = require('megajs');
 const cors = require('cors');
 const rateLimit = require('express-rate-limit');
-const jwt = require('jsonwebtoken');
+const jwt = require('jsonwebtoken');      // used for download tokens only
 const crypto = require('crypto');
 const axios = require('axios');
 const fs = require('fs');
 const fsPromises = fs.promises;
 const os = require('os');
-const { createRemoteJWKSet, jwtVerify } = require('jose');
+const { createRemoteJWKSet, jwtVerify } = require('jose');  // JWKS verification
 
 const app = express();
+
+app.set('trust proxy', 1);   // ✅ REQUIRED for Railway + rate limit
+
+app.get('/ping', (req,res)=>res.send("pong"));
 
 /* =========================
    CORS — MUST BE FIRST
@@ -39,9 +45,6 @@ app.use(cors({
 
 app.use(express.json());
 
-
-require('dotenv').config();
-
 console.log("ENV STATUS", {
   MEGA_EMAIL: !!process.env.MEGA_EMAIL,
   MEGA_PASSWORD: !!process.env.MEGA_PASSWORD,
@@ -50,15 +53,13 @@ console.log("ENV STATUS", {
   SUPABASE_ANON_KEY: !!process.env.SUPABASE_ANON_KEY
 });
 
-
-
 /* ================= ENV ================= */
 
 const DOWNLOAD_SECRET = process.env.DOWNLOAD_SECRET;
 const MEGA_EMAIL = process.env.MEGA_EMAIL;
 const MEGA_PASSWORD = process.env.MEGA_PASSWORD;
 const VT_API_KEY = process.env.VT_API_KEY || null;
-const SUPABASE_URL = process.env.SUPABASE_URL;
+const SUPABASE_URL = process.env.SUPABASE_URL.replace(/\/$/, ''); // remove trailing slash if any
 const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY;
 
 if (!MEGA_EMAIL || !MEGA_PASSWORD || !DOWNLOAD_SECRET || !SUPABASE_URL || !SUPABASE_ANON_KEY) {
@@ -134,67 +135,119 @@ async function uploadFile(file,prefix,folder){
   return up;
 }
 
-
-/* ================= SUPABASE JWT VERIFY ================= */
-
-const JWKS = createRemoteJWKSet(
-  new URL(`${SUPABASE_URL}/auth/v1/jwks`),
-  { headers: { apikey: SUPABASE_ANON_KEY } }
-);
-
-async function verifySupabaseJWT(token) {
-  const { payload } = await jwtVerify(token, JWKS, {
-    issuer: `${SUPABASE_URL}/auth/v1`,
-    audience: "authenticated"
-  });
-  return payload;
-}
-
 app.use((req,res,next)=>{
   if(bannedIPs.has(getIP(req)))
     return res.status(403).send("IP banned");
   next();
 });
 
+app.set('trust proxy', 1);
+
 app.use(rateLimit({
   windowMs: 15*60*1000,
   max: 200
 }));
 
-async function requireAuth(req,res,next){
-  if (req.method === 'OPTIONS') return next(); // ⭐ allow preflight
-  try{
-    const h = req.headers.authorization;
-    if (!h) return res.status(401).json({error:"Missing auth"});
+/* ================= SUPABASE JWT VERIFY (JWKS) ================= */
 
-    const token = h.split(' ')[1];
-
-    const payload = await verifySupabaseJWT(token);
-
-    req.userId = payload.sub;
-    req.userRole = payload.role || "authenticated";
-
-    next();
-
-  } catch (e){
-    console.error("JWT verify failed:", e.message);
-    res.status(401).json({error:"Invalid token"});
+// Custom fetch function with detailed logging
+async function fetchWithLogging(url, options) {
+  console.log(`[JWKS] Fetching ${url} with headers:`, options?.headers);
+  try {
+    const response = await fetch(url, options);
+    console.log(`[JWKS] Response status: ${response.status} ${response.statusText}`);
+    if (!response.ok) {
+      // Try to read the response body for more info
+      const text = await response.text();
+      console.log(`[JWKS] Response body (first 200 chars): ${text.slice(0, 200)}`);
+    }
+    return response;
+  } catch (err) {
+    console.error(`[JWKS] Fetch error:`, err);
+    throw err;
   }
 }
 
 
+// Create a remote JWK set with the API key as a query parameter
+const JWKS = createRemoteJWKSet(
+  new URL(`${SUPABASE_URL}/auth/v1/.well-known/jwks.json?apikey=${SUPABASE_ANON_KEY}`),
+  {
+    fetch: async (url, options) => {
+      console.log(`[JWKS] Fetching ${url}`);
+      try {
+        const response = await fetch(url, options);
+        console.log(`[JWKS] Response status: ${response.status}`);
+        if (!response.ok) {
+          const text = await response.text();
+          console.log(`[JWKS] Response body (first 200 chars): ${text.slice(0, 200)}`);
+        }
+        return response;
+      } catch (err) {
+        console.error('[JWKS] Fetch error:', err);
+        throw err;
+      }
+    }
+  }
+);
+async function verifySupabaseJWT(token) {
+  try {
+    const { payload } = await jwtVerify(token, JWKS, {
+      issuer: `${SUPABASE_URL}/auth/v1`,
+      audience: "authenticated"
+    });
+    return payload;
+  } catch (err) {
+    console.error("JWT verification failed:", err.message, err.stack);
+    throw err;
+  }
+}
+
+/* ================= AUTH MIDDLEWARE ================= */
+
+async function requireAuth(req,res,next){
+  if (req.method === 'OPTIONS') return next();
+  try{
+    const h = req.headers.authorization;
+    if (!h || !h.startsWith("Bearer ")) 
+      return res.status(401).json({error:"Missing auth header"});
+    const token = h.split(' ')[1];
+    console.log("JWT first chars:", token.slice(0,30));
+    const payload = await verifySupabaseJWT(token);
+    console.log("JWT OK user:", payload.sub);
+    req.userId = payload.sub;
+    req.userRole = payload.role || "authenticated";
+    next();
+  } catch (e){
+    console.error("JWT verify failed FULL:", e.message);
+    return res.status(401).json({error:"Invalid token"});
+  }
+}
+
+/* ================= EXTRA AUTH ================= */
+
 function requireAdmin(req,res,next){
-  if(req.userRole !== 'service_role' && req.userRole !== 'admin')
+  if(req.userRole !== 'service_role' && req.userRole !== 'admin'){
     return res.status(403).json({error:"Admin only"});
+  }
   next();
 }
 
 function requireCSRF(req,res,next){
-  if (req.method === 'OPTIONS') return next(); // ⭐ allow preflight
-  if(!req.headers['x-csrf-token'])
+  if (req.method === 'OPTIONS') return next();
+  if(!req.headers['x-csrf-token']){
     return res.status(403).json({error:"Missing CSRF"});
+  }
   next();
 }
+
+app.get('/debug-token', requireAuth, (req,res)=>{
+  res.json({
+    ok: true,
+    user: req.userId,
+    role: req.userRole
+  });
+});
 
 /* ================= MULTER ================= */
 
@@ -202,8 +255,6 @@ const upload = multer({
   dest: os.tmpdir(),
   limits: { fileSize: MAX_SIZE }
 });
-
-/* ================= UPLOAD ================= */
 
 /* ================= UPLOAD ================= */
 
@@ -394,6 +445,7 @@ app.post('/report', requireAuth,
     abuseReports.push({user:req.userId,...req.body,time:Date.now()});
     res.json({ok:true});
   });
+
 /* ================= IP BAN ================= */
 
 app.post('/admin/ban-ip', requireAuth, requireAdmin, (req,res)=>{

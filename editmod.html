@@ -584,11 +584,20 @@
         <!-- Screenshots Management -->
         <div class="gb-form-section">
           <h2><span>🖼️</span> Screenshots</h2>
-          <div id="currentScreenshots" class="gb-current-screenshots"></div>
+          
+          <!-- New Main Screenshot (optional) -->
           <div class="gb-form-group">
-            <label for="newScreenshots">Add New Screenshots (up to 4 additional)</label>
+            <label for="newMainScreenshot">Replace Main Screenshot (optional)</label>
+            <input type="file" id="newMainScreenshot" accept="image/*">
+            <span class="gb-hint">If you select a new main screenshot, it will replace the current one.</span>
+          </div>
+
+          <div id="currentScreenshots" class="gb-current-screenshots"></div>
+          
+          <div class="gb-form-group">
+            <label for="newScreenshots">Add Additional Screenshots (up to 2)</label>
             <input type="file" id="newScreenshots" accept="image/*" multiple>
-            <span class="gb-hint">You can select up to 4 images. Existing screenshots are shown above; click × to remove.</span>
+            <span class="gb-hint">You can select up to 2 new screenshots. Existing screenshots are shown above; click × to remove any.</span>
           </div>
         </div>
 
@@ -727,24 +736,37 @@
           const tagsInput = document.getElementById('tags').value;
           const newTags = tagsInput ? tagsInput.split(',').map(t => t.trim()).filter(t => t) : [];
 
-          // Collect removed screenshot URLs
-          const removedUrls = [];
+          // Collect removed screenshot URLs (from the current display)
           const currentDisplayed = Array.from(document.querySelectorAll('#currentScreenshots .gb-screenshot-item img')).map(img => img.src);
           const originalUrls = (mod.screenshots || []).map(s => s.url);
-          originalUrls.forEach(url => {
-            if (!currentDisplayed.includes(url)) {
-              removedUrls.push(url);
-            }
-          });
+          const removedUrls = originalUrls.filter(url => !currentDisplayed.includes(url));
 
-          // Handle new screenshot uploads (to Supabase)
+          // Upload new main screenshot if provided
+          const newMainFile = document.getElementById('newMainScreenshot').files[0];
+          let newMainUrl = null;
+          if (newMainFile) {
+            const ext = newMainFile.name.split('.').pop();
+            const path = `${user.id}/main_edit_${Date.now()}.${ext}`;
+            const { error: uploadError } = await supabaseClient.storage
+              .from('mod-screenshots')
+              .upload(path, newMainFile);
+            if (uploadError) throw uploadError;
+            const { data: urlData } = supabaseClient.storage
+              .from('mod-screenshots')
+              .getPublicUrl(path);
+            newMainUrl = urlData.publicUrl;
+          }
+
+          // Upload new additional screenshots (limit 2)
           const newScreenshotFiles = document.getElementById('newScreenshots').files;
           const newScreenshotUrls = [];
           if (newScreenshotFiles.length > 0) {
-            for (let i = 0; i < Math.min(newScreenshotFiles.length, 4); i++) {
+            // Limit to 2
+            const maxNew = Math.min(newScreenshotFiles.length, 2);
+            for (let i = 0; i < maxNew; i++) {
               const file = newScreenshotFiles[i];
               const ext = file.name.split('.').pop();
-              const path = `${user.id}/edit_${Date.now()}_${i}.${ext}`;
+              const path = `${user.id}/add_edit_${Date.now()}_${i}.${ext}`;
               const { error: uploadError } = await supabaseClient.storage
                 .from('mod-screenshots')
                 .upload(path, file);
@@ -758,6 +780,22 @@
 
           // Build new screenshots array
           let keptScreenshots = (mod.screenshots || []).filter(s => !removedUrls.includes(s.url));
+
+          // If a new main screenshot was uploaded, replace the existing main
+          if (newMainUrl) {
+            // Remove the old main from keptScreenshots (if any)
+            keptScreenshots = keptScreenshots.filter(s => !s.is_main);
+            // Add new main at the beginning with sort_order 0
+            keptScreenshots.unshift({
+              url: newMainUrl,
+              is_main: true,
+              sort_order: 0
+            });
+            // Adjust sort_order for existing screenshots (they shift by 1)
+            keptScreenshots.forEach((s, idx) => { s.sort_order = idx; });
+          }
+
+          // Append new additional screenshots
           const nextOrder = keptScreenshots.length;
           newScreenshotUrls.forEach((url, idx) => {
             keptScreenshots.push({
@@ -767,7 +805,7 @@
             });
           });
 
-          // Ensure at least one main screenshot
+          // Ensure at least one main screenshot exists
           if (!keptScreenshots.some(s => s.is_main) && keptScreenshots.length > 0) {
             keptScreenshots[0].is_main = true;
           }
@@ -788,26 +826,27 @@
 
           if (updateError) throw updateError;
 
-console.log('Removed URLs:', removedUrls);
-for (const url of removedUrls) {
-  if (url.includes('supabase.co')) {
-    const match = url.match(/\/mod-screenshots\/(.+)$/);
-    if (match && match[1]) {
-      const path = match[1];
-      console.log(`Deleting screenshot: ${path}`);
-      const { error } = await supabaseClient.storage
-        .from('mod-screenshots')
-        .remove([path]);
-      if (error) {
-        console.error('Delete error:', error);
-      } else {
-        console.log('Deleted successfully');
-      }
-    } else {
-      console.warn('Could not extract path from URL:', url);
-    }
-  }
-}
+          // Delete removed screenshots from storage
+          for (const url of removedUrls) {
+            if (url.includes('supabase.co')) {
+              const match = url.match(/\/mod-screenshots\/(.+)$/);
+              if (match && match[1]) {
+                const path = match[1];
+                console.log(`Deleting screenshot: ${path}`);
+                const { error } = await supabaseClient.storage
+                  .from('mod-screenshots')
+                  .remove([path]);
+                if (error) {
+                  console.error('Delete error:', error);
+                } else {
+                  console.log('Deleted successfully');
+                }
+              } else {
+                console.warn('Could not extract path from URL:', url);
+              }
+            }
+          }
+
           window.showNotification('✅ Mod updated successfully!', 'success');
           setTimeout(() => {
             window.location.href = `mod.html?id=${mod.id}`;

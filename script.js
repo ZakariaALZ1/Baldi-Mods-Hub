@@ -27,7 +27,10 @@
   /* =========================
      MEGA BACKEND URL
   ========================= */
-  const MEGA_BACKEND_URL = 'https://baldi-mods-hub-production-701e.up.railway.app/upload';
+// AFTER
+const MEGA_BACKEND_URL =
+  window.ENV?.MEGA_BACKEND_URL ||
+  "https://baldi-mods-hub-production-701e.up.railway.app/upload";
 
   /* =========================
      GLOBAL STATE MANAGEMENT
@@ -540,47 +543,54 @@ function resetInactivityTimer() {
   ========================= */
 
 async function uploadMod() {
- const user = await getCurrentUser();
+  // ===============================
+  // AUTH CHECK
+  // ===============================
+  const user = await getCurrentUser();
   if (!user) {
     showNotification("Please login to upload", "error");
     return;
   }
 
-  // Get Supabase session safely
   const { data: sessionData, error: sessErr } =
     await supabaseClient.auth.getSession();
 
-  if (sessErr) {
+  if (sessErr || !sessionData?.session?.access_token) {
     console.error("Session error:", sessErr);
-    showNotification("Auth error — reload page", "error");
-    return;
-  }
-
-  if (!sessionData?.session?.access_token) {
     showNotification("Login expired — please sign in again", "error");
     return;
   }
 
   const accessToken = sessionData.session.access_token;
 
-  // ✅ Ensure CSRF token exists
+  // ===============================
+  // ENSURE CSRF
+  // ===============================
   if (!getCSRFToken()) generateCSRFToken();
+  const csrfToken = getCSRFToken();
 
-  const titleRaw = val("title");
-  const descriptionRaw = val("description");
+  if (!csrfToken) {
+    showNotification("Security token missing — reload page", "error");
+    return;
+  }
+
+  // ===============================
+  // COLLECT INPUTS
+  // ===============================
+  const title = sanitizeInput(val("title"));
+  const description = sanitizeInput(val("description"));
   const version = val("version") || "1.0.0";
   const baldiVersion = val("baldiVersion");
   const tags = val("tags");
 
   const file = fileEl("file");
   const mainScreenshot = fileEl("mainScreenshot");
-  const additionalScreenshots = document.getElementById('screenshots')?.files;
+  const additionalScreenshots =
+    document.getElementById("screenshots")?.files;
 
-  // ✅ sanitize text inputs
-  const title = sanitizeInput(titleRaw);
-  const description = sanitizeInput(descriptionRaw);
-
-  // ===== Validation =====
+  // ===============================
+  // VALIDATION
+  // ===============================
   if (!title || title.length < 3 || title.length > 100)
     return showNotification("Title must be 3-100 characters", "error");
 
@@ -588,103 +598,74 @@ async function uploadMod() {
     return showNotification("Description must be 10-5000 characters", "error");
 
   if (!file) return showNotification("Please select a mod file", "error");
-  if (!mainScreenshot) return showNotification("Please select a main screenshot", "error");
+  if (!mainScreenshot)
+    return showNotification("Please select a main screenshot", "error");
 
-  const allowedExtensions = window.ENV?.ALLOWED_FILE_TYPES || ['.zip', '.rar', '.7z', '.baldimod'];
-  const maxSize = window.ENV?.MAX_UPLOAD_SIZE || 100 * 1024 * 1024;
+  const allowedExtensions =
+    window.ENV?.ALLOWED_FILE_TYPES ||
+    [".zip", ".rar", ".7z", ".baldimod"];
 
-  const fileExt = '.' + file.name.split('.').pop().toLowerCase();
+  const maxSize =
+    window.ENV?.MAX_UPLOAD_SIZE ||
+    100 * 1024 * 1024;
+
+  const fileExt = "." + file.name.split(".").pop().toLowerCase();
 
   if (!allowedExtensions.includes(fileExt))
-    return showNotification(`Only ${allowedExtensions.join(', ')} files allowed`, "error");
+    return showNotification(
+      `Only ${allowedExtensions.join(", ")} files allowed`,
+      "error"
+    );
 
   if (file.size > maxSize)
-    return showNotification(`File size exceeds ${Math.round(maxSize / (1024*1024))}MB limit`, "error");
+    return showNotification(
+      `File exceeds ${Math.round(maxSize / (1024 * 1024))}MB`,
+      "error"
+    );
 
+  if (!MEGA_BACKEND_URL) {
+    showNotification("Backend URL missing", "error");
+    return;
+  }
+
+  // ===============================
+  // UI STATE
+  // ===============================
   const button = document.querySelector('button[onclick="uploadMod()"]');
-  setLoading(button, true, '📤 Uploading...');
+  setLoading(button, true, "📤 Uploading...");
 
-  const progressDiv = document.createElement('div');
-  progressDiv.className = 'gb-progress-card';
-  progressDiv.innerHTML = '<div class="gb-progress-spinner"></div> Preparing upload...';
-  document.querySelector('.gb-upload-form')?.appendChild(progressDiv);
+  const progressDiv = document.createElement("div");
+  progressDiv.className = "gb-progress-card";
+  progressDiv.innerHTML =
+    '<div class="gb-progress-spinner"></div> Preparing upload...';
+
+  document.querySelector(".gb-upload-form")?.appendChild(progressDiv);
 
   try {
-
     // ===============================
-    // 1️⃣ Upload screenshots to Supabase
+    // 1️⃣ BACKEND UPLOAD (all files)
     // ===============================
-    progressDiv.innerHTML = '<div class="gb-progress-spinner"></div> Uploading screenshots...';
-
-    const mainExt = mainScreenshot.name.split('.').pop();
-    const mainPath = `${user.id}/main_${Date.now()}.${mainExt}`;
-
-    const { error: mainUploadError } = await supabaseClient.storage
-      .from('mod-screenshots')
-      .upload(mainPath, mainScreenshot);
-
-    if (mainUploadError) throw mainUploadError;
-
-    const { data: mainUrlData } = supabaseClient.storage
-      .from('mod-screenshots')
-      .getPublicUrl(mainPath);
-
-    const mainScreenshotUrl = mainUrlData.publicUrl;
-
-    const screenshotUrls = [];
-
-    if (additionalScreenshots?.length) {
-      for (let i = 0; i < Math.min(additionalScreenshots.length, 2); i++) {
-        const shot = additionalScreenshots[i];
-
-        progressDiv.innerHTML =
-          `<div class="gb-progress-spinner"></div> Uploading screenshot ${i + 1}...`;
-
-        const ext = shot.name.split('.').pop();
-        const path = `${user.id}/add_${Date.now()}_${i}.${ext}`;
-
-        const { error } = await supabaseClient.storage
-          .from('mod-screenshots')
-          .upload(path, shot);
-
-        if (error) throw error;
-
-        const { data } = supabaseClient.storage
-          .from('mod-screenshots')
-          .getPublicUrl(path);
-
-        screenshotUrls.push(data.publicUrl);
-      }
-    }
-
-    // ===============================
-    // 2️⃣ Upload files to Mega backend
-    // ===============================
-    progressDiv.innerHTML = '<div class="gb-progress-spinner"></div> Uploading mod file...';
+    progressDiv.innerHTML =
+      '<div class="gb-progress-spinner"></div> Uploading files...';
 
     const formData = new FormData();
-    formData.append('mainScreenshot', mainScreenshot);
-    formData.append('modFile', file);
+    formData.append("mainScreenshot", mainScreenshot);
+    formData.append("modFile", file);
 
     if (additionalScreenshots) {
       Array.from(additionalScreenshots).forEach(f =>
-        formData.append('screenshots', f)
+        formData.append("screenshots", f)
       );
     }
-
-    const { data: sessionData } = await supabaseClient.auth.getSession();
-    if (!sessionData.session) throw new Error("Not logged in");
-
-    const accessToken = sessionData.session.access_token;
 
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 300000);
 
     const response = await fetch(MEGA_BACKEND_URL, {
-      method: 'POST',
+      method: "POST",
       headers: {
         Authorization: `Bearer ${accessToken}`,
-        'X-CSRF-Token': getCSRFToken()   // ✅ fixed comma bug
+        "X-CSRF-Token": csrfToken
       },
       body: formData,
       signal: controller.signal
@@ -700,32 +681,37 @@ async function uploadMod() {
       } catch {
         msg = await response.text();
       }
-      throw new Error(`Server error ${response.status}: ${msg}`);
+      throw new Error(`Server ${response.status}: ${msg}`);
     }
 
     const result = await response.json();
-    if (!result.modFileUrl) throw new Error("Missing modFileUrl");
+
+    if (!result.modFileUrl)
+      throw new Error("Missing modFileUrl");
 
     // ===============================
-    // 3️⃣ Build screenshot array
+    // 2️⃣ BUILD SCREENSHOT ARRAY (from backend response)
     // ===============================
     const screenshotsArray = [
-      { url: mainScreenshotUrl, is_main: true, sort_order: 0 },
-      ...screenshotUrls.map((u, i) => ({
-        url: u,
+      { url: result.mainScreenshotUrl, is_main: true, sort_order: 0 },
+      ...(result.screenshotUrls || []).map((url, i) => ({
+        url,
         is_main: false,
         sort_order: i + 1
       }))
     ];
 
     const tagArray = tags
-      ? tags.split(',').map(t => sanitizeInput(t)).filter(Boolean)
+      ? tags.split(",")
+          .map(t => sanitizeInput(t))
+          .filter(Boolean)
       : [];
 
     // ===============================
-    // 4️⃣ Insert DB record
+    // 3️⃣ DB INSERT
     // ===============================
-    progressDiv.innerHTML = '<div class="gb-progress-spinner"></div> Saving data...';
+    progressDiv.innerHTML =
+      '<div class="gb-progress-spinner"></div> Saving data...';
 
     const { error: dbError } = await supabaseClient
       .from("mods2")
@@ -737,13 +723,15 @@ async function uploadMod() {
         tags: tagArray,
         file_url: result.modFileUrl,
         user_id: user.id,
-        author_name: currentUserProfile?.username || user.email?.split('@')[0],
+        author_name:
+          currentUserProfile?.username ||
+          user.email?.split("@")[0],
         file_size: file.size,
         file_extension: fileExt,
         original_filename: file.name,
         screenshots: screenshotsArray,
         approved: false,
-        scan_status: 'pending',
+        scan_status: "pending",
         download_count: 0,
         view_count: 0,
         created_at: new Date().toISOString(),
@@ -756,14 +744,18 @@ async function uploadMod() {
     showNotification("✅ Mod uploaded! Pending review.", "success", 8000);
 
   } catch (err) {
-    console.error(err);
+    console.error("UPLOAD ERROR:", err);
     progressDiv?.remove();
-    showNotification("Upload failed: " + err.message, "error");
+
+    if (err.name === "AbortError") {
+      showNotification("Upload timed out", "error");
+    } else {
+      showNotification("Upload failed: " + err.message, "error");
+    }
   } finally {
     setLoading(button, false);
   }
 }
-
 
   /* =========================
      MOD PAGE

@@ -67,6 +67,23 @@
     .gb-pagination button:hover { border-color:var(--gb-primary); color:var(--gb-primary); }
     .gb-pagination button:disabled { opacity:0.3; cursor:not-allowed; }
     .gb-loading { text-align:center; padding:60px; color:var(--gb-text-muted); }
+    .gb-notification-bell {
+  display: inline-block;
+  margin-right: 15px;
+}
+.gb-notification-badge {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  background: #ff4444;
+  color: white;
+  border-radius: 50%;
+  padding: 2px 6px;
+  font-size: 11px;
+  font-weight: bold;
+  min-width: 18px;
+  text-align: center;
+}
   </style>
 </head>
 <body>
@@ -90,6 +107,12 @@
         <a href="admin.html" class="gb-nav-item" id="nav-admin" style="display:none;">🛡️ Moderation</a>
         <a href="admin-dashboard.html" class="gb-nav-item" id="nav-dashboard" style="display:none;">📊 Dashboard</a>
       </div>
+      <div class="gb-notification-bell" id="notificationBell" style="display: none;">
+  <a href="announcements.html" style="color: inherit; text-decoration: none; position: relative;">
+    🔔
+    <span id="notificationCount" class="gb-notification-badge">0</span>
+  </a>
+</div>
       <div class="gb-nav-user" id="user-section" style="display:none;">
         <div class="gb-user-badge">
           <div class="gb-user-avatar" id="userAvatar">?</div>

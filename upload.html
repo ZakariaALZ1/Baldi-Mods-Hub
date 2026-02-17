@@ -387,7 +387,23 @@
       height: 20px;
       cursor: pointer;
     }
-
+.gb-notification-bell {
+  display: inline-block;
+  margin-right: 15px;
+}
+.gb-notification-badge {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  background: #ff4444;
+  color: white;
+  border-radius: 50%;
+  padding: 2px 6px;
+  font-size: 11px;
+  font-weight: bold;
+  min-width: 18px;
+  text-align: center;
+}
     /* Guidelines Card */
     .gb-guidelines {
       margin-top: 30px;
@@ -616,6 +632,13 @@
       </div>
     </div>
   </nav>
+
+  <div class="gb-notification-bell" id="notificationBell" style="display: none;">
+  <a href="announcements.html" style="color: inherit; text-decoration: none; position: relative;">
+    🔔
+    <span id="notificationCount" class="gb-notification-badge">0</span>
+  </a>
+</div>
 
   <!-- Main Content -->
   <main class="gb-upload">
