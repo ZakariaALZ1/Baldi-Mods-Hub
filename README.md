@@ -13,10 +13,6 @@ A GameBanana-style mod hosting platform for Baldi's Basics mods, built with Supa
 - HTML/CSS/JavaScript (Vanilla)
 - Supabase (Auth, Storage, Database)
 - Deno Edge Functions
-- Vercel (Hosting)
-
-## Deployment
-This project is configured for deployment on Vercel.
 
 ## License
 MIT

@@ -185,6 +185,25 @@
       color: var(--gb-primary);
     }
 
+    /* Notification Bell */
+    .gb-notification-bell {
+      display: inline-block;
+      margin-right: 15px;
+    }
+    .gb-notification-badge {
+      position: absolute;
+      top: -8px;
+      right: -8px;
+      background: #ff4444;
+      color: white;
+      border-radius: 50%;
+      padding: 2px 6px;
+      font-size: 11px;
+      font-weight: bold;
+      min-width: 18px;
+      text-align: center;
+    }
+
     /* Main Content */
     .gb-main {
       max-width: 1000px;
@@ -524,7 +543,37 @@
       </div>
     </div>
   </header>
-  <nav class="gb-nav" id="main-nav"><!-- filled by JS --></nav>
+
+  <!-- Navigation with Bell -->
+  <nav class="gb-nav" id="main-nav">
+    <div class="gb-nav-container">
+      <div class="gb-nav-links">
+        <a href="index.html" class="gb-nav-item">🏠 Home</a>
+        <a href="upload.html" class="gb-nav-item">📤 Upload</a>
+        <a href="profile.html" class="gb-nav-item">👤 Profile</a>
+      </div>
+
+      <!-- Notification Bell (hidden initially) -->
+      <div class="gb-notification-bell" id="notificationBell" style="display: none;">
+        <a href="announcements.html" style="color: inherit; text-decoration: none; position: relative;">
+          🔔
+          <span id="notificationCount" class="gb-notification-badge">0</span>
+        </a>
+      </div>
+
+      <div class="gb-nav-user" id="user-section" style="display: none;">
+        <div class="gb-user-badge">
+          <div class="gb-user-avatar" id="userAvatar">?</div>
+          <div class="gb-user-info">
+            <span class="gb-user-name" id="userDisplayName"></span>
+            <span class="gb-user-points" id="userTrustScore">⭐ 0</span>
+          </div>
+        </div>
+        <button onclick="logout()" class="gb-btn gb-btn-secondary" style="padding: 10px 20px;">🚪 Logout</button>
+      </div>
+    </div>
+  </nav>
+
   <main class="gb-main">
     <a href="javascript:history.back()" class="gb-back-link"><span>←</span> Back</a>
     <div id="edit-content">
@@ -645,6 +694,13 @@
         };
       }
 
+      const BACKEND_URL = 'https://baldi-mods-hub.pxxl.click'; // same as announcements
+
+      async function getAccessToken() {
+        const { data: sessionData } = await supabaseClient.auth.getSession();
+        return sessionData?.session?.access_token;
+      }
+
       const modId = new URLSearchParams(window.location.search).get('id');
       if (!modId) {
         window.location.href = 'index.html';
@@ -721,6 +777,28 @@
       document.getElementById('loading').style.display = 'none';
       document.getElementById('editForm').style.display = 'block';
 
+      // Helper to upload a single image file to freeimage.host via backend
+      async function uploadImageFile(file) {
+        const formData = new FormData();
+        formData.append('images', file); // matches backend field name
+
+        const accessToken = await getAccessToken();
+        const response = await fetch(`${BACKEND_URL}/upload-announcement-images`, {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${accessToken}` },
+          body: formData
+        });
+
+        if (!response.ok) {
+          const err = await response.json();
+          throw new Error(err.error || 'Image upload failed');
+        }
+
+        const result = await response.json();
+        // result.images is an array of { url }
+        return result.images[0].url; // we only uploaded one file at a time
+      }
+
       // Save changes
       document.getElementById('editForm').addEventListener('submit', async function(e) {
         e.preventDefault();
@@ -745,57 +823,36 @@
           const newMainFile = document.getElementById('newMainScreenshot').files[0];
           let newMainUrl = null;
           if (newMainFile) {
-            const ext = newMainFile.name.split('.').pop();
-            const path = `${user.id}/main_edit_${Date.now()}.${ext}`;
-            const { error: uploadError } = await supabaseClient.storage
-              .from('mod-screenshots')
-              .upload(path, newMainFile);
-            if (uploadError) throw uploadError;
-            const { data: urlData } = supabaseClient.storage
-              .from('mod-screenshots')
-              .getPublicUrl(path);
-            newMainUrl = urlData.publicUrl;
+            newMainUrl = await uploadImageFile(newMainFile);
           }
 
           // Upload new additional screenshots (limit 2)
           const newScreenshotFiles = document.getElementById('newScreenshots').files;
           const newScreenshotUrls = [];
           if (newScreenshotFiles.length > 0) {
-            // Limit to 2
             const maxNew = Math.min(newScreenshotFiles.length, 2);
             for (let i = 0; i < maxNew; i++) {
-              const file = newScreenshotFiles[i];
-              const ext = file.name.split('.').pop();
-              const path = `${user.id}/add_edit_${Date.now()}_${i}.${ext}`;
-              const { error: uploadError } = await supabaseClient.storage
-                .from('mod-screenshots')
-                .upload(path, file);
-              if (uploadError) throw uploadError;
-              const { data: urlData } = supabaseClient.storage
-                .from('mod-screenshots')
-                .getPublicUrl(path);
-              newScreenshotUrls.push(urlData.publicUrl);
+              const url = await uploadImageFile(newScreenshotFiles[i]);
+              newScreenshotUrls.push(url);
             }
           }
 
           // Build new screenshots array
           let keptScreenshots = (mod.screenshots || []).filter(s => !removedUrls.includes(s.url));
 
-          // If a new main screenshot was uploaded, replace the existing main
           if (newMainUrl) {
-            // Remove the old main from keptScreenshots (if any)
+            // Remove any existing main screenshot
             keptScreenshots = keptScreenshots.filter(s => !s.is_main);
-            // Add new main at the beginning with sort_order 0
+            // Insert new main at beginning with sort_order 0
             keptScreenshots.unshift({
               url: newMainUrl,
               is_main: true,
               sort_order: 0
             });
-            // Adjust sort_order for existing screenshots (they shift by 1)
+            // Reorder sort_order for all
             keptScreenshots.forEach((s, idx) => { s.sort_order = idx; });
           }
 
-          // Append new additional screenshots
           const nextOrder = keptScreenshots.length;
           newScreenshotUrls.forEach((url, idx) => {
             keptScreenshots.push({
@@ -805,12 +862,12 @@
             });
           });
 
-          // Ensure at least one main screenshot exists
+          // If no main exists after removals, promote the first to main
           if (!keptScreenshots.some(s => s.is_main) && keptScreenshots.length > 0) {
             keptScreenshots[0].is_main = true;
           }
 
-          // Update mod in database
+          // Update the database
           const { error: updateError } = await supabaseClient
             .from('mods2')
             .update({
@@ -826,26 +883,8 @@
 
           if (updateError) throw updateError;
 
-          // Delete removed screenshots from storage
-          for (const url of removedUrls) {
-            if (url.includes('supabase.co')) {
-              const match = url.match(/\/mod-screenshots\/(.+)$/);
-              if (match && match[1]) {
-                const path = match[1];
-                console.log(`Deleting screenshot: ${path}`);
-                const { error } = await supabaseClient.storage
-                  .from('mod-screenshots')
-                  .remove([path]);
-                if (error) {
-                  console.error('Delete error:', error);
-                } else {
-                  console.log('Deleted successfully');
-                }
-              } else {
-                console.warn('Could not extract path from URL:', url);
-              }
-            }
-          }
+          // Note: We are not deleting old images from freeimage.host because they don't provide an API.
+          // The removed URLs will become orphaned but that's acceptable.
 
           window.showNotification('✅ Mod updated successfully!', 'success');
           setTimeout(() => {

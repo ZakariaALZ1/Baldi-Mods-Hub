@@ -27,10 +27,9 @@
   /* =========================
      MEGA BACKEND URL
   ========================= */
-// AFTER
-const MEGA_BACKEND_URL =
-  window.ENV?.MEGA_BACKEND_URL ||
-  "https://baldi-mods-hub-production-701e.up.railway.app/upload";
+  const MEGA_BACKEND_URL =
+    window.ENV?.MEGA_BACKEND_URL ||
+    "https://baldi-mods-hub.pxxl.click";
 
   /* =========================
      GLOBAL STATE MANAGEMENT
@@ -46,48 +45,45 @@ const MEGA_BACKEND_URL =
   /* =========================
      SECURITY HELPERS
   ========================= */
-function generateCSRFToken() {
-  try {
-    csrfToken = crypto.randomUUID();
-  } catch {
-    csrfToken = Math.random().toString(36).slice(2) + Date.now();
-  }
-  sessionStorage.setItem('csrf_token', csrfToken);
-  return csrfToken;
-}
-
-function getCSRFToken() {
-  return sessionStorage.getItem('csrf_token');
-}
-
-function validateCSRFToken(token) {
-  const stored = getCSRFToken();
-  return !!stored && token === stored;
-}
-
-/* ---- Stronger sanitizer ---- */
-function sanitizeInput(str) {
-  if (!str) return '';
-
-  const div = document.createElement('div');
-  div.textContent = str;
-  return div.textContent.trim();
-}
-
-/* ---- Auto logout on inactivity ---- */
-function resetInactivityTimer() {
-  if (inactivityTimer) clearTimeout(inactivityTimer);
-
-  inactivityTimer = setTimeout(async () => {
-    if (isAuthenticated) {
-      await logout();
-      showNotification('Session expired due to inactivity', 'info');
+  function generateCSRFToken() {
+    try {
+      csrfToken = crypto.randomUUID();
+    } catch {
+      csrfToken = Math.random().toString(36).slice(2) + Date.now();
     }
-  }, 60 * 60 * 1000); // 1 hour
-}
+    sessionStorage.setItem('csrf_token', csrfToken);
+    return csrfToken;
+  }
 
-['click','keypress','scroll','mousemove','touchstart']
-  .forEach(e => document.addEventListener(e, resetInactivityTimer));
+  function getCSRFToken() {
+    return sessionStorage.getItem('csrf_token');
+  }
+
+  function validateCSRFToken(token) {
+    const stored = getCSRFToken();
+    return !!stored && token === stored;
+  }
+
+  function sanitizeInput(str) {
+    if (!str) return '';
+    const div = document.createElement('div');
+    div.textContent = str;
+    return div.textContent.trim();
+  }
+
+  function resetInactivityTimer() {
+    if (inactivityTimer) clearTimeout(inactivityTimer);
+    inactivityTimer = setTimeout(async () => {
+      if (isAuthenticated) {
+        await logout();
+        showNotification('Session expired due to inactivity', 'info');
+      }
+    }, 60 * 60 * 1000);
+  }
+
+  ['click','keypress','scroll','mousemove','touchstart']
+    .forEach(e => document.addEventListener(e, resetInactivityTimer));
+
   /* =========================
      GAMEBANANA STYLE NOTIFICATIONS
   ========================= */
@@ -255,7 +251,7 @@ function resetInactivityTimer() {
     }
   }
 
-    // ===== BAD WORD FILTER =====
+  // ===== BAD WORD FILTER =====
   const badWords = [
     'fuck', 'shit', 'ass', 'bitch', 'cunt', 'dick', 'pussy', 'whore', 'slut',
     'nigger', 'nigga', 'faggot', 'retard', 'bastard', 'piss', 'cock', 'balls',
@@ -272,7 +268,101 @@ function resetInactivityTimer() {
     return filtered;
   }
 
+/* =========================
+   ANNOUNCEMENT NOTIFICATIONS
+   ========================= */
+let previousUnreadCount = 0;      // track previous count to detect new mentions
 
+async function updateNotificationCount() {
+  const user = await getCurrentUser();
+  if (!user) {
+    const bell = document.getElementById('notificationBell');
+    if (bell) bell.style.display = 'none';
+    return;
+  }
+
+  const { data: announcements, error } = await supabaseClient
+    .from('announcements')
+    .select('id')
+    .eq('mentions_everyone', true);
+
+  if (error || !announcements) {
+    console.error('Failed to fetch announcements for count:', error);
+    return;
+  }
+
+  const { data: reads } = await supabaseClient
+    .from('announcement_reads')
+    .select('announcement_id')
+    .eq('user_id', user.id);
+
+  const readIds = (reads || []).map(r => r.announcement_id);
+  const unreadCount = announcements.filter(a => !readIds.includes(a.id)).length;
+
+  const bell = document.getElementById('notificationBell');
+  const countSpan = document.getElementById('notificationCount');
+  if (bell && countSpan) {
+    bell.style.display = 'inline-block';
+    countSpan.textContent = unreadCount > 0 ? unreadCount : '0';
+
+    // Only show unmute button when transitioning from 0 to >0 (new mention)
+    if (unreadCount > 0 && previousUnreadCount === 0) {
+      // Show button – audio will be created on click
+      showUnmuteButton();
+    }
+    previousUnreadCount = unreadCount;
+  }
+}
+
+function showUnmuteButton() {
+  // Remove any existing unmute button
+  const existing = document.getElementById('unmute-notification');
+  if (existing) existing.remove();
+
+  const btn = document.createElement('button');
+  btn.id = 'unmute-notification';
+  btn.textContent = '🔊 New Announcement';
+  btn.style.cssText = `
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    z-index: 10001;
+    padding: 10px 20px;
+    background: #00ff88;
+    color: black;
+    border: none;
+    border-radius: 8px;
+    font-weight: bold;
+    cursor: pointer;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    font-family: 'Inter', sans-serif;
+  `;
+
+  btn.onclick = () => {
+    // Create audio only when user clicks (satisfies autoplay policy)
+    try {
+      const beepBase64 = 'data:audio/wav;base64,UklGRlwAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YVAAAAA8PDw8PDw8PDw8PDw8PDw8PDw8PDw8PDw8PDw8PDw8PDw8PDw8PDw8PDw8PDw8PDw8PA==';
+      const audio = new Audio(beepBase64);
+      audio.volume = 0.5;
+      audio.play().catch(e => console.warn('Audio play failed:', e));
+    } catch (err) {
+      console.warn('Could not create audio:', err);
+    }
+    btn.remove(); // button no longer needed
+  };
+
+  // Auto‑remove the button after 10 seconds if not clicked
+  setTimeout(() => {
+    if (btn.parentNode) btn.remove();
+  }, 10000);
+
+  document.body.appendChild(btn);
+}
+
+function startNotificationUpdates() {
+  updateNotificationCount();
+  setInterval(updateNotificationCount, 60000);
+}
   /* =========================
      AUTH STATE MANAGEMENT
   ========================= */
@@ -337,6 +427,7 @@ function resetInactivityTimer() {
       showPublicUI();
     }
   }
+
   function startSessionCheck() {
     if (sessionCheckInterval) clearInterval(sessionCheckInterval);
     sessionCheckInterval = setInterval(async () => {
@@ -347,6 +438,7 @@ function resetInactivityTimer() {
       }
     }, 60000);
   }
+
   function showPublicUI() {
     const authSection = document.getElementById('auth-section');
     if (authSection) authSection.style.display = 'block';
@@ -363,47 +455,61 @@ function resetInactivityTimer() {
         </div>
       `;
     }
-  }
-  function showAuthenticatedUI(user, profile) {
-    const authSection = document.getElementById('auth-section');
-    if (authSection) authSection.style.display = 'none';
-    const userSection = document.getElementById('user-section');
-    if (userSection) {
-      userSection.style.display = 'block';
-      const userEmailEl = document.getElementById('userEmail');
-      if (userEmailEl) userEmailEl.textContent = user.email;
-      const roleBadge = document.getElementById('userRole');
-      if (roleBadge) {
-        roleBadge.className = `gb-badge ${profile.role || 'user'}`;
-        roleBadge.textContent = profile.role === 'admin' ? '👑 ADMIN' : 
-                               profile.role === 'moderator' ? '🛡️ MOD' : 
-                               profile.is_verified ? '✅ VERIFIED' : '👤 USER';
-      }
-    }
-    const nav = document.getElementById('main-nav');
-    if (nav) {
-      let adminLinks = '';
-      if (profile.role === 'admin' || profile.role === 'moderator') {
-        adminLinks += `<a href="admin.html" class="gb-nav-item">🛡️ Moderation</a>`;
-      }
-      if (profile.role === 'admin') {
-        adminLinks += `<a href="admin-dashboard.html" class="gb-nav-item">📊 Dashboard</a>`;
-      }
-      nav.innerHTML = `
-        <div class="gb-nav-container">
-          <a href="index.html" class="gb-nav-item">🏠 Home</a>
-          <a href="upload.html" class="gb-nav-item">📤 Upload</a>
-          <a href="profile.html" class="gb-nav-item">👤 ${profile.username || 'Profile'}</a>
-          ${adminLinks}
-          <span class="gb-nav-user">
-            <span class="gb-badge ${profile.role || 'user'}">${profile.role?.toUpperCase() || 'USER'}</span>
-            <span class="gb-nav-points">⭐ ${profile.trust_score || 0}</span>
-          </span>
-        </div>
-      `;
-    }
+    const bell = document.getElementById('notificationBell');
+    if (bell) bell.style.display = 'none';
   }
 
+// ===== Inside script.js – replace the existing showAuthenticatedUI function =====
+function showAuthenticatedUI(user, profile) {
+  const authSection = document.getElementById('auth-section');
+  if (authSection) authSection.style.display = 'none';
+  const userSection = document.getElementById('user-section');
+  if (userSection) {
+    userSection.style.display = 'block';
+    const userEmailEl = document.getElementById('userEmail');
+    if (userEmailEl) userEmailEl.textContent = user.email;
+    const roleBadge = document.getElementById('userRole');
+    if (roleBadge) {
+      roleBadge.className = `gb-badge ${profile.role || 'user'}`;
+      roleBadge.textContent = profile.role === 'admin' ? '👑 ADMIN' : 
+                             profile.role === 'moderator' ? '🛡️ MOD' : 
+                             profile.is_verified ? '✅ VERIFIED' : '👤 USER';
+    }
+  }
+  const nav = document.getElementById('main-nav');
+  if (nav) {
+    let adminLinks = '';
+    if (profile.role === 'admin' || profile.role === 'moderator') {
+      adminLinks += `<a href="admin.html" class="gb-nav-item">🛡️ Moderation</a>`;
+    }
+    if (profile.role === 'admin') {
+      adminLinks += `<a href="admin-dashboard.html" class="gb-nav-item">📊 Dashboard</a>`;
+    }
+    // Build the navigation bar including the notification bell
+    nav.innerHTML = `
+      <div class="gb-nav-container">
+        <a href="index.html" class="gb-nav-item">🏠 Home</a>
+        <a href="upload.html" class="gb-nav-item">📤 Upload</a>
+        <a href="profile.html" class="gb-nav-item">👤 ${profile.username || 'Profile'}</a>
+        ${adminLinks}
+        <!-- Notification Bell (dynamically generated) -->
+        <div class="gb-notification-bell" id="notificationBell">
+          <a href="announcements.html" style="color: inherit; text-decoration: none; position: relative;">
+            🔔
+            <span id="notificationCount" class="gb-notification-badge">0</span>
+          </a>
+        </div>
+        <span class="gb-nav-user">
+          <span class="gb-badge ${profile.role || 'user'}">${profile.role?.toUpperCase() || 'USER'}</span>
+          <span class="gb-nav-points">⭐ ${profile.trust_score || 0}</span>
+        </span>
+      </div>
+    `;
+  }
+  // The bell is now part of the nav; we still need to update its count
+  updateNotificationCount();
+  startNotificationUpdates();
+}
   /* =========================
      AUTH FUNCTIONS
   ========================= */
@@ -519,15 +625,6 @@ function resetInactivityTimer() {
   async function getCurrentUserRole() { if (currentUserRole) return currentUserRole; const user = await getCurrentUser(); if (!user) return null; try { const { data } = await supabaseClient.from("profiles").select("role").eq("id", user.id).single(); currentUserRole = data?.role || 'user'; return currentUserRole; } catch { return 'user'; } }
   async function isAdmin() { const role = await getCurrentUserRole(); return role === 'admin'; }
   async function isModerator() { const role = await getCurrentUserRole(); return role === 'admin' || role === 'moderator'; }
-  async function isAdmin() {
-    const role = await getCurrentUserRole();
-    return role === 'admin';
-  }
-
-  async function isModerator() {
-    const role = await getCurrentUserRole();
-    return role === 'admin' || role === 'moderator';
-  }
 
   /* =========================
      PAGE GUARDS
@@ -542,447 +639,453 @@ function resetInactivityTimer() {
      MOD UPLOAD – MEGA.NZ VERSION
   ========================= */
 
-async function uploadMod() {
-  // ===============================
-  // AUTH CHECK
-  // ===============================
-  const user = await getCurrentUser();
-  if (!user) {
-    showNotification("Please login to upload", "error");
-    return;
-  }
-
-  const { data: sessionData, error: sessErr } =
-    await supabaseClient.auth.getSession();
-
-  if (sessErr || !sessionData?.session?.access_token) {
-    console.error("Session error:", sessErr);
-    showNotification("Login expired — please sign in again", "error");
-    return;
-  }
-
-  const accessToken = sessionData.session.access_token;
-
-  // ===============================
-  // ENSURE CSRF
-  // ===============================
-  if (!getCSRFToken()) generateCSRFToken();
-  const csrfToken = getCSRFToken();
-
-  if (!csrfToken) {
-    showNotification("Security token missing — reload page", "error");
-    return;
-  }
-
-  // ===============================
-  // COLLECT INPUTS
-  // ===============================
-  const title = sanitizeInput(val("title"));
-  const description = sanitizeInput(val("description"));
-  const version = val("version") || "1.0.0";
-  const baldiVersion = val("baldiVersion");
-  const tags = val("tags");
-
-  const file = fileEl("file");
-  const mainScreenshot = fileEl("mainScreenshot");
-  const additionalScreenshots =
-    document.getElementById("screenshots")?.files;
-
-  // ===============================
-  // VALIDATION
-  // ===============================
-  if (!title || title.length < 3 || title.length > 100)
-    return showNotification("Title must be 3-100 characters", "error");
-
-  if (!description || description.length < 10 || description.length > 5000)
-    return showNotification("Description must be 10-5000 characters", "error");
-
-  if (!file) return showNotification("Please select a mod file", "error");
-  if (!mainScreenshot)
-    return showNotification("Please select a main screenshot", "error");
-
-  const allowedExtensions =
-    window.ENV?.ALLOWED_FILE_TYPES ||
-    [".zip", ".rar", ".7z", ".baldimod"];
-
-  const maxSize =
-    window.ENV?.MAX_UPLOAD_SIZE ||
-    100 * 1024 * 1024;
-
-  const fileExt = "." + file.name.split(".").pop().toLowerCase();
-
-  if (!allowedExtensions.includes(fileExt))
-    return showNotification(
-      `Only ${allowedExtensions.join(", ")} files allowed`,
-      "error"
-    );
-
-  if (file.size > maxSize)
-    return showNotification(
-      `File exceeds ${Math.round(maxSize / (1024 * 1024))}MB`,
-      "error"
-    );
-
-  if (!MEGA_BACKEND_URL) {
-    showNotification("Backend URL missing", "error");
-    return;
-  }
-
-  // ===============================
-  // UI STATE
-  // ===============================
-  const button = document.querySelector('button[onclick="uploadMod()"]');
-  setLoading(button, true, "📤 Uploading...");
-
-  const progressDiv = document.createElement("div");
-  progressDiv.className = "gb-progress-card";
-  progressDiv.innerHTML =
-    '<div class="gb-progress-spinner"></div> Preparing upload...';
-
-  document.querySelector(".gb-upload-form")?.appendChild(progressDiv);
-
-  try {
+  async function uploadMod() {
     // ===============================
-    // 1️⃣ BACKEND UPLOAD (all files)
+    // AUTH CHECK
     // ===============================
-    progressDiv.innerHTML =
-      '<div class="gb-progress-spinner"></div> Uploading files...';
+    const user = await getCurrentUser();
+    if (!user) {
+      showNotification("Please login to upload", "error");
+      return;
+    }
 
-    const formData = new FormData();
-    formData.append("mainScreenshot", mainScreenshot);
-    formData.append("modFile", file);
+    const { data: sessionData, error: sessErr } =
+      await supabaseClient.auth.getSession();
 
-    if (additionalScreenshots) {
-      Array.from(additionalScreenshots).forEach(f =>
-        formData.append("screenshots", f)
+    if (sessErr || !sessionData?.session?.access_token) {
+      console.error("Session error:", sessErr);
+      showNotification("Login expired — please sign in again", "error");
+      return;
+    }
+
+    const accessToken = sessionData.session.access_token;
+
+    // ===============================
+    // ENSURE CSRF
+    // ===============================
+    if (!getCSRFToken()) generateCSRFToken();
+    const csrfToken = getCSRFToken();
+
+    if (!csrfToken) {
+      showNotification("Security token missing — reload page", "error");
+      return;
+    }
+
+    // ===============================
+    // COLLECT INPUTS
+    // ===============================
+    const title = sanitizeInput(val("title"));
+    const description = sanitizeInput(val("description"));
+    const version = val("version") || "1.0.0";
+    const baldiVersion = val("baldiVersion");
+    const tags = val("tags");
+
+    const file = fileEl("file");
+    const mainScreenshot = fileEl("mainScreenshot");
+    const additionalScreenshots =
+      document.getElementById("screenshots")?.files;
+
+    // ===============================
+    // VALIDATION
+    // ===============================
+    if (!title || title.length < 3 || title.length > 100)
+      return showNotification("Title must be 3-100 characters", "error");
+
+    if (!description || description.length < 10 || description.length > 5000)
+      return showNotification("Description must be 10-5000 characters", "error");
+
+    if (!file) return showNotification("Please select a mod file", "error");
+    if (!mainScreenshot)
+      return showNotification("Please select a main screenshot", "error");
+
+    const allowedExtensions =
+      window.ENV?.ALLOWED_FILE_TYPES ||
+      [".zip", ".rar", ".7z", ".baldimod"];
+
+    const maxSize =
+      window.ENV?.MAX_UPLOAD_SIZE ||
+      100 * 1024 * 1024;
+
+    const fileExt = "." + file.name.split(".").pop().toLowerCase();
+
+    if (!allowedExtensions.includes(fileExt))
+      return showNotification(
+        `Only ${allowedExtensions.join(", ")} files allowed`,
+        "error"
       );
+
+    if (file.size > maxSize)
+      return showNotification(
+        `File exceeds ${Math.round(maxSize / (1024 * 1024))}MB`,
+        "error"
+      );
+
+    if (!MEGA_BACKEND_URL) {
+      showNotification("Backend URL missing", "error");
+      return;
     }
 
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 300000);
-
-    const response = await fetch(MEGA_BACKEND_URL, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        "X-CSRF-Token": csrfToken
-      },
-      body: formData,
-      signal: controller.signal
-    });
-
-    clearTimeout(timeoutId);
-
-    if (!response.ok) {
-      let msg;
-      try {
-        const j = await response.json();
-        msg = j.error || j.message;
-      } catch {
-        msg = await response.text();
-      }
-      throw new Error(`Server ${response.status}: ${msg}`);
-    }
-
-    const result = await response.json();
-
-    if (!result.modFileUrl)
-      throw new Error("Missing modFileUrl");
-
     // ===============================
-    // 2️⃣ BUILD SCREENSHOT ARRAY (from backend response)
+    // UI STATE
     // ===============================
-    const screenshotsArray = [
-      { url: result.mainScreenshotUrl, is_main: true, sort_order: 0 },
-      ...(result.screenshotUrls || []).map((url, i) => ({
-        url,
-        is_main: false,
-        sort_order: i + 1
-      }))
-    ];
+    const button = document.querySelector('button[onclick="uploadMod()"]');
+    setLoading(button, true, "📤 Uploading...");
 
-    const tagArray = tags
-      ? tags.split(",")
-          .map(t => sanitizeInput(t))
-          .filter(Boolean)
-      : [];
-
-    // ===============================
-    // 3️⃣ DB INSERT
-    // ===============================
+    const progressDiv = document.createElement("div");
+    progressDiv.className = "gb-progress-card";
     progressDiv.innerHTML =
-      '<div class="gb-progress-spinner"></div> Saving data...';
+      '<div class="gb-progress-spinner"></div> Preparing upload...';
 
-    const { error: dbError } = await supabaseClient
-      .from("mods2")
-      .insert([{
-        title,
-        description,
-        version,
-        baldi_version: baldiVersion,
-        tags: tagArray,
-        file_url: result.modFileUrl,
-        user_id: user.id,
-        author_name:
-          currentUserProfile?.username ||
-          user.email?.split("@")[0],
-        file_size: file.size,
-        file_extension: fileExt,
-        original_filename: file.name,
-        screenshots: screenshotsArray,
-        approved: false,
-        scan_status: "pending",
-        download_count: 0,
-        view_count: 0,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      }]);
+    document.querySelector(".gb-upload-form")?.appendChild(progressDiv);
 
-    if (dbError) throw dbError;
+    try {
+      // ===============================
+      // 1️⃣ BACKEND UPLOAD (all files)
+      // ===============================
+      progressDiv.innerHTML =
+        '<div class="gb-progress-spinner"></div> Uploading files...';
 
-    progressDiv.remove();
-    showNotification("✅ Mod uploaded! Pending review.", "success", 8000);
+      const formData = new FormData();
+      formData.append("mainScreenshot", mainScreenshot);
+      formData.append("modFile", file);
 
-  } catch (err) {
-    console.error("UPLOAD ERROR:", err);
-    progressDiv?.remove();
+      if (additionalScreenshots) {
+        Array.from(additionalScreenshots).forEach(f =>
+          formData.append("screenshots", f)
+        );
+      }
 
-    if (err.name === "AbortError") {
-      showNotification("Upload timed out", "error");
-    } else {
-      showNotification("Upload failed: " + err.message, "error");
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 300000);
+
+      const response = await fetch(MEGA_BACKEND_URL, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "X-CSRF-Token": csrfToken
+        },
+        body: formData,
+        signal: controller.signal
+      });
+
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        let msg;
+        try {
+          const j = await response.json();
+          msg = j.error || j.message;
+        } catch {
+          msg = await response.text();
+        }
+        throw new Error(`Server ${response.status}: ${msg}`);
+      }
+
+      const result = await response.json();
+
+      if (!result.modFileUrl)
+        throw new Error("Missing modFileUrl");
+
+      // ===============================
+      // 2️⃣ BUILD SCREENSHOT ARRAY (from backend response)
+      // ===============================
+      const screenshotsArray = [
+        { url: result.mainScreenshotUrl, is_main: true, sort_order: 0 },
+        ...(result.screenshotUrls || []).map((url, i) => ({
+          url,
+          is_main: false,
+          sort_order: i + 1
+        }))
+      ];
+
+      const tagArray = tags
+        ? tags.split(",")
+            .map(t => sanitizeInput(t))
+            .filter(Boolean)
+        : [];
+
+      // ===============================
+      // 3️⃣ DB INSERT
+      // ===============================
+      progressDiv.innerHTML =
+        '<div class="gb-progress-spinner"></div> Saving data...';
+
+      const { error: dbError } = await supabaseClient
+        .from("mods2")
+        .insert([{
+          title,
+          description,
+          version,
+          baldi_version: baldiVersion,
+          tags: tagArray,
+          file_url: result.modFileUrl,
+          user_id: user.id,
+          author_name:
+            currentUserProfile?.username ||
+            user.email?.split("@")[0],
+          file_size: file.size,
+          file_extension: fileExt,
+          original_filename: file.name,
+          screenshots: screenshotsArray,
+          approved: false,
+          scan_status: "pending",
+          download_count: 0,
+          view_count: 0,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        }]);
+
+      if (dbError) throw dbError;
+
+      progressDiv.remove();
+      showNotification("✅ Mod uploaded! Pending review.", "success", 8000);
+
+    } catch (err) {
+      console.error("UPLOAD ERROR:", err);
+      progressDiv?.remove();
+
+      if (err.name === "AbortError") {
+        showNotification("Upload timed out", "error");
+      } else {
+        showNotification("Upload failed: " + err.message, "error");
+      }
+    } finally {
+      setLoading(button, false);
     }
-  } finally {
-    setLoading(button, false);
   }
-}
 
   /* =========================
      MOD PAGE
   ========================= */
 
-async function loadModPage() {
-  const id = getQueryParam("id");
-  if (!id) { window.location.href = "index.html"; return; }
+  async function loadModPage() {
+    const id = getQueryParam("id");
+    if (!id) { window.location.href = "index.html"; return; }
 
-  try {
-    const { data: mod, error } = await supabaseClient
-      .from("mods2")
-      .select("*")
-      .eq("id", id)
-      .single();
+    try {
+      const { data: mod, error } = await supabaseClient
+        .from("mods2")
+        .select("*")
+        .eq("id", id)
+        .single();
 
-    if (error || !mod) {
-      console.error("Supabase error:", error);
-      document.body.innerHTML = `<div class="gb-error-container"><h1>Mod not found</h1><p>${error?.message || 'Unknown error'}</p><a href="index.html" class="gb-btn gb-btn-primary">Back to Home</a></div>`;
-      return;
-    }
+      if (error || !mod) {
+        console.error("Supabase error:", error);
+        document.body.innerHTML = `<div class="gb-error-container"><h1>Mod not found</h1><p>${error?.message || 'Unknown error'}</p><a href="index.html" class="gb-btn gb-btn-primary">Back to Home</a></div>`;
+        return;
+      }
 
-    const user = await getCurrentUser();
+      const user = await getCurrentUser();
 
-    // ===== VIEW COUNT LOGIC (unique per user / per browser) =====
-    let shouldIncrement = false;
+      // ===== VIEW COUNT LOGIC (unique per user / per browser) =====
+      let shouldIncrement = false;
 
-    if (user) {
-      // Logged‑in user: check user_views table
-      if (user.id !== mod.user_id) {
-        const { data: existingView } = await supabaseClient
-          .from('user_views')
-          .select('id')
-          .eq('user_id', user.id)
-          .eq('mod_id', mod.id)
-          .maybeSingle();
+      if (user) {
+        if (user.id !== mod.user_id) {
+          try {
+            const { data: existingView } = await supabaseClient
+              .from('user_views')
+              .select('id')
+              .eq('user_id', user.id)
+              .eq('mod_id', mod.id)
+              .maybeSingle();
 
-        if (!existingView) {
+            if (!existingView) {
+              shouldIncrement = true;
+              try {
+                await supabaseClient
+                  .from('user_views')
+                  .insert({ user_id: user.id, mod_id: mod.id });
+              } catch (insertErr) {
+                console.warn("Could not insert view (table may be missing):", insertErr);
+              }
+            }
+          } catch (err) {
+            console.warn("Failed to check existing view:", err);
+            shouldIncrement = true; // fallback
+          }
+        }
+      } else {
+        const storageKey = `viewed_mod_${mod.id}`;
+        if (!localStorage.getItem(storageKey)) {
           shouldIncrement = true;
-          // Record the view for next time
-          await supabaseClient
-            .from('user_views')
-            .insert({ user_id: user.id, mod_id: mod.id })
-            .catch(err => console.warn("Failed to record user view:", err));
+          localStorage.setItem(storageKey, 'true');
         }
       }
-    } else {
-      // Anonymous user: use localStorage
-      const storageKey = `viewed_mod_${mod.id}`;
-      if (!localStorage.getItem(storageKey)) {
-        shouldIncrement = true;
-        localStorage.setItem(storageKey, 'true');
+
+      if (shouldIncrement) {
+        try {
+          await supabaseClient.rpc('increment_view_count', { mod_id: mod.id });
+        } catch (err) {
+          console.warn("Failed to increment view count:", err);
+        }
       }
-    }
 
-    if (shouldIncrement) {
-      try {
-        await supabaseClient.rpc('increment_view_count', { mod_id: mod.id });
-      } catch (err) {
-        console.warn("Failed to increment view count:", err);
+      // Fetch author profile
+      const { data: authorProfile } = await supabaseClient
+        .from("profiles")
+        .select("username, trust_score, upload_count, download_count, is_verified, role")
+        .eq("id", mod.user_id)
+        .single();
+
+      if (authorProfile && authorProfile.download_count === undefined) {
+        const { data: userMods } = await supabaseClient
+          .from("mods2")
+          .select("download_count")
+          .eq("user_id", mod.user_id);
+        const totalDownloads = userMods?.reduce((sum, m) => sum + (m.download_count || 0), 0) || 0;
+        authorProfile.download_count = totalDownloads;
       }
-    }
 
-    // Fetch author profile
-    const { data: authorProfile } = await supabaseClient
-      .from("profiles")
-      .select("username, trust_score, upload_count, download_count, is_verified, role")
-      .eq("id", mod.user_id)
-      .single();
+      // Fetch buddy, subscriber, thank status for current user
+      let isBuddy = false, isSubscribed = false, hasThanked = false;
+      if (user) {
+        const [buddyRes, subRes, thankRes] = await Promise.all([
+          supabaseClient.from('buddies').select('id').eq('user_id', user.id).eq('buddy_id', mod.user_id).maybeSingle(),
+          supabaseClient.from('subscriptions').select('id').eq('subscriber_id', user.id).eq('target_id', mod.user_id).maybeSingle(),
+          supabaseClient.from('thanks').select('id').eq('mod_id', mod.id).eq('user_id', user.id).maybeSingle()
+        ]);
+        isBuddy = !!buddyRes.data;
+        isSubscribed = !!subRes.data;
+        hasThanked = !!thankRes.data;
+      }
 
-    if (authorProfile && authorProfile.download_count === undefined) {
-      const { data: userMods } = await supabaseClient
-        .from("mods2")
-        .select("download_count")
-        .eq("user_id", mod.user_id);
-      const totalDownloads = userMods?.reduce((sum, m) => sum + (m.download_count || 0), 0) || 0;
-      authorProfile.download_count = totalDownloads;
-    }
+      const modContainer = document.getElementById("mod");
+      if (!modContainer) return;
 
-    // Fetch buddy, subscriber, thank status for current user
-    let isBuddy = false, isSubscribed = false, hasThanked = false;
-    if (user) {
-      const [buddyRes, subRes, thankRes] = await Promise.all([
-        supabaseClient.from('buddies').select('id').eq('user_id', user.id).eq('buddy_id', mod.user_id).maybeSingle(),
-        supabaseClient.from('subscriptions').select('id').eq('subscriber_id', user.id).eq('target_id', mod.user_id).maybeSingle(),
-        supabaseClient.from('thanks').select('id').eq('mod_id', mod.id).eq('user_id', user.id).maybeSingle()
-      ]);
-      isBuddy = !!buddyRes.data;
-      isSubscribed = !!subRes.data;
-      hasThanked = !!thankRes.data;
-    }
+      // Generate screenshot gallery HTML
+      let screenshotsHtml = '';
+      if (mod.screenshots && mod.screenshots.length > 0) {
+        const sorted = mod.screenshots.sort((a,b) => (a.sort_order||0) - (b.sort_order||0));
+        screenshotsHtml = `
+          <div class="gb-screenshots">
+            <h2>Screenshots</h2>
+            <div class="gb-screenshot-grid">
+              ${sorted.map(s => `
+                <div class="gb-screenshot-item ${s.is_main ? 'main' : ''}">
+                  <img src="${escapeHTML(s.url)}" alt="Screenshot" loading="lazy">
+                </div>
+              `).join('')}
+            </div>
+          </div>
+        `;
+      }
 
-    const modContainer = document.getElementById("mod");
-    if (!modContainer) return;
+      // Determine author badge
+      let authorBadge = '👤 MEMBER';
+      if (authorProfile?.role === 'admin') authorBadge = '👑 ADMIN';
+      else if (authorProfile?.role === 'moderator') authorBadge = '🛡️ MOD';
+      else if (authorProfile?.is_verified) authorBadge = '✅ VERIFIED';
 
-    // Generate screenshot gallery HTML
-    let screenshotsHtml = '';
-    if (mod.screenshots && mod.screenshots.length > 0) {
-      const sorted = mod.screenshots.sort((a,b) => (a.sort_order||0) - (b.sort_order||0));
-      screenshotsHtml = `
-        <div class="gb-screenshots">
-          <h2>Screenshots</h2>
-          <div class="gb-screenshot-grid">
-            ${sorted.map(s => `
-              <div class="gb-screenshot-item ${s.is_main ? 'main' : ''}">
-                <img src="${escapeHTML(s.url)}" alt="Screenshot" loading="lazy">
+      // Check if current user is author or moderator
+      const isAuthor = user && user.id === mod.user_id;
+      const canEdit = isAuthor || (user && await isModerator());
+
+      modContainer.innerHTML = `
+        <div class="gb-mod-grid">
+          <!-- Sidebar (Author Info) -->
+          <div class="gb-mod-sidebar">
+            <div class="gb-author-cover"></div>
+            <div class="gb-author-avatar" style="text-shadow: 0 0 8px var(--gb-primary);">
+              ${escapeHTML((authorProfile?.username || 'U').charAt(0).toUpperCase())}
+            </div>
+            <div class="gb-author-info">
+              <div class="gb-author-name"><a href="profile.html?id=${mod.user_id}" style="color: inherit; text-decoration: none;">${escapeHTML(authorProfile?.username || 'Unknown')}</a></div>
+              <div class="gb-author-badge">${authorBadge}</div>
+              
+              <div class="gb-author-stats">
+                <div class="gb-author-stat">
+                  <span>📦 Uploads</span>
+                  <span class="gb-author-stat-value">${authorProfile?.upload_count || 0}</span>
+                </div>
+                <div class="gb-author-stat">
+                  <span>📥 Downloads</span>
+                  <span class="gb-author-stat-value">${authorProfile?.download_count || 0}</span>
+                </div>
+                <div class="gb-author-stat">
+                  <span>⭐ Trust</span>
+                  <span class="gb-author-stat-value">${authorProfile?.trust_score || 0}</span>
+                </div>
               </div>
-            `).join('')}
+
+              <div class="gb-author-actions">
+                <button onclick="toggleBuddy('${mod.user_id}')" class="gb-btn ${isBuddy ? 'gb-btn-primary' : 'gb-btn-outline'} gb-btn-block" id="buddyBtn-${mod.user_id}">${isBuddy ? '✓ Buddy' : '+ Add Buddy'}</button>
+                <button onclick="toggleSubscribe('${mod.user_id}')" class="gb-btn ${isSubscribed ? 'gb-btn-primary' : 'gb-btn-outline'} gb-btn-block" id="subBtn-${mod.user_id}">${isSubscribed ? '🔔 Subscribed' : '🔔 Subscribe'}</button>
+                <button onclick="toggleThank('${mod.id}')" class="gb-btn ${hasThanked ? 'gb-btn-primary' : 'gb-btn-outline'} gb-btn-block" id="thankBtn-${mod.id}">${hasThanked ? '❤️ Thanked' : '❤️ Thank'}</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Main Content -->
+          <div class="gb-mod-main">
+            <div style="display: flex; align-items: center; gap: 15px; margin-bottom: 15px; flex-wrap: wrap;">
+              <h1 class="gb-mod-title" style="margin: 0;">${escapeHTML(mod.title)}</h1>
+              ${canEdit ? `<a href="editmod.html?id=${mod.id}" class="gb-btn gb-btn-secondary" style="padding: 8px 16px;">✎ Edit</a>` : ''}
+            </div>
+            
+            <div class="gb-mod-badges">
+              <span class="gb-badge">📦 v${escapeHTML(mod.version || '1.0.0')}</span>
+              <span class="gb-badge">🎮 ${escapeHTML(mod.baldi_version || 'Any')}</span>
+              <span class="gb-badge" style="background:${mod.risk_score < 30 ? '#00ff88' : mod.risk_score < 60 ? '#ffaa00' : '#ff4444'};">
+                ${mod.risk_score < 30 ? '✅ Safe' : mod.risk_score < 60 ? '⚠️ Caution' : '❌ Unsafe'}
+              </span>
+            </div>
+
+            <div class="gb-mod-meta-grid">
+              <div class="gb-meta-item"><span class="gb-meta-label">Downloads</span><span class="gb-meta-value">📥 ${mod.download_count || 0}</span></div>
+              <div class="gb-meta-item"><span class="gb-meta-label">Views</span><span class="gb-meta-value">👁️ ${mod.view_count || 0}</span></div>
+              <div class="gb-meta-item"><span class="gb-meta-label">Uploaded</span><span class="gb-meta-value">📅 ${new Date(mod.created_at).toLocaleDateString()}</span></div>
+              <div class="gb-meta-item"><span class="gb-meta-label">File Size</span><span class="gb-meta-value">💾 ${formatFileSize(mod.file_size || 0)}</span></div>
+            </div>
+
+            ${screenshotsHtml}
+
+            <div class="gb-mod-description">
+              <h2>Description</h2>
+              <div class="gb-description-content">${escapeHTML(mod.description).replace(/\n/g, '<br>')}</div>
+            </div>
+
+            ${mod.tags?.length ? `
+              <div class="gb-tag-list">
+                ${mod.tags.map(tag => `<span class="gb-tag">#${escapeHTML(tag)}</span>`).join('')}
+              </div>
+            ` : ''}
+
+            <!-- Favorite Button -->
+            <div class="gb-mod-favorite">
+              <button id="favoriteBtn" onclick="toggleFavorite('${mod.id}')" class="gb-btn gb-btn-outline gb-btn-large">🤍 Favorite</button>
+            </div>
+
+            <div class="gb-mod-actions">
+              <a href="${escapeHTML(mod.file_url)}" class="gb-btn gb-btn-primary gb-btn-large" target="_blank" rel="noopener noreferrer" onclick="trackDownload('${mod.id}')">⬇️ Download Mod</a>
+              <button onclick="reportMod('${mod.id}')" class="gb-btn gb-btn-secondary gb-btn-large">🚩 Report Mod</button>
+            </div>
+
+            <!-- Comments Section -->
+            <div class="gb-comments-section">
+              <h2>Comments</h2>
+              ${user ? `
+                <div class="gb-add-comment">
+                  <textarea id="commentInput" placeholder="Write a comment..." rows="3"></textarea>
+                  <button onclick="addComment('${mod.id}', document.getElementById('commentInput').value)" class="gb-btn gb-btn-primary">Post Comment</button>
+                </div>
+              ` : '<p><a href="index.html">Login</a> to comment.</p>'}
+              <div id="commentsContainer" class="gb-comments-container"></div>
+            </div>
           </div>
         </div>
       `;
+
+      // Load comments and favorite status after rendering
+      loadComments(mod.id);
+      updateFavoriteButton(mod.id);
+
+    } catch (err) {
+      console.error("Failed to load mod:", err);
+      document.body.innerHTML = `<div class="gb-error-container"><h1>Error loading mod</h1><p>${err.message}</p><a href="index.html" class="gb-btn gb-btn-primary">Back to Home</a></div>`;
     }
-
-    // Determine author badge
-    let authorBadge = '👤 MEMBER';
-    if (authorProfile?.role === 'admin') authorBadge = '👑 ADMIN';
-    else if (authorProfile?.role === 'moderator') authorBadge = '🛡️ MOD';
-    else if (authorProfile?.is_verified) authorBadge = '✅ VERIFIED';
-
-    // Check if current user is author or moderator
-    const isAuthor = user && user.id === mod.user_id;
-    const canEdit = isAuthor || (user && await isModerator());
-
-    modContainer.innerHTML = `
-      <div class="gb-mod-grid">
-        <!-- Sidebar (Author Info) -->
-        <div class="gb-mod-sidebar">
-          <div class="gb-author-cover"></div>
-          <div class="gb-author-avatar" style="text-shadow: 0 0 8px var(--gb-primary);">
-            ${escapeHTML((authorProfile?.username || 'U').charAt(0).toUpperCase())}
-          </div>
-          <div class="gb-author-info">
-            <div class="gb-author-name"><a href="profile.html?id=${mod.user_id}" style="color: inherit; text-decoration: none;">${escapeHTML(authorProfile?.username || 'Unknown')}</a></div>
-            <div class="gb-author-badge">${authorBadge}</div>
-            
-            <div class="gb-author-stats">
-              <div class="gb-author-stat">
-                <span>📦 Uploads</span>
-                <span class="gb-author-stat-value">${authorProfile?.upload_count || 0}</span>
-              </div>
-              <div class="gb-author-stat">
-                <span>📥 Downloads</span>
-                <span class="gb-author-stat-value">${authorProfile?.download_count || 0}</span>
-              </div>
-              <div class="gb-author-stat">
-                <span>⭐ Trust</span>
-                <span class="gb-author-stat-value">${authorProfile?.trust_score || 0}</span>
-              </div>
-            </div>
-
-            <div class="gb-author-actions">
-              <button onclick="toggleBuddy('${mod.user_id}')" class="gb-btn ${isBuddy ? 'gb-btn-primary' : 'gb-btn-outline'} gb-btn-block" id="buddyBtn-${mod.user_id}">${isBuddy ? '✓ Buddy' : '+ Add Buddy'}</button>
-              <button onclick="toggleSubscribe('${mod.user_id}')" class="gb-btn ${isSubscribed ? 'gb-btn-primary' : 'gb-btn-outline'} gb-btn-block" id="subBtn-${mod.user_id}">${isSubscribed ? '🔔 Subscribed' : '🔔 Subscribe'}</button>
-              <button onclick="toggleThank('${mod.id}')" class="gb-btn ${hasThanked ? 'gb-btn-primary' : 'gb-btn-outline'} gb-btn-block" id="thankBtn-${mod.id}">${hasThanked ? '❤️ Thanked' : '❤️ Thank'}</button>
-            </div>
-          </div>
-        </div>
-
-        <!-- Main Content -->
-        <div class="gb-mod-main">
-          <div style="display: flex; align-items: center; gap: 15px; margin-bottom: 15px; flex-wrap: wrap;">
-            <h1 class="gb-mod-title" style="margin: 0;">${escapeHTML(mod.title)}</h1>
-            ${canEdit ? `<a href="editmod.html?id=${mod.id}" class="gb-btn gb-btn-secondary" style="padding: 8px 16px;">✎ Edit</a>` : ''}
-          </div>
-          
-          <div class="gb-mod-badges">
-            <span class="gb-badge">📦 v${escapeHTML(mod.version || '1.0.0')}</span>
-            <span class="gb-badge">🎮 ${escapeHTML(mod.baldi_version || 'Any')}</span>
-            <span class="gb-badge" style="background:${mod.risk_score < 30 ? '#00ff88' : mod.risk_score < 60 ? '#ffaa00' : '#ff4444'};">
-              ${mod.risk_score < 30 ? '✅ Safe' : mod.risk_score < 60 ? '⚠️ Caution' : '❌ Unsafe'}
-            </span>
-          </div>
-
-          <div class="gb-mod-meta-grid">
-            <div class="gb-meta-item"><span class="gb-meta-label">Downloads</span><span class="gb-meta-value">📥 ${mod.download_count || 0}</span></div>
-            <div class="gb-meta-item"><span class="gb-meta-label">Views</span><span class="gb-meta-value">👁️ ${mod.view_count || 0}</span></div>
-            <div class="gb-meta-item"><span class="gb-meta-label">Uploaded</span><span class="gb-meta-value">📅 ${new Date(mod.created_at).toLocaleDateString()}</span></div>
-            <div class="gb-meta-item"><span class="gb-meta-label">File Size</span><span class="gb-meta-value">💾 ${formatFileSize(mod.file_size || 0)}</span></div>
-          </div>
-
-          ${screenshotsHtml}
-
-          <div class="gb-mod-description">
-            <h2>Description</h2>
-            <div class="gb-description-content">${escapeHTML(mod.description).replace(/\n/g, '<br>')}</div>
-          </div>
-
-          ${mod.tags?.length ? `
-            <div class="gb-tag-list">
-              ${mod.tags.map(tag => `<span class="gb-tag">#${escapeHTML(tag)}</span>`).join('')}
-            </div>
-          ` : ''}
-
-          <!-- Favorite Button -->
-          <div class="gb-mod-favorite">
-            <button id="favoriteBtn" onclick="toggleFavorite('${mod.id}')" class="gb-btn gb-btn-outline gb-btn-large">🤍 Favorite</button>
-          </div>
-
-          <div class="gb-mod-actions">
-            <a href="${escapeHTML(mod.file_url)}" class="gb-btn gb-btn-primary gb-btn-large" target="_blank" rel="noopener noreferrer" onclick="trackDownload('${mod.id}')">⬇️ Download Mod</a>
-            <button onclick="reportMod('${mod.id}')" class="gb-btn gb-btn-secondary gb-btn-large">🚩 Report Mod</button>
-          </div>
-
-          <!-- Comments Section -->
-          <div class="gb-comments-section">
-            <h2>Comments</h2>
-            ${user ? `
-              <div class="gb-add-comment">
-                <textarea id="commentInput" placeholder="Write a comment..." rows="3"></textarea>
-                <button onclick="addComment('${mod.id}', document.getElementById('commentInput').value)" class="gb-btn gb-btn-primary">Post Comment</button>
-              </div>
-            ` : '<p><a href="index.html">Login</a> to comment.</p>'}
-            <div id="commentsContainer" class="gb-comments-container"></div>
-          </div>
-        </div>
-      </div>
-    `;
-
-    // Load comments and favorite status after rendering
-    loadComments(mod.id);
-    updateFavoriteButton(mod.id);
-
-  } catch (err) {
-    console.error("Failed to load mod:", err);
-    document.body.innerHTML = `<div class="gb-error-container"><h1>Error loading mod</h1><p>${err.message}</p><a href="index.html" class="gb-btn gb-btn-primary">Back to Home</a></div>`;
   }
-}
+
   /* =========================
      MOD LISTING
   ========================= */
@@ -1091,75 +1194,69 @@ async function loadModPage() {
   }
 
   let searchTimeout;
-window.debouncedSearch = function() {
-  clearTimeout(searchTimeout);
-  searchTimeout = setTimeout(() => {
-    loadMods();
-  }, 300); // wait 300ms after user stops typing
-};
+  window.debouncedSearch = function() {
+    clearTimeout(searchTimeout);
+    searchTimeout = setTimeout(() => {
+      loadMods();
+    }, 300);
+  };
 
   /* =========================
      TRACK DOWNLOAD
   ========================= */
 
- async function trackDownload(modId) {
-  const user = await getCurrentUser();
-  const { data: mod } = await supabaseClient.from("mods2").select("user_id").eq("id", modId).single();
-  
-  // Prevent author self-counting
-  if (user && mod && user.id === mod.user_id) {
-    showNotification("You cannot increase count while downloading your own mod", "info");
-    return;
-  }
+  async function trackDownload(modId) {
+    const user = await getCurrentUser();
+    const { data: mod } = await supabaseClient.from("mods2").select("user_id").eq("id", modId).single();
+    
+    if (user && mod && user.id === mod.user_id) {
+      showNotification("You cannot increase count while downloading your own mod", "info");
+      return;
+    }
 
-  // For logged-out users, just allow download
-  if (!user) {
-    showNotification("Download started", "success");
-    return;
-  }
+    if (!user) {
+      showNotification("Download started", "success");
+      return;
+    }
 
-  // Check if user already downloaded this mod (optional)
-  const { data: existingDownload } = await supabaseClient
-    .from('user_downloads')
-    .select('id')
-    .eq('user_id', user.id)
-    .eq('mod_id', modId)
-    .maybeSingle();
-
-  if (existingDownload) {
-    showNotification("You have already downloaded this mod", "info");
-    return;
-  }
-
-  try {
-    // Increment mod download count (using your existing RPC)
-    await supabaseClient.rpc('increment_download_count', { mod_id: modId });
-
-    // Record this download in user_downloads (prevents duplicate counting)
-    await supabaseClient
+    const { data: existingDownload } = await supabaseClient
       .from('user_downloads')
-      .insert({ user_id: user.id, mod_id: modId });
+      .select('id')
+      .eq('user_id', user.id)
+      .eq('mod_id', modId)
+      .maybeSingle();
 
-    // 👇 NEW: Increment author's total download count in profiles table
-    // First get current count
-    const { data: authorProfile } = await supabaseClient
-      .from("profiles")
-      .select("download_count")
-      .eq("id", mod.user_id)
-      .single();
+    if (existingDownload) {
+      showNotification("You have already downloaded this mod", "info");
+      return;
+    }
 
-    const newCount = (authorProfile?.download_count || 0) + 1;
-    await supabaseClient
-      .from("profiles")
-      .update({ download_count: newCount })
-      .eq("id", mod.user_id);
+    try {
+      await supabaseClient.rpc('increment_download_count', { mod_id: modId });
 
-    showNotification("Download started", "success");
-  } catch (err) {
-    console.error("Failed to track download:", err);
-    showNotification("Download count could not be updated", "error");
+      await supabaseClient
+        .from('user_downloads')
+        .insert({ user_id: user.id, mod_id: modId });
+
+      const { data: authorProfile } = await supabaseClient
+        .from("profiles")
+        .select("download_count")
+        .eq("id", mod.user_id)
+        .single();
+
+      const newCount = (authorProfile?.download_count || 0) + 1;
+      await supabaseClient
+        .from("profiles")
+        .update({ download_count: newCount })
+        .eq("id", mod.user_id);
+
+      showNotification("Download started", "success");
+    } catch (err) {
+      console.error("Failed to track download:", err);
+      showNotification("Download count could not be updated", "error");
+    }
   }
-}
+
   /* =========================
      BUDDY, SUBSCRIBE, THANK FUNCTIONS
   ========================= */
@@ -1300,7 +1397,7 @@ window.debouncedSearch = function() {
     }
   }
 
-   function renderProfile(profile, user) {
+  function renderProfile(profile, user) {
     const container = document.getElementById('profile-content');
     if (!container) return;
     const username = profile?.username || user.email?.split('@')[0] || 'User';
@@ -1503,7 +1600,6 @@ window.debouncedSearch = function() {
     }
   };
 
-
   /* =========================
      ADMIN FUNCTIONS (unchanged)
   ========================= */
@@ -1549,7 +1645,7 @@ window.debouncedSearch = function() {
   }
 
   // =========================
-  // MODERATION ACTIONS (new)
+  // MODERATION ACTIONS
   // =========================
 
   async function warnUser(userId, reason, note = '') {
@@ -1859,77 +1955,104 @@ window.debouncedSearch = function() {
     }
   }
 
-async function deleteMod(id) {
-  if (!await isModerator()) return;
-  if (!confirm('⚠️ Permanently delete this mod? This cannot be undone.')) return;
+  async function deleteMod(id) {
+    const user = await getCurrentUser();
+    if (!user) {
+      showNotification("Please login", "error");
+      return;
+    }
 
-  try {
-    // Fetch mod data to get screenshot URLs
     const { data: mod, error: fetchError } = await supabaseClient
       .from("mods2")
-      .select("screenshots, file_storage_path")
+      .select("user_id, approved, quarantine")
       .eq("id", id)
       .single();
 
-    if (fetchError) throw fetchError;
+    if (fetchError || !mod) {
+      showNotification("Mod not found", "error");
+      return;
+    }
 
-    console.log('Deleting mod, screenshots:', mod?.screenshots);
+    const isOwner = user.id === mod.user_id;
+    const isMod = await isModerator();
 
-    // Delete the mod record from database
-    const { error } = await supabaseClient
-      .from("mods2")
-      .delete()
-      .eq("id", id);
+    if (!isOwner && !isMod) {
+      showNotification("You don't have permission to delete this mod", "error");
+      return;
+    }
 
-    if (error) throw error;
+    if (isOwner && !isMod) {
+      if (mod.approved || mod.quarantine) {
+        showNotification("You can only delete pending mods", "error");
+        return;
+      }
+    }
 
-    // Delete all screenshots from storage
-    if (mod?.screenshots && Array.isArray(mod.screenshots)) {
-      for (const screenshot of mod.screenshots) {
-        const url = screenshot.url;
-        if (url && url.includes('supabase.co')) {
-          // Extract path: everything after 'mod-screenshots/'
-          const match = url.match(/\/mod-screenshots\/(.+)$/);
-          if (match && match[1]) {
-            const path = match[1];
-            console.log(`Attempting to delete screenshot: ${path}`);
-            try {
-              const { error: deleteError } = await supabaseClient.storage
-                .from('mod-screenshots')
-                .remove([path]);
-              if (deleteError) {
-                console.error('Failed to delete screenshot:', deleteError);
-              } else {
-                console.log('Successfully deleted:', path);
+    if (!confirm('⚠️ Permanently delete this mod? This cannot be undone.')) return;
+
+    try {
+      const { data: fullMod, error: fetchFullError } = await supabaseClient
+        .from("mods2")
+        .select("screenshots, file_storage_path")
+        .eq("id", id)
+        .single();
+
+      if (fetchFullError) throw fetchFullError;
+
+      console.log('Deleting mod, screenshots:', fullMod?.screenshots);
+
+      const { error } = await supabaseClient
+        .from("mods2")
+        .delete()
+        .eq("id", id);
+
+      if (error) throw error;
+
+      if (fullMod?.screenshots && Array.isArray(fullMod.screenshots)) {
+        for (const screenshot of fullMod.screenshots) {
+          const url = screenshot.url;
+          if (url && url.includes('supabase.co')) {
+            const match = url.match(/\/mod-screenshots\/(.+)$/);
+            if (match && match[1]) {
+              const path = match[1];
+              console.log(`Attempting to delete screenshot: ${path}`);
+              try {
+                const { error: deleteError } = await supabaseClient.storage
+                  .from('mod-screenshots')
+                  .remove([path]);
+                if (deleteError) {
+                  console.error('Failed to delete screenshot:', deleteError);
+                } else {
+                  console.log('Successfully deleted:', path);
+                }
+              } catch (storageErr) {
+                console.error('Exception deleting screenshot:', storageErr);
               }
-            } catch (storageErr) {
-              console.error('Exception deleting screenshot:', storageErr);
+            } else {
+              console.warn('Could not extract path from URL:', url);
             }
-          } else {
-            console.warn('Could not extract path from URL:', url);
           }
         }
       }
-    }
 
-    // Delete mod file if stored in Supabase (optional)
-    if (mod?.file_storage_path) {
-      try {
-        await supabaseClient.storage.from("baldi-mods").remove([mod.file_storage_path]);
-      } catch (storageErr) {
-        console.warn("Failed to delete mod file from storage:", storageErr);
+      if (fullMod?.file_storage_path) {
+        try {
+          await supabaseClient.storage.from("baldi-mods").remove([fullMod.file_storage_path]);
+        } catch (storageErr) {
+          console.warn("Failed to delete mod file from storage:", storageErr);
+        }
       }
-    }
 
-    showNotification("✅ Mod deleted", "success");
-    if (typeof loadPendingMods === 'function') loadPendingMods();
-    if (typeof loadReportedMods === 'function') loadReportedMods();
-    if (typeof loadMyMods === 'function') loadMyMods();
-  } catch (err) {
-    console.error("Failed to delete mod:", err);
-    showNotification("Failed to delete mod", "error");
+      showNotification("✅ Mod deleted", "success");
+      if (typeof loadPendingMods === 'function') loadPendingMods();
+      if (typeof loadReportedMods === 'function') loadReportedMods();
+      if (typeof loadMyMods === 'function') loadMyMods();
+    } catch (err) {
+      console.error("Failed to delete mod:", err);
+      showNotification("Failed to delete mod: " + err.message, "error");
+    }
   }
-}
+
   async function clearReport(id) {
     if (!await isModerator()) return;
     try {
@@ -2178,6 +2301,7 @@ async function deleteMod(id) {
       box.innerHTML = '<div class="gb-error">Failed to load requests</div>';
     }
   }
+
   /* =========================
      COMMENTS & FAVORITES
   ========================= */
@@ -2326,7 +2450,6 @@ async function deleteMod(id) {
       return;
     }
 
-    // Mute check
     try {
       const { data: profile, error: profileError } = await supabaseClient
         .from('profiles')
@@ -2357,7 +2480,6 @@ async function deleteMod(id) {
       return;
     }
 
-    // Filter bad words
     const filteredContent = filterBadWords(content.trim());
 
     try {
@@ -2382,7 +2504,7 @@ async function deleteMod(id) {
     }
   }
 
-   async function editComment(commentId) {
+  async function editComment(commentId) {
     const commentDiv = document.getElementById(`comment-text-${commentId}`);
     const currentText = commentDiv.innerText;
     const newText = prompt('Edit your comment:', currentText);
@@ -2404,6 +2526,7 @@ async function deleteMod(id) {
       showNotification('Failed to edit comment', 'error');
     }
   }
+
   async function deleteComment(commentId) {
     if (!confirm('Delete this comment?')) return;
     try {
@@ -2672,7 +2795,7 @@ async function deleteMod(id) {
     `;
   }
 
-   /* =========================
+  /* =========================
      EXPORT GLOBALS
   ========================= */
   window.signUp = signUp;
@@ -2744,6 +2867,10 @@ async function deleteMod(id) {
   window.rejectDeletionRequest = rejectDeletionRequest;
   window.loadDeletionRequests = loadDeletionRequests;
   window.revealComment = revealComment;
+
+  // Announcement notification functions
+  window.updateNotificationCount = updateNotificationCount;
+  window.startNotificationUpdates = startNotificationUpdates;
 
   window.supabaseClient = supabaseClient;
 
