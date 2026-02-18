@@ -758,7 +758,7 @@ function showAuthenticatedUI(user, profile) {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 300000);
 
-      const response = await fetch(MEGA_BACKEND_URL, {
+      const response = await fetch(`${MEGA_BACKEND_URL}/upload`, {
         method: "POST",
         headers: {
           Authorization: `Bearer ${accessToken}`,
@@ -772,11 +772,12 @@ function showAuthenticatedUI(user, profile) {
 
       if (!response.ok) {
         let msg;
+        const clonedResponse = response.clone(); // Clone before reading
         try {
-          const j = await response.json();
+          const j = await clonedResponse.json();
           msg = j.error || j.message;
         } catch {
-          msg = await response.text();
+          msg = await response.text(); // Use original if JSON fails
         }
         throw new Error(`Server ${response.status}: ${msg}`);
       }

@@ -236,13 +236,173 @@ const upload = multer({
   limits: { fileSize: MAX_SIZE }
 });
 
-/* ================= UPLOAD MOD (placeholder) ================= */
+/* ================= UPLOAD MOD (MEGA.nz) ================= */
 app.post('/upload', requireAuth, requireCSRF, upload.fields([
   { name: 'mainScreenshot', maxCount: 1 },
   { name: 'screenshots', maxCount: 2 },
   { name: 'modFile', maxCount: 1 }
 ]), async (req, res) => {
-  res.status(200).json({ message: 'Upload endpoint placeholder' });
+  // ===============================
+  // AUTH CHECK
+  // ===============================
+  const user = req.userId; // from requireAuth
+  if (!user) {
+    return res.status(401).json({ error: 'Not authenticated' });
+  }
+
+  // ===============================
+  // COLLECT FILES
+  // ===============================
+  const files = req.files;
+  if (!files) {
+    return res.status(400).json({ error: 'No files uploaded' });
+  }
+
+  const modFile = files.modFile?.[0];
+  const mainScreenshot = files.mainScreenshot?.[0];
+  const additionalScreenshots = files.screenshots || [];
+
+  if (!modFile || !mainScreenshot) {
+    return res.status(400).json({ error: 'Missing required files' });
+  }
+
+  // ===============================
+  // VALIDATION
+  // ===============================
+  const fileExt = '.' + modFile.originalname.split('.').pop().toLowerCase();
+  if (!ALLOWED_EXT.includes(fileExt)) {
+    return res.status(400).json({ error: `Only ${ALLOWED_EXT.join(', ')} files allowed` });
+  }
+
+  if (modFile.size > MAX_SIZE) {
+    return res.status(400).json({ error: `File exceeds ${Math.round(MAX_SIZE / (1024 * 1024))}MB` });
+  }
+
+  // ===============================
+  // HASH DEDUP
+  // ===============================
+  const hash = await sha256File(modFile.path);
+  if (hashStore.has(hash)) {
+    return res.status(409).json({ error: 'Duplicate file already uploaded' });
+  }
+
+  // ===============================
+  // MALWARE SCAN (placeholder)
+  // ===============================
+  const scan = await malwareScanHook(modFile.path);
+  if (!scan.clean) {
+    return res.status(400).json({ error: 'Malware detected' });
+  }
+
+  // ===============================
+  // VIRUSTOTAL CHECK (optional)
+  // ===============================
+  const vt = await virusTotalCheck(hash);
+  if (vt.malicious > 0) {
+    return res.status(400).json({ error: 'VirusTotal flagged file' });
+  }
+
+  // ===============================
+  // MEGA UPLOAD
+  // ===============================
+  let storage, folder, modUp, mainUp, extraUps;
+  try {
+    storage = await new Storage({ email: MEGA_EMAIL, password: MEGA_PASSWORD }).ready;
+    folder = await storage.mkdir(`mod_${Date.now()}`);
+
+    // Upload main screenshot
+    mainUp = await uploadFile(mainScreenshot, 'main', folder);
+
+    // Upload additional screenshots (max 2)
+    extraUps = await Promise.all(
+      additionalScreenshots.map(f => uploadFile(f, 'extra', folder))
+    );
+
+    // Upload mod file
+    modUp = await uploadFile(modFile, 'mod', folder);
+  } catch (err) {
+    console.error('MEGA upload error:', err);
+    // Clean up temp files
+    [modFile, mainScreenshot, ...additionalScreenshots].forEach(f => {
+      if (f?.path) fs.unlink(f.path, () => {});
+    });
+    return res.status(500).json({ error: 'Failed to upload to storage' });
+  }
+
+  // ===============================
+  // GENERATE RESPONSE URLs
+  // ===============================
+  try {
+    const modFileUrl = await modUp.link();
+    const mainScreenshotUrl = await mainUp.link();
+    const screenshotUrls = await Promise.all(extraUps.map(up => up.link()));
+
+    // ===============================
+    // FETCH AUTHOR NAME
+    // ===============================
+    const { data: profile } = await supabaseAdmin
+      .from('profiles')
+      .select('username')
+      .eq('id', user)
+      .single();
+    const authorName = profile?.username || user?.split('@')[0] || 'Unknown';
+
+    // ===============================
+    // GENERATE MOD ID
+    // ===============================
+    const modId = crypto.randomUUID();
+
+    // ===============================
+    // STORE IN DATABASE (mods2 table)
+    // ===============================
+    const { error: dbError } = await supabaseAdmin
+      .from('mods2')
+      .insert([{
+        id: modId,
+        title: req.body.title || 'Untitled',
+        description: req.body.description || '',
+        version: req.body.version || '1.0.0',
+        baldi_version: req.body.baldiVersion || null,
+        tags: req.body.tags ? req.body.tags.split(',').map(t => t.trim()) : [],
+        file_url: modFileUrl,
+        user_id: user,
+        author_name: authorName,
+        file_size: modFile.size,
+        file_extension: fileExt,
+        original_filename: modFile.originalname,
+        screenshots: [
+          { url: mainScreenshotUrl, is_main: true, sort_order: 0 },
+          ...screenshotUrls.map((url, i) => ({ url, is_main: false, sort_order: i + 1 }))
+        ],
+        approved: false,
+        scan_status: 'pending',
+        download_count: 0,
+        view_count: 0,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      }]);
+
+    if (dbError) throw dbError;
+
+    hashStore.set(hash, modId);
+
+    // Clean up temp files
+    [modFile, mainScreenshot, ...additionalScreenshots].forEach(f => {
+      if (f?.path) fs.unlink(f.path, () => {});
+    });
+
+    return res.json({
+      modFileUrl,
+      mainScreenshotUrl,
+      screenshotUrls,
+      fileHash: hash,
+      riskScore: vt.malicious + vt.suspicious,
+      moderationStatus: 'pending'
+    });
+  } catch (err) {
+    console.error('Database insert error:', err);
+    return res.status(500).json({ error: 'Failed to save mod data', details: err.message });
+  }
 });
 
 /* ================= DEBUG ENDPOINTS ================= */
