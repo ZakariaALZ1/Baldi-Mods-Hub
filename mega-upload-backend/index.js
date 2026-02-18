@@ -18,6 +18,12 @@ const app = express();
 
 app.set('trust proxy', 1);
 
+// ===== LOGGING MIDDLEWARE (NEW) =====
+app.use((req, res, next) => {
+  console.log(`${req.method} ${req.url} - Origin: ${req.headers.origin || 'none'}`);
+  next();
+});
+
 app.get('/ping', (req, res) => res.send('pong'));
 
 /* ================= CORS ================= */
@@ -28,10 +34,13 @@ const allowedOrigins = [
   'http://127.0.0.1:5500'
 ];
 
+// CORS middleware with logging
 app.use(cors({
   origin(origin, cb) {
+    console.log('CORS check - origin:', origin);
     if (!origin) return cb(null, true);
     if (allowedOrigins.includes(origin)) return cb(null, true);
+    console.warn(`CORS blocked origin: ${origin}`);
     return cb(new Error('CORS blocked'));
   },
   methods: ['GET','POST','PUT','DELETE','OPTIONS'],
@@ -39,6 +48,11 @@ app.use(cors({
   credentials: true,
   optionsSuccessStatus: 204
 }));
+
+// Explicit OPTIONS handler for /upload (ensures preflight works)
+app.options('/upload', (req, res) => {
+  res.status(204).end();
+});
 
 app.use(express.json());
 
@@ -182,14 +196,13 @@ app.post('/delete-mod-file', requireAuth, requireCSRF, async (req, res) => {
   const nodeId = match[1];
 
   try {
-    await deleteMegaFile(nodeId);
+    await deleteMegaFile(nodeId);   // function already defined in your backend
     res.json({ success: true });
   } catch (err) {
     console.error('Failed to delete Mega file:', err);
     res.status(500).json({ error: 'Failed to delete file from Mega', details: err.message });
   }
 });
-
 /* ================= IP BAN & RATE LIMIT ================= */
 app.use((req, res, next) => {
   if (bannedIPs.has(getIP(req))) return res.status(403).send('IP banned');
@@ -284,7 +297,208 @@ app.post('/upload', requireAuth, requireCSRF, upload.fields([
   { name: 'screenshots', maxCount: 2 },
   { name: 'modFile', maxCount: 1 }
 ]), async (req, res) => {
-  // ... (full implementation as in your original file) ...
+  // ===============================
+  // AUTH CHECK
+  // ===============================
+  const user = req.userId;
+  if (!user) {
+    return res.status(401).json({ error: 'Not authenticated' });
+  }
+
+  // ===============================
+  // COLLECT FILES
+  // ===============================
+  const files = req.files;
+  if (!files) {
+    return res.status(400).json({ error: 'No files uploaded' });
+  }
+
+  const modFile = files.modFile?.[0];
+  const mainScreenshot = files.mainScreenshot?.[0];
+  const additionalScreenshots = files.screenshots || [];
+
+  if (!modFile || !mainScreenshot) {
+    return res.status(400).json({ error: 'Missing required files' });
+  }
+
+  // ===============================
+  // VALIDATION
+  // ===============================
+  const fileExt = '.' + modFile.originalname.split('.').pop().toLowerCase();
+  if (!ALLOWED_EXT.includes(fileExt)) {
+    return res.status(400).json({ error: `Only ${ALLOWED_EXT.join(', ')} files allowed` });
+  }
+
+  if (modFile.size > MAX_SIZE) {
+    return res.status(400).json({ error: `File exceeds ${Math.round(MAX_SIZE / (1024 * 1024))}MB` });
+  }
+
+  // ===============================
+  // HASH DEDUP
+  // ===============================
+  const hash = await sha256File(modFile.path);
+  if (hashStore.has(hash)) {
+    return res.status(409).json({ error: 'Duplicate file already uploaded' });
+  }
+
+  // ===============================
+  // MALWARE SCAN (placeholder)
+  // ===============================
+  const scan = await malwareScanHook(modFile.path);
+  if (!scan.clean) {
+    return res.status(400).json({ error: 'Malware detected' });
+  }
+
+  // ===============================
+  // VIRUSTOTAL CHECK (optional)
+  // ===============================
+  const vt = await virusTotalCheck(hash);
+  if (vt.malicious > 0) {
+    return res.status(400).json({ error: 'VirusTotal flagged file' });
+  }
+
+  // ===============================
+  // FREEIMAGE.HOST UPLOAD (for screenshots)
+  // ===============================
+  const FREEIMAGE_API_KEY = process.env.FREEIMAGE_HOST_API_KEY;
+  if (!FREEIMAGE_API_KEY) {
+    console.error('[upload] FREEIMAGE_HOST_API_KEY is not set');
+    return res.status(500).json({ error: 'Server configuration error', details: 'freeimage.host API key missing' });
+  }
+
+  async function uploadToFreeimage(file) {
+    const fileBuffer = await fsPromises.readFile(file.path);
+    const base64Image = fileBuffer.toString('base64');
+
+    const formData = new URLSearchParams();
+    formData.append('key', FREEIMAGE_API_KEY);
+    formData.append('source', base64Image);
+    formData.append('format', 'json');
+
+    const response = await axios.post('https://freeimage.host/api/1/upload', formData, {
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      timeout: 15000
+    });
+
+    if (response.data && response.data.success) {
+      return response.data.image.url;
+    } else {
+      throw new Error('freeimage.host upload failed: ' + (response.data?.error?.message || 'Unknown'));
+    }
+  }
+
+  // Upload main screenshot
+  let mainScreenshotUrl;
+  try {
+    mainScreenshotUrl = await uploadToFreeimage(mainScreenshot);
+  } catch (err) {
+    console.error('Main screenshot upload error:', err);
+    return res.status(500).json({ error: 'Failed to upload main screenshot', details: err.message });
+  }
+
+  // Upload additional screenshots
+  const screenshotUrls = [];
+  for (const file of additionalScreenshots) {
+    try {
+      const url = await uploadToFreeimage(file);
+      screenshotUrls.push(url);
+    } catch (err) {
+      console.error('Additional screenshot upload error:', err);
+      return res.status(500).json({ error: 'Failed to upload additional screenshot', details: err.message });
+    }
+  }
+
+  // ===============================
+  // MEGA UPLOAD (mod file only)
+  // ===============================
+  let storage, folder, modUp;
+  try {
+    storage = await new Storage({ email: MEGA_EMAIL, password: MEGA_PASSWORD }).ready;
+    folder = await storage.mkdir(`mod_${Date.now()}`);
+    modUp = await uploadFile(modFile, 'mod', folder);
+  } catch (err) {
+    console.error('MEGA upload error:', err);
+    return res.status(500).json({ error: 'Failed to upload mod file to MEGA' });
+  }
+
+  // ===============================
+  // GENERATE MEGA MOD FILE URL
+  // ===============================
+  let modFileUrl;
+  try {
+    modFileUrl = await modUp.link();
+  } catch (err) {
+    console.error('MEGA link error:', err);
+    return res.status(500).json({ error: 'Failed to get MEGA link' });
+  }
+
+  // ===============================
+  // FETCH AUTHOR NAME
+  // ===============================
+  const { data: profile } = await supabaseAdmin
+    .from('profiles')
+    .select('username')
+    .eq('id', user)
+    .single();
+  const authorName = profile?.username || user?.split('@')[0] || 'Unknown';
+
+  // ===============================
+  // GENERATE MOD ID
+  // ===============================
+  const modId = crypto.randomUUID();
+
+  // ===============================
+  // STORE IN DATABASE (mods2 table)
+  // ===============================
+  try {
+    const { error: dbError } = await supabaseAdmin
+      .from('mods2')
+      .insert([{
+        id: modId,
+        title: req.body.title || 'Untitled',
+        description: req.body.description || '',
+        version: req.body.version || '1.0.0',
+        baldi_version: req.body.baldiVersion || null,
+        tags: req.body.tags ? req.body.tags.split(',').map(t => t.trim()) : [],
+        file_url: modFileUrl,
+        user_id: user,
+        author_name: authorName,
+        file_size: modFile.size,
+        file_extension: fileExt,
+        original_filename: modFile.originalname,
+        screenshots: [
+          { url: mainScreenshotUrl, is_main: true, sort_order: 0 },
+          ...screenshotUrls.map((url, i) => ({ url, is_main: false, sort_order: i + 1 }))
+        ],
+        approved: false,
+        scan_status: 'pending',
+        download_count: 0,
+        view_count: 0,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      }]);
+
+    if (dbError) throw dbError;
+  } catch (err) {
+    console.error('Database insert error:', err);
+    return res.status(500).json({ error: 'Failed to save mod data', details: err.message });
+  }
+
+  hashStore.set(hash, modId);
+
+  // Clean up temp files
+  [modFile, mainScreenshot, ...additionalScreenshots].forEach(f => {
+    if (f?.path) fs.unlink(f.path, () => {});
+  });
+
+  return res.json({
+    modFileUrl,
+    mainScreenshotUrl,
+    screenshotUrls,
+    fileHash: hash,
+    riskScore: vt.malicious + vt.suspicious,
+    moderationStatus: 'pending'
+  });
 });
 
 /* ================= DEBUG ENDPOINTS ================= */
@@ -330,16 +544,143 @@ app.get('/test-auth', requireAuth, (req, res) => {
 
 /* ================= ANNOUNCEMENT IMAGE UPLOAD ================= */
 app.post('/upload-announcement-images', requireAuth, upload.array('images', 2), async (req, res) => {
-  // ... (full implementation as in your original file) ...
+  console.log('[upload-images] ===== ENTERED HANDLER =====');
+  const files = req.files;
+  console.log(`[upload-images] Received ${files?.length} files`);
+
+  if (!files || files.length === 0) {
+    return res.status(400).json({ error: 'No images uploaded' });
+  }
+
+const API_KEY = process.env.FREEIMAGE_HOST_API_KEY;
+if (!API_KEY) {
+  console.error('[upload-images] FREEIMAGE_HOST_API_KEY is not set in environment');
+  return res.status(500).json({ error: 'Server configuration error', details: 'API key missing' });
+}
+  console.log('[upload-images] Using hardcoded API key (first 5 chars):', API_KEY.substring(0, 5));
+
+  const uploaded = [];
+
+  try {
+    for (const file of files) {
+      console.log(`[upload-images] Processing: ${file.originalname} (size: ${file.size} bytes)`);
+
+      // Read file and convert to base64
+      const fileBuffer = await fsPromises.readFile(file.path);
+      const base64Image = fileBuffer.toString('base64');
+      console.log('[upload-images] Base64 length:', base64Image.length);
+      console.log('[upload-images] Base64 preview (first 50 chars):', base64Image.substring(0, 50));
+
+      // Prepare form data
+      const formData = new URLSearchParams();
+      formData.append('key', API_KEY);
+      formData.append('source', base64Image);
+      formData.append('format', 'json');
+      console.log('[upload-images] Sending to freeimage.host...');
+
+      // Upload to freeimage.host with timeout
+      const response = await axios.post('https://freeimage.host/api/1/upload', formData, {
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        timeout: 15000
+      });
+
+      // Clean up temp file
+      await fsPromises.unlink(file.path).catch(err => console.warn('Temp file cleanup failed:', err));
+
+      console.log('[upload-images] freeimage.host response status:', response.status);
+      console.log('[upload-images] freeimage.host response data:', JSON.stringify(response.data, null, 2));
+
+      if (response.data && response.data.success) {
+        // URL is at response.data.image.url
+        const imageUrl = response.data.image?.url;
+        if (!imageUrl) {
+          throw new Error('Image URL missing in response');
+        }
+        console.log(`[upload-images] SUCCESS! URL: ${imageUrl}`);
+        uploaded.push({ url: imageUrl });
+      } else {
+        console.error('[upload-images] Upload failed (API error):', response.data);
+        throw new Error('Upload failed: ' + (response.data?.error?.message || 'Unknown error'));
+      }
+    }
+
+    console.log('[upload-images] All uploads successful');
+    return res.json({ images: uploaded });
+
+  } catch (error) {
+    console.error('[upload-images] CATCH block error:', error.message);
+    if (error.response) {
+      console.error('[upload-images] Response status:', error.response.status);
+      console.error('[upload-images] Response headers:', error.response.headers);
+      console.error('[upload-images] Response data:', error.response.data);
+    } else if (error.request) {
+      console.error('[upload-images] No response received from freeimage.host');
+    } else {
+      console.error('[upload-images] Error setting up request:', error.message);
+    }
+    // Clean up any remaining temp files
+    for (const file of files) {
+      await fsPromises.unlink(file.path).catch(() => {});
+    }
+    return res.status(500).json({ error: 'Image upload failed', details: error.message });
+  }
 });
 
 /* ================= OTHER ENDPOINTS ================= */
 app.get('/proxy-image', async (req, res) => {
-  // ...
+  console.log(`[proxy-image] REQUEST for nodeId: ${req.query.nodeId}`);
+  const { nodeId } = req.query;
+  if (!nodeId) return res.status(400).send('Missing nodeId');
+
+  try {
+    const { data, error } = await supabaseAdmin
+      .from('announcements')
+      .select('image_nodes, image_keys')
+      .contains('image_nodes', [nodeId])
+      .limit(1);
+
+    if (error) throw new Error(`DB error: ${error.message}`);
+    if (!data || data.length === 0) throw new Error('No record found');
+
+    const record = data[0];
+    const index = record.image_nodes.indexOf(nodeId);
+    if (index === -1) throw new Error('Node ID not in array');
+
+    const keyBase64 = record.image_keys?.[index];
+    if (!keyBase64) throw new Error('Key missing');
+
+    const keyBuffer = Buffer.from(keyBase64, 'base64');
+    const megaUrl = `https://mega.nz/file/${nodeId}#${keyBuffer.toString('base64url')}`;
+    const { File } = require('megajs');
+    const file = File.fromURL(megaUrl);
+
+    const ext = file.name?.split('.').pop().toLowerCase() || 'png';
+    const mime = {
+      jpg: 'image/jpeg', jpeg: 'image/jpeg',
+      png: 'image/png', gif: 'image/gif', webp: 'image/webp'
+    };
+    res.setHeader('Content-Type', mime[ext] || 'image/png');
+    res.setHeader('Cache-Control', 'public, max-age=86400');
+
+    const stream = file.download();
+    stream.on('error', err => {
+      console.error('[proxy-image] Stream error:', err);
+      if (!res.headersSent) res.status(500).send('Download failed');
+    });
+    stream.pipe(res);
+
+  } catch (err) {
+    console.error('[proxy-image] ERROR:', err);
+    res.status(500).send(err.message);
+  }
 });
 
 app.get('/test-url', (req, res) => {
-  // ...
+  const nodeId = 'KsNWWLZT';
+  const keyBase64 = 'FCvZ5LItgLqFFlgZDHRav3waryfk4mUKPIebxkOocSU';
+  const keyBuffer = Buffer.from(keyBase64, 'base64');
+  const megaUrl = `https://mega.nz/file/${nodeId}#${keyBuffer.toString('base64url')}`;
+  res.send(megaUrl);
 });
 
 app.delete('/delete-mega-file', requireAuth, requireAdmin, async (req, res) => {

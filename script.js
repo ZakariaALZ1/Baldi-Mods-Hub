@@ -268,101 +268,97 @@
     return filtered;
   }
 
-/* =========================
-   ANNOUNCEMENT NOTIFICATIONS
-   ========================= */
-let previousUnreadCount = 0;      // track previous count to detect new mentions
+  /* =========================
+     ANNOUNCEMENT NOTIFICATIONS
+  ========================= */
+  let previousUnreadCount = 0;
 
-async function updateNotificationCount() {
-  const user = await getCurrentUser();
-  if (!user) {
+  async function updateNotificationCount() {
+    const user = await getCurrentUser();
+    if (!user) {
+      const bell = document.getElementById('notificationBell');
+      if (bell) bell.style.display = 'none';
+      return;
+    }
+
+    const { data: announcements, error } = await supabaseClient
+      .from('announcements')
+      .select('id')
+      .eq('mentions_everyone', true);
+
+    if (error || !announcements) {
+      console.error('Failed to fetch announcements for count:', error);
+      return;
+    }
+
+    const { data: reads } = await supabaseClient
+      .from('announcement_reads')
+      .select('announcement_id')
+      .eq('user_id', user.id);
+
+    const readIds = (reads || []).map(r => r.announcement_id);
+    const unreadCount = announcements.filter(a => !readIds.includes(a.id)).length;
+
     const bell = document.getElementById('notificationBell');
-    if (bell) bell.style.display = 'none';
-    return;
-  }
+    const countSpan = document.getElementById('notificationCount');
+    if (bell && countSpan) {
+      bell.style.display = 'inline-block';
+      countSpan.textContent = unreadCount > 0 ? unreadCount : '0';
 
-  const { data: announcements, error } = await supabaseClient
-    .from('announcements')
-    .select('id')
-    .eq('mentions_everyone', true);
-
-  if (error || !announcements) {
-    console.error('Failed to fetch announcements for count:', error);
-    return;
-  }
-
-  const { data: reads } = await supabaseClient
-    .from('announcement_reads')
-    .select('announcement_id')
-    .eq('user_id', user.id);
-
-  const readIds = (reads || []).map(r => r.announcement_id);
-  const unreadCount = announcements.filter(a => !readIds.includes(a.id)).length;
-
-  const bell = document.getElementById('notificationBell');
-  const countSpan = document.getElementById('notificationCount');
-  if (bell && countSpan) {
-    bell.style.display = 'inline-block';
-    countSpan.textContent = unreadCount > 0 ? unreadCount : '0';
-
-    // Only show unmute button when transitioning from 0 to >0 (new mention)
-    if (unreadCount > 0 && previousUnreadCount === 0) {
-      // Show button – audio will be created on click
-      showUnmuteButton();
+      if (unreadCount > 0 && previousUnreadCount === 0) {
+        showUnmuteButton();
+      }
+      previousUnreadCount = unreadCount;
     }
-    previousUnreadCount = unreadCount;
   }
-}
 
-function showUnmuteButton() {
-  // Remove any existing unmute button
-  const existing = document.getElementById('unmute-notification');
-  if (existing) existing.remove();
+  function showUnmuteButton() {
+    const existing = document.getElementById('unmute-notification');
+    if (existing) existing.remove();
 
-  const btn = document.createElement('button');
-  btn.id = 'unmute-notification';
-  btn.textContent = '🔊 New Announcement';
-  btn.style.cssText = `
-    position: fixed;
-    bottom: 20px;
-    right: 20px;
-    z-index: 10001;
-    padding: 10px 20px;
-    background: #00ff88;
-    color: black;
-    border: none;
-    border-radius: 8px;
-    font-weight: bold;
-    cursor: pointer;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-    font-family: 'Inter', sans-serif;
-  `;
+    const btn = document.createElement('button');
+    btn.id = 'unmute-notification';
+    btn.textContent = '🔊 New Announcement';
+    btn.style.cssText = `
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      z-index: 10001;
+      padding: 10px 20px;
+      background: #00ff88;
+      color: black;
+      border: none;
+      border-radius: 8px;
+      font-weight: bold;
+      cursor: pointer;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+      font-family: 'Inter', sans-serif;
+    `;
 
-  btn.onclick = () => {
-    // Create audio only when user clicks (satisfies autoplay policy)
-    try {
-      const beepBase64 = 'data:audio/wav;base64,UklGRlwAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YVAAAAA8PDw8PDw8PDw8PDw8PDw8PDw8PDw8PDw8PDw8PDw8PDw8PDw8PDw8PDw8PDw8PDw8PA==';
-      const audio = new Audio(beepBase64);
-      audio.volume = 0.5;
-      audio.play().catch(e => console.warn('Audio play failed:', e));
-    } catch (err) {
-      console.warn('Could not create audio:', err);
-    }
-    btn.remove(); // button no longer needed
-  };
+    btn.onclick = () => {
+      try {
+        const beepBase64 = 'data:audio/wav;base64,UklGRlwAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YVAAAAA8PDw8PDw8PDw8PDw8PDw8PDw8PDw8PDw8PDw8PDw8PDw8PDw8PDw8PDw8PDw8PDw8PA==';
+        const audio = new Audio(beepBase64);
+        audio.volume = 0.5;
+        audio.play().catch(e => console.warn('Audio play failed:', e));
+      } catch (err) {
+        console.warn('Could not create audio:', err);
+      }
+      btn.remove();
+    };
 
-  // Auto‑remove the button after 10 seconds if not clicked
-  setTimeout(() => {
-    if (btn.parentNode) btn.remove();
-  }, 10000);
+    setTimeout(() => {
+      if (btn.parentNode) btn.remove();
+    }, 10000);
 
-  document.body.appendChild(btn);
-}
+    document.body.appendChild(btn);
+  }
 
-function startNotificationUpdates() {
-  updateNotificationCount();
-  setInterval(updateNotificationCount, 60000);
-}
+  function startNotificationUpdates() {
+    updateNotificationCount();
+    setInterval(updateNotificationCount, 60000);
+  }
+
   /* =========================
      AUTH STATE MANAGEMENT
   ========================= */
@@ -459,61 +455,57 @@ function startNotificationUpdates() {
     if (bell) bell.style.display = 'none';
   }
 
-// ===== Inside script.js – replace the existing showAuthenticatedUI function =====
-function showAuthenticatedUI(user, profile) {
-  const authSection = document.getElementById('auth-section');
-  if (authSection) authSection.style.display = 'none';
-  const userSection = document.getElementById('user-section');
-  if (userSection) {
-    userSection.style.display = 'block';
-    const userEmailEl = document.getElementById('userEmail');
-    if (userEmailEl) userEmailEl.textContent = user.email;
-    const roleBadge = document.getElementById('userRole');
-    if (roleBadge) {
-      roleBadge.className = `gb-badge ${profile.role || 'user'}`;
-      roleBadge.textContent = profile.role === 'admin' ? '👑 ADMIN' : 
-                             profile.role === 'moderator' ? '🛡️ MOD' : 
-                             profile.is_verified ? '✅ VERIFIED' : '👤 USER';
+  function showAuthenticatedUI(user, profile) {
+    const authSection = document.getElementById('auth-section');
+    if (authSection) authSection.style.display = 'none';
+    const userSection = document.getElementById('user-section');
+    if (userSection) {
+      userSection.style.display = 'block';
+      const userEmailEl = document.getElementById('userEmail');
+      if (userEmailEl) userEmailEl.textContent = user.email;
+      const roleBadge = document.getElementById('userRole');
+      if (roleBadge) {
+        roleBadge.className = `gb-badge ${profile.role || 'user'}`;
+        roleBadge.textContent = profile.role === 'admin' ? '👑 ADMIN' : 
+                               profile.role === 'moderator' ? '🛡️ MOD' : 
+                               profile.is_verified ? '✅ VERIFIED' : '👤 USER';
+      }
     }
-  }
-  const nav = document.getElementById('main-nav');
-  if (nav) {
-    let adminLinks = '';
-    if (profile.role === 'admin' || profile.role === 'moderator') {
-      adminLinks += `<a href="admin.html" class="gb-nav-item">🛡️ Moderation</a>`;
-    }
-    if (profile.role === 'admin') {
-      adminLinks += `<a href="admin-dashboard.html" class="gb-nav-item">📊 Dashboard</a>`;
-    }
-    // Build the navigation bar including the notification bell
-    nav.innerHTML = `
-      <div class="gb-nav-container">
-        <a href="index.html" class="gb-nav-item">🏠 Home</a>
-        <a href="upload.html" class="gb-nav-item">📤 Upload</a>
-        <a href="profile.html" class="gb-nav-item">👤 ${profile.username || 'Profile'}</a>
-        ${adminLinks}
-        <!-- Notification Bell (dynamically generated) -->
-        <div class="gb-notification-bell" id="notificationBell">
-          <a href="announcements.html" style="color: inherit; text-decoration: none; position: relative;">
-            🔔
-            <span id="notificationCount" class="gb-notification-badge">0</span>
-          </a>
+    const nav = document.getElementById('main-nav');
+    if (nav) {
+      let adminLinks = '';
+      if (profile.role === 'admin' || profile.role === 'moderator') {
+        adminLinks += `<a href="admin.html" class="gb-nav-item">🛡️ Moderation</a>`;
+      }
+      if (profile.role === 'admin') {
+        adminLinks += `<a href="admin-dashboard.html" class="gb-nav-item">📊 Dashboard</a>`;
+      }
+      nav.innerHTML = `
+        <div class="gb-nav-container">
+          <a href="index.html" class="gb-nav-item">🏠 Home</a>
+          <a href="upload.html" class="gb-nav-item">📤 Upload</a>
+          <a href="profile.html" class="gb-nav-item">👤 ${profile.username || 'Profile'}</a>
+          ${adminLinks}
+          <div class="gb-notification-bell" id="notificationBell">
+            <a href="announcements.html" style="color: inherit; text-decoration: none; position: relative;">
+              🔔
+              <span id="notificationCount" class="gb-notification-badge">0</span>
+            </a>
+          </div>
+          <span class="gb-nav-user">
+            <span class="gb-badge ${profile.role || 'user'}">${profile.role?.toUpperCase() || 'USER'}</span>
+            <span class="gb-nav-points">⭐ ${profile.trust_score || 0}</span>
+          </span>
         </div>
-        <span class="gb-nav-user">
-          <span class="gb-badge ${profile.role || 'user'}">${profile.role?.toUpperCase() || 'USER'}</span>
-          <span class="gb-nav-points">⭐ ${profile.trust_score || 0}</span>
-        </span>
-      </div>
-    `;
+      `;
+    }
+    updateNotificationCount();
+    startNotificationUpdates();
   }
-  // The bell is now part of the nav; we still need to update its count
-  updateNotificationCount();
-  startNotificationUpdates();
-}
+
   /* =========================
      AUTH FUNCTIONS
   ========================= */
-
   async function signUp() {
     const email = val("email");
     const password = val("password");
@@ -629,23 +621,30 @@ function showAuthenticatedUI(user, profile) {
   /* =========================
      PAGE GUARDS
   ========================= */
-
   async function guardUploadPage() { const user = await getCurrentUser(); if (!user) { showNotification("Please login to upload mods", "error"); setTimeout(() => window.location.href = "index.html", 1500); return false; } return true; }
   async function guardProfilePage() { const user = await getCurrentUser(); if (!user) { showNotification("Please login to view your profile", "error"); setTimeout(() => window.location.href = "index.html", 1500); return false; } return true; }
   async function guardAdminPage() { if (!await isModerator()) { showNotification("Moderator access required", "error"); setTimeout(() => window.location.href = "index.html", 1500); return false; } return true; }
   async function guardAdminDashboard() { if (!await isAdmin()) { showNotification("Admin access required", "error"); setTimeout(() => window.location.href = "index.html", 1500); return false; } return true; }
 
   /* =========================
-     MOD UPLOAD – MEGA.NZ VERSION
+     MOD UPLOAD – MEGA.NZ VERSION (with screenshot limit & duplicate prevention)
   ========================= */
+  let isUploading = false; // prevents double submission
 
   async function uploadMod() {
+    if (isUploading) {
+      showNotification("Upload already in progress...", "info");
+      return;
+    }
+    isUploading = true;
+
     // ===============================
     // AUTH CHECK
     // ===============================
     const user = await getCurrentUser();
     if (!user) {
       showNotification("Please login to upload", "error");
+      isUploading = false;
       return;
     }
 
@@ -655,6 +654,7 @@ function showAuthenticatedUI(user, profile) {
     if (sessErr || !sessionData?.session?.access_token) {
       console.error("Session error:", sessErr);
       showNotification("Login expired — please sign in again", "error");
+      isUploading = false;
       return;
     }
 
@@ -668,6 +668,7 @@ function showAuthenticatedUI(user, profile) {
 
     if (!csrfToken) {
       showNotification("Security token missing — reload page", "error");
+      isUploading = false;
       return;
     }
 
@@ -685,18 +686,40 @@ function showAuthenticatedUI(user, profile) {
     const additionalScreenshots =
       document.getElementById("screenshots")?.files;
 
+    // ----- LIMIT ADDITIONAL SCREENSHOTS TO 2 (fix for Multer error) -----
+    let screenshotFiles = [];
+    if (additionalScreenshots && additionalScreenshots.length > 0) {
+      if (additionalScreenshots.length > 2) {
+        showNotification("You can only upload up to 2 additional screenshots. Extra files will be ignored.", "warning");
+      }
+      screenshotFiles = Array.from(additionalScreenshots).slice(0, 2);
+    }
+
     // ===============================
     // VALIDATION
     // ===============================
-    if (!title || title.length < 3 || title.length > 100)
-      return showNotification("Title must be 3-100 characters", "error");
+    if (!title || title.length < 3 || title.length > 100) {
+      showNotification("Title must be 3-100 characters", "error");
+      isUploading = false;
+      return;
+    }
 
-    if (!description || description.length < 10 || description.length > 5000)
-      return showNotification("Description must be 10-5000 characters", "error");
+    if (!description || description.length < 10 || description.length > 5000) {
+      showNotification("Description must be 10-5000 characters", "error");
+      isUploading = false;
+      return;
+    }
 
-    if (!file) return showNotification("Please select a mod file", "error");
-    if (!mainScreenshot)
-      return showNotification("Please select a main screenshot", "error");
+    if (!file) {
+      showNotification("Please select a mod file", "error");
+      isUploading = false;
+      return;
+    }
+    if (!mainScreenshot) {
+      showNotification("Please select a main screenshot", "error");
+      isUploading = false;
+      return;
+    }
 
     const allowedExtensions =
       window.ENV?.ALLOWED_FILE_TYPES ||
@@ -708,20 +731,21 @@ function showAuthenticatedUI(user, profile) {
 
     const fileExt = "." + file.name.split(".").pop().toLowerCase();
 
-    if (!allowedExtensions.includes(fileExt))
-      return showNotification(
-        `Only ${allowedExtensions.join(", ")} files allowed`,
-        "error"
-      );
+    if (!allowedExtensions.includes(fileExt)) {
+      showNotification(`Only ${allowedExtensions.join(", ")} files allowed`, "error");
+      isUploading = false;
+      return;
+    }
 
-    if (file.size > maxSize)
-      return showNotification(
-        `File exceeds ${Math.round(maxSize / (1024 * 1024))}MB`,
-        "error"
-      );
+    if (file.size > maxSize) {
+      showNotification(`File exceeds ${Math.round(maxSize / (1024 * 1024))}MB`, "error");
+      isUploading = false;
+      return;
+    }
 
     if (!MEGA_BACKEND_URL) {
       showNotification("Backend URL missing", "error");
+      isUploading = false;
       return;
     }
 
@@ -749,10 +773,8 @@ function showAuthenticatedUI(user, profile) {
       formData.append("mainScreenshot", mainScreenshot);
       formData.append("modFile", file);
 
-      if (additionalScreenshots) {
-        Array.from(additionalScreenshots).forEach(f =>
-          formData.append("screenshots", f)
-        );
+      if (screenshotFiles.length > 0) {
+        screenshotFiles.forEach(f => formData.append("screenshots", f));
       }
 
       const controller = new AbortController();
@@ -841,6 +863,11 @@ function showAuthenticatedUI(user, profile) {
       progressDiv.remove();
       showNotification("✅ Mod uploaded! Pending review.", "success", 8000);
 
+      // ===== REDIRECT TO PROFILE AFTER SUCCESS =====
+      setTimeout(() => {
+        window.location.href = "profile.html";
+      }, 2000);
+
     } catch (err) {
       console.error("UPLOAD ERROR:", err);
       progressDiv?.remove();
@@ -852,13 +879,13 @@ function showAuthenticatedUI(user, profile) {
       }
     } finally {
       setLoading(button, false);
+      isUploading = false;
     }
   }
 
   /* =========================
      MOD PAGE
   ========================= */
-
   async function loadModPage() {
     const id = getQueryParam("id");
     if (!id) { window.location.href = "index.html"; return; }
@@ -1090,7 +1117,6 @@ function showAuthenticatedUI(user, profile) {
   /* =========================
      MOD LISTING
   ========================= */
-
   async function loadMods() {
     const box = document.getElementById("mods");
     if (!box) return;
@@ -1197,15 +1223,12 @@ function showAuthenticatedUI(user, profile) {
   let searchTimeout;
   window.debouncedSearch = function() {
     clearTimeout(searchTimeout);
-    searchTimeout = setTimeout(() => {
-      loadMods();
-    }, 300);
+    searchTimeout = setTimeout(() => loadMods(), 300);
   };
 
   /* =========================
      TRACK DOWNLOAD
   ========================= */
-
   async function trackDownload(modId) {
     const user = await getCurrentUser();
     const { data: mod } = await supabaseClient.from("mods2").select("user_id").eq("id", modId).single();
@@ -1261,7 +1284,6 @@ function showAuthenticatedUI(user, profile) {
   /* =========================
      BUDDY, SUBSCRIBE, THANK FUNCTIONS
   ========================= */
-
   async function toggleBuddy(targetUserId) {
     const user = await getCurrentUser();
     if (!user) { showNotification("Please login", "error"); return; }
@@ -1362,7 +1384,6 @@ function showAuthenticatedUI(user, profile) {
   /* =========================
      PROFILE FUNCTIONS (own profile)
   ========================= */
-
   async function loadProfilePage() {
     const user = await getCurrentUser();
     if (!user) return;
@@ -1930,8 +1951,7 @@ function showAuthenticatedUI(user, profile) {
     const reason = prompt('Reason for rejection:');
     if (!reason) return;
 
-    // --- NEW: Delete Mega file first ---
-    // Fetch the mod to get file_url
+    // --- Delete Mega file first ---
     const { data: mod, error: fetchError } = await supabaseClient
       .from('mods2')
       .select('file_url')
@@ -1940,27 +1960,32 @@ function showAuthenticatedUI(user, profile) {
 
     if (!fetchError && mod?.file_url && mod.file_url.includes('mega.nz')) {
       try {
-        const accessToken = await getAccessToken();   // need to define this helper
-        const csrfToken = getCSRFToken();
-        const response = await fetch(`${MEGA_BACKEND_URL}/delete-mod-file`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${accessToken}`,
-            'X-CSRF-Token': csrfToken
-          },
-          body: JSON.stringify({ modId: id })
-        });
-        if (!response.ok) {
-          console.warn('Mega file deletion failed during reject');
+        const accessToken = await getAccessToken();
+        if (!accessToken) {
+          console.error("No access token – cannot delete Mega file during rejection");
         } else {
-          console.log('Mega file deleted due to rejection');
+          const csrfToken = getCSRFToken();
+          const response = await fetch(`${MEGA_BACKEND_URL}/delete-mod-file`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${accessToken}`,
+              'X-CSRF-Token': csrfToken
+            },
+            body: JSON.stringify({ modId: id })
+          });
+          const result = await response.json();
+          if (!response.ok) {
+            console.warn('Mega file deletion failed during reject:', result);
+          } else {
+            console.log('Mega file deleted due to rejection');
+          }
         }
       } catch (err) {
         console.error('Error deleting Mega file during reject:', err);
       }
     }
-    // --- End new code ---
+    // --- End ---
 
     try {
       const { error } = await supabaseClient.from("mods2").update({ approved: false, scan_status: 'rejected', scan_reason: reason, updated_at: new Date().toISOString() }).eq("id", id);
@@ -2026,26 +2051,31 @@ function showAuthenticatedUI(user, profile) {
 
     if (!confirm('⚠️ Permanently delete this mod? This cannot be undone.')) return;
 
-    // --- NEW: Delete Mega file if it exists ---
+    // --- Delete Mega file if it exists ---
     if (mod.file_url && mod.file_url.includes('mega.nz')) {
       try {
         const accessToken = await getAccessToken();
-        const csrfToken = getCSRFToken();
-        const response = await fetch(`${MEGA_BACKEND_URL}/delete-mod-file`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${accessToken}`,
-            'X-CSRF-Token': csrfToken
-          },
-          body: JSON.stringify({ modId: id })
-        });
-        if (!response.ok) {
-          const errData = await response.json();
-          console.warn('Mega file deletion failed:', errData);
-          showNotification('Warning: File could not be deleted from storage', 'warning');
+        if (!accessToken) {
+          console.error("No access token – cannot delete Mega file");
+          showNotification("Cannot delete file: not authenticated", "warning");
         } else {
-          console.log('Mega file deleted successfully');
+          const csrfToken = getCSRFToken();
+          const response = await fetch(`${MEGA_BACKEND_URL}/delete-mod-file`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${accessToken}`,
+              'X-CSRF-Token': csrfToken
+            },
+            body: JSON.stringify({ modId: id })
+          });
+          const result = await response.json();
+          if (!response.ok) {
+            console.error('Mega file deletion failed:', result);
+            showNotification(`Warning: ${result.error || 'File could not be deleted'}`, "warning");
+          } else {
+            console.log('Mega file deleted successfully');
+          }
         }
       } catch (err) {
         console.error('Error calling delete-mod-file:', err);
@@ -2054,10 +2084,8 @@ function showAuthenticatedUI(user, profile) {
     }
     // --- End new code ---
 
-    // Proceed with Supabase deletion (original logic, but we already fetched fullMod above)
+    // Proceed with Supabase deletion
     try {
-      // We already have mod, but we need fullMod for screenshots and file_storage_path
-      // (we already fetched them, they are in mod)
       console.log('Deleting mod, screenshots:', mod.screenshots);
 
       const { error } = await supabaseClient
