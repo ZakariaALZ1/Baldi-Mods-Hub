@@ -1929,6 +1929,39 @@ function showAuthenticatedUI(user, profile) {
     if (!await isModerator()) return;
     const reason = prompt('Reason for rejection:');
     if (!reason) return;
+
+    // --- NEW: Delete Mega file first ---
+    // Fetch the mod to get file_url
+    const { data: mod, error: fetchError } = await supabaseClient
+      .from('mods2')
+      .select('file_url')
+      .eq('id', id)
+      .single();
+
+    if (!fetchError && mod?.file_url && mod.file_url.includes('mega.nz')) {
+      try {
+        const accessToken = await getAccessToken();   // need to define this helper
+        const csrfToken = getCSRFToken();
+        const response = await fetch(`${MEGA_BACKEND_URL}/delete-mod-file`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${accessToken}`,
+            'X-CSRF-Token': csrfToken
+          },
+          body: JSON.stringify({ modId: id })
+        });
+        if (!response.ok) {
+          console.warn('Mega file deletion failed during reject');
+        } else {
+          console.log('Mega file deleted due to rejection');
+        }
+      } catch (err) {
+        console.error('Error deleting Mega file during reject:', err);
+      }
+    }
+    // --- End new code ---
+
     try {
       const { error } = await supabaseClient.from("mods2").update({ approved: false, scan_status: 'rejected', scan_reason: reason, updated_at: new Date().toISOString() }).eq("id", id);
       if (error) throw error;
@@ -1963,9 +1996,10 @@ function showAuthenticatedUI(user, profile) {
       return;
     }
 
+    // Fetch mod details including file_url
     const { data: mod, error: fetchError } = await supabaseClient
       .from("mods2")
-      .select("user_id, approved, quarantine")
+      .select("user_id, approved, quarantine, screenshots, file_storage_path, file_url")
       .eq("id", id)
       .single();
 
@@ -1974,6 +2008,7 @@ function showAuthenticatedUI(user, profile) {
       return;
     }
 
+    // Permission check
     const isOwner = user.id === mod.user_id;
     const isMod = await isModerator();
 
@@ -1991,16 +2026,39 @@ function showAuthenticatedUI(user, profile) {
 
     if (!confirm('⚠️ Permanently delete this mod? This cannot be undone.')) return;
 
+    // --- NEW: Delete Mega file if it exists ---
+    if (mod.file_url && mod.file_url.includes('mega.nz')) {
+      try {
+        const accessToken = await getAccessToken();
+        const csrfToken = getCSRFToken();
+        const response = await fetch(`${MEGA_BACKEND_URL}/delete-mod-file`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${accessToken}`,
+            'X-CSRF-Token': csrfToken
+          },
+          body: JSON.stringify({ modId: id })
+        });
+        if (!response.ok) {
+          const errData = await response.json();
+          console.warn('Mega file deletion failed:', errData);
+          showNotification('Warning: File could not be deleted from storage', 'warning');
+        } else {
+          console.log('Mega file deleted successfully');
+        }
+      } catch (err) {
+        console.error('Error calling delete-mod-file:', err);
+        showNotification('Warning: Could not delete file from storage', 'warning');
+      }
+    }
+    // --- End new code ---
+
+    // Proceed with Supabase deletion (original logic, but we already fetched fullMod above)
     try {
-      const { data: fullMod, error: fetchFullError } = await supabaseClient
-        .from("mods2")
-        .select("screenshots, file_storage_path")
-        .eq("id", id)
-        .single();
-
-      if (fetchFullError) throw fetchFullError;
-
-      console.log('Deleting mod, screenshots:', fullMod?.screenshots);
+      // We already have mod, but we need fullMod for screenshots and file_storage_path
+      // (we already fetched them, they are in mod)
+      console.log('Deleting mod, screenshots:', mod.screenshots);
 
       const { error } = await supabaseClient
         .from("mods2")
@@ -2009,8 +2067,9 @@ function showAuthenticatedUI(user, profile) {
 
       if (error) throw error;
 
-      if (fullMod?.screenshots && Array.isArray(fullMod.screenshots)) {
-        for (const screenshot of fullMod.screenshots) {
+      // Attempt to delete screenshots from Supabase storage (if any – we now use freeimage.host, so this may be irrelevant)
+      if (mod.screenshots && Array.isArray(mod.screenshots)) {
+        for (const screenshot of mod.screenshots) {
           const url = screenshot.url;
           if (url && url.includes('supabase.co')) {
             const match = url.match(/\/mod-screenshots\/(.+)$/);
@@ -2036,9 +2095,9 @@ function showAuthenticatedUI(user, profile) {
         }
       }
 
-      if (fullMod?.file_storage_path) {
+      if (mod.file_storage_path) {
         try {
-          await supabaseClient.storage.from("baldi-mods").remove([fullMod.file_storage_path]);
+          await supabaseClient.storage.from("baldi-mods").remove([mod.file_storage_path]);
         } catch (storageErr) {
           console.warn("Failed to delete mod file from storage:", storageErr);
         }
@@ -2874,6 +2933,12 @@ function showAuthenticatedUI(user, profile) {
   window.startNotificationUpdates = startNotificationUpdates;
 
   window.supabaseClient = supabaseClient;
+
+  // Helper to get access token
+  async function getAccessToken() {
+    const { data: sessionData } = await supabaseClient.auth.getSession();
+    return sessionData?.session?.access_token;
+  }
 
   document.addEventListener('DOMContentLoaded', checkAuthState);
 })();
