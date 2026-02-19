@@ -247,13 +247,12 @@
       grid-template-columns: 380px 1fr;
       gap: 30px;
     }
-
     /* Sidebar */
 .gb-mod-sidebar {
   background: linear-gradient(135deg, #1a1a1a 0%, #151515 100%);
   border: 1px solid var(--gb-border);
   border-radius: 20px;
-  overflow: visible; /* FIX: allow avatar to overflow */
+  overflow: visible; /* ✅ FIX */
   position: sticky;
   top: 200px;
   align-self: start;
@@ -263,34 +262,33 @@
   height: 100px;
   background: linear-gradient(135deg, var(--gb-primary), var(--gb-primary-dark));
   position: relative;
-  overflow: visible; /* CRITICAL: stops avatar from being cut off */
+  overflow: visible;
 }
 
 .gb-author-avatar {
   position: absolute;
-  bottom: -40px; /* perfect overlap like profile.html */
+  bottom: -40px;
   left: 50%;
   transform: translateX(-50%);
   width: 80px;
   height: 80px;
-  background: linear-gradient(135deg, #222, #1a1a1a);
-  border: 4px solid var(--gb-primary);
   border-radius: 50%;
+  border: 4px solid var(--gb-primary);
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 36px;
   font-weight: 800;
   color: var(--gb-primary);
+  background: linear-gradient(135deg, #222, #1a1a1a);
   box-shadow: 0 10px 25px rgba(0,0,0,0.6);
-  line-height: 1;
-  z-index: 5; /* ensures it sits above cover */
-  text-shadow: 0 0 12px var(--gb-primary);
+  z-index: 5;
 }
 
 .gb-author-info {
-  padding: 70px 30px 30px; /* matches avatar overlap spacing */
+  padding: 90px 30px 30px;
 }
+
 
 
     .gb-author-name {
@@ -576,17 +574,32 @@
     }
 
 @media (max-width: 768px) {
+  /* Prevent clipping & sticky issues on phones */
+  .gb-mod-sidebar {
+    position: static;
+    overflow: visible;
+  }
+
+  /* Header cover area */
+  .gb-author-cover {
+    height: 90px;
+    overflow: visible;
+    position: relative;
+  }
+
+  /* Floating avatar (centered under green bar) */
   .gb-author-avatar {
-    width: 60px;
-    height: 60px;
-    font-size: 28px;
-    bottom: -30px;
+    width: 70px;
+    height: 70px;
+    font-size: 30px;
+    bottom: -35px;
     left: 50%;
     transform: translateX(-50%);
   }
 
+  /* VERY IMPORTANT: space for the floating avatar */
   .gb-author-info {
-    padding-top: 55px;
+    padding: 65px 20px 25px;
   }
 }
 
