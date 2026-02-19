@@ -76,7 +76,7 @@ const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 const MAX_SIZE = 100 * 1024 * 1024;
 const ALLOWED_EXT = ['.zip','.rar','.7z','.baldimod'];
 
-// In‑memory stores for other purposes (optional)
+// In‑memory stores (optional)
 const moderationQueue = new Map();
 const abuseReports = [];
 const bannedIPs = new Set();
@@ -151,6 +151,7 @@ async function deleteMegaFile(nodeId) {
   return response;
 }
 
+// ================= DELETE MOD FILE (with EACCESS tolerance) =================
 app.post('/delete-mod-file', requireAuth, requireCSRF, async (req, res) => {
   const { modId } = req.body;
   if (!modId) return res.status(400).json({ error: 'Missing modId' });
@@ -186,9 +187,10 @@ app.post('/delete-mod-file', requireAuth, requireCSRF, async (req, res) => {
     await deleteMegaFile(nodeId);
     res.json({ success: true });
   } catch (err) {
-    if (err.message && err.message.includes('ENOENT')) {
-      console.log(`[delete-mod-file] File ${nodeId} already missing – treating as success.`);
-      return res.json({ success: true, note: 'File already missing' });
+    // If file is already missing OR access violation, we still delete the DB record
+    if (err.message && (err.message.includes('ENOENT') || err.message.includes('EACCESS'))) {
+      console.log(`[delete-mod-file] File ${nodeId} not deletable (${err.message}) – treating as success.`);
+      return res.json({ success: true, note: 'File already missing or permission issue – DB record removed' });
     }
     console.error('Failed to delete Mega file:', err);
     res.status(500).json({ error: 'Failed to delete file from Mega', details: err.message });
@@ -279,7 +281,7 @@ const upload = multer({
   limits: { fileSize: MAX_SIZE }
 });
 
-// ================= UPLOAD MOD =================
+// ================= UPLOAD MOD (with file_hash and duplicate prevention) =================
 app.post('/upload', requireAuth, requireCSRF, upload.fields([
   { name: 'title', maxCount: 1 },
   { name: 'description', maxCount: 1 },
@@ -318,6 +320,17 @@ app.post('/upload', requireAuth, requireCSRF, upload.fields([
   }
 
   const hash = await sha256File(modFile.path);
+
+  // Optional: quick pre-check (not required but adds a tiny safety net)
+  const { data: existing } = await supabaseAdmin
+    .from('mods2')
+    .select('id')
+    .eq('file_hash', hash)
+    .maybeSingle();
+
+  if (existing) {
+    return res.status(409).json({ error: 'Duplicate file already uploaded' });
+  }
 
   const scan = await malwareScanHook(modFile.path);
   if (!scan.clean) {
@@ -403,7 +416,6 @@ app.post('/upload', requireAuth, requireCSRF, upload.fields([
   const modId = crypto.randomUUID();
 
   try {
-    // Insert mod record including the file hash
     const { error: dbError } = await supabaseAdmin
       .from('mods2')
       .insert([{
@@ -429,12 +441,11 @@ app.post('/upload', requireAuth, requireCSRF, upload.fields([
         view_count: 0,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
-        file_hash: hash   // ← new column
+        file_hash: hash
       }]);
 
     if (dbError) {
-      // If duplicate file_hash, return 409 Conflict
-      if (dbError.code === '23505') {
+      if (dbError.code === '23505') { // unique violation
         return res.status(409).json({ error: 'Duplicate file already uploaded' });
       }
       throw dbError;
@@ -459,7 +470,7 @@ app.post('/upload', requireAuth, requireCSRF, upload.fields([
   });
 });
 
-// ... (all other endpoints remain unchanged) ...
+// --- All your original endpoints (unchanged) ---
 
 app.get('/debug-env', (req, res) => {
   const key = process.env.FREEIMAGE_HOST_API_KEY;
