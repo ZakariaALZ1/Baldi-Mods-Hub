@@ -574,20 +574,22 @@
     }
 
 @media (max-width: 768px) {
-  /* Prevent clipping & sticky issues on phones */
+  /* Disable sticky sidebar on mobile */
   .gb-mod-sidebar {
-    position: static;
-    overflow: visible;
+    position: static !important;
+    top: auto !important;
+    overflow: visible !important;
+    margin-top: 20px;
   }
 
-  /* Header cover area */
+  /* Green header cover (anchor for avatar) */
   .gb-author-cover {
     height: 90px;
-    overflow: visible;
     position: relative;
+    overflow: visible;
   }
 
-  /* Floating avatar (centered under green bar) */
+  /* Avatar circle positioning */
   .gb-author-avatar {
     width: 70px;
     height: 70px;
@@ -595,11 +597,13 @@
     bottom: -35px;
     left: 50%;
     transform: translateX(-50%);
+    z-index: 10;
   }
 
-  /* VERY IMPORTANT: space for the floating avatar */
+  /* MOST IMPORTANT: space for floating avatar */
   .gb-author-info {
-    padding: 65px 20px 25px;
+    padding: 80px 20px 25px !important;
+    text-align: center;
   }
 }
 
