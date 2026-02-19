@@ -247,29 +247,35 @@
       grid-template-columns: 380px 1fr;
       gap: 30px;
     }
+
     /* Sidebar */
-/* ===== MOD SIDEBAR (MATCH PROFILE.HTML BEHAVIOR) ===== */
+/* =========================================
+   AUTHOR SIDEBAR — PC + MOBILE (CLEAN)
+   Matches profile.html behavior
+========================================= */
+
+/* Sidebar (Desktop) */
 .gb-mod-sidebar {
   background: linear-gradient(135deg, #1a1a1a 0%, #151515 100%);
   border: 1px solid var(--gb-border);
   border-radius: 20px;
-  overflow: visible !important; /* IMPORTANT */
+  overflow: visible; /* allow avatar to float */
   position: sticky;
-  top: 140px; /* was too big before */
+  top: 140px; /* 200px was too large and broke layout */
   align-self: start;
   z-index: 1;
 }
 
-/* Cover (Avatar Anchor) */
+/* Green cover (avatar anchor) */
 .gb-author-cover {
   height: 110px;
   background: linear-gradient(135deg, var(--gb-primary), var(--gb-primary-dark));
-  position: relative;
-  overflow: visible !important; /* MUST be visible */
+  position: relative; /* REQUIRED for absolute avatar */
+  overflow: visible;
   border-radius: 20px 20px 0 0;
 }
 
-/* Floating Avatar (CENTERED like profile.html) */
+/* Avatar circle (PC default) */
 .gb-author-avatar {
   position: absolute;
   bottom: -45px;
@@ -282,29 +288,78 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 38px;
+  font-size: 36px;
   font-weight: 800;
   color: var(--gb-primary);
   background: linear-gradient(135deg, #222, #1a1a1a);
   box-shadow: 0 15px 35px rgba(0,0,0,0.7);
-  z-index: 10; /* FIX overlap issues */
+  z-index: 10;
 }
 
-/* Push content BELOW avatar */
+/* Space below floating avatar (VERY IMPORTANT) */
 .gb-author-info {
-  padding: 80px 30px 30px; /* THIS is the key fix */
+  padding: 95px 30px 30px;
   text-align: center;
 }
 
+.gb-author-name {
+  font-size: 24px;
+  font-weight: 800;
+  margin-bottom: 5px;
+  color: var(--gb-text);
+}
 
+/* ============ RESPONSIVE ============ */
 
-    .gb-author-name {
-      font-size: 24px;
-      font-weight: 800;
-      margin-bottom: 5px;
-      color: var(--gb-text);
-    }
+/* Tablet */
+@media (max-width: 992px) {
+  .gb-mod-grid {
+    grid-template-columns: 1fr;
+  }
 
+  /* Disable sticky (fixes mobile offset bug) */
+  .gb-mod-sidebar {
+    position: relative;
+    top: 0;
+    margin-top: 20px;
+  }
+}
+
+/* Mobile */
+@media (max-width: 768px) {
+  .gb-author-cover {
+    height: 95px;
+  }
+
+  .gb-author-avatar {
+    width: 72px;
+    height: 72px;
+    font-size: 30px;
+    bottom: -38px;
+  }
+
+  .gb-author-info {
+    padding: 80px 20px 25px; /* prevents name overlap */
+  }
+}
+
+/* Small phones */
+@media (max-width: 480px) {
+  .gb-author-cover {
+    height: 85px;
+  }
+
+  .gb-author-avatar {
+    width: 65px;
+    height: 65px;
+    font-size: 26px;
+    bottom: -34px;
+  }
+
+  .gb-author-info {
+    padding: 75px 18px 22px;
+  }
+}
     .gb-author-badge {
       display: inline-block;
       padding: 4px 12px;
@@ -569,69 +624,6 @@
       margin-bottom: 20px;
       color: var(--gb-primary);
     }
-
-    /* Responsive */
-/* ===== RESPONSIVE (MATCH PROFILE.HTML) ===== */
-@media (max-width: 992px) {
-  .gb-mod-grid {
-    grid-template-columns: 1fr;
-  }
-
-  /* Disable sticky on tablets & phones */
-  .gb-mod-sidebar {
-    position: relative !important;
-    top: 0 !important;
-  }
-}
-
-@media (max-width: 768px) {
-  /* Prevent header overlap */
-  .gb-mod-sidebar {
-    margin-top: 10px;
-    overflow: visible !important;
-  }
-
-  .gb-author-cover {
-    height: 95px;
-  }
-
-  .gb-author-avatar {
-    width: 75px;
-    height: 75px;
-    font-size: 30px;
-    bottom: -38px;
-  }
-
-  /* CRITICAL: spacing fix so avatar doesn't collide with name */
-  .gb-author-info {
-    padding: 70px 20px 25px !important;
-  }
-}
-
-@media (max-width: 480px) {
-  .gb-author-cover {
-    height: 85px;
-  }
-
-  .gb-author-avatar {
-    width: 68px;
-    height: 68px;
-    font-size: 26px;
-    bottom: -34px;
-  }
-
-  .gb-author-info {
-    padding: 65px 18px 22px !important;
-  }
-
-  .gb-mod-meta-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .gb-screenshot-grid {
-    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
-  }
-}
   </style>
 </head>
 <body>
