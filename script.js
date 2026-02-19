@@ -470,29 +470,29 @@
   }
 
   // ===== Fetch admin notification counts =====
-  async function fetchAdminNotificationCounts() {
-    try {
-      const { count: delCount, error: delError } = await supabaseClient
-        .from('mod_deletion_notifications')
-        .select('*', { count: 'exact', head: true })
-        .eq('reviewed', false);
+async function fetchAdminNotificationCounts() {
+  try {
+    // Count unread deletion notifications (read = false)
+    const { count: delCount, error: delError } = await supabaseClient
+      .from('mod_deletion_notifications')
+      .select('*', { count: 'exact', head: true })
+      .eq('read', false);  // ← change from 'reviewed' to 'read'
 
-      if (delError) throw delError;
+    if (delError) throw delError;
 
-      const { count: ticketCount, error: ticketError } = await supabaseClient
-        .from('support_tickets')
-        .select('*', { count: 'exact', head: true })
-        .eq('status', 'open');
+    const { count: ticketCount, error: ticketError } = await supabaseClient
+      .from('support_tickets')
+      .select('*', { count: 'exact', head: true })
+      .eq('status', 'open');
 
-      if (ticketError) throw ticketError;
+    if (ticketError) throw ticketError;
 
-      return { delCount: delCount || 0, ticketCount: ticketCount || 0 };
-    } catch (err) {
-      console.error('Failed to fetch admin counts:', err);
-      return { delCount: 0, ticketCount: 0 };
-    }
+    return { delCount: delCount || 0, ticketCount: ticketCount || 0 };
+  } catch (err) {
+    console.error('Failed to fetch admin counts:', err);
+    return { delCount: 0, ticketCount: 0 };
   }
-
+}
   // ===== Update badges in main navigation =====
   async function updateMainNavBadges() {
     if (!await isModerator()) return;
@@ -2719,41 +2719,39 @@ async function loadDeletionNotificationsAdmin(containerId) {
   // RED INDICATOR FOR ADMIN NAV
   // =========================
 
-  async function updateAdminNotificationCounts() {
-    if (!await isModerator()) return;
+async function updateAdminNotificationCounts() {
+  if (!await isModerator()) return;
 
-    try {
-      const { count: delCount, error: delError } = await supabaseClient
-        .from('mod_deletion_notifications')
-        .select('*', { count: 'exact', head: true })
-        .eq('reviewed', false);
+  try {
+    const { count: delCount, error: delError } = await supabaseClient
+      .from('mod_deletion_notifications')
+      .select('*', { count: 'exact', head: true })
+      .eq('read', false);  // ← change from 'reviewed' to 'read'
 
-      if (delError) throw delError;
+    if (delError) throw delError;
 
-      const { count: ticketCount, error: ticketError } = await supabaseClient
-        .from('support_tickets')
-        .select('*', { count: 'exact', head: true })
-        .eq('status', 'open');
+    const { count: ticketCount, error: ticketError } = await supabaseClient
+      .from('support_tickets')
+      .select('*', { count: 'exact', head: true })
+      .eq('status', 'open');
 
-      if (ticketError) throw ticketError;
+    if (ticketError) throw ticketError;
 
-      const delBadge = document.getElementById('adminDelBadge');
-      if (delBadge) {
-        delBadge.textContent = delCount || 0;
-        delBadge.style.display = delCount > 0 ? 'inline-block' : 'none';
-      }
-
-      const ticketBadge = document.getElementById('adminTicketBadge');
-      if (ticketBadge) {
-        ticketBadge.textContent = ticketCount || 0;
-        ticketBadge.style.display = ticketCount > 0 ? 'inline-block' : 'none';
-      }
-    } catch (err) {
-      console.error('Failed to update admin counts:', err);
+    const delBadge = document.getElementById('adminDelBadge');
+    if (delBadge) {
+      delBadge.textContent = delCount || 0;
+      delBadge.style.display = delCount > 0 ? 'inline-block' : 'none';
     }
-  }
 
-  
+    const ticketBadge = document.getElementById('adminTicketBadge');
+    if (ticketBadge) {
+      ticketBadge.textContent = ticketCount || 0;
+      ticketBadge.style.display = ticketCount > 0 ? 'inline-block' : 'none';
+    }
+  } catch (err) {
+    console.error('Failed to update admin counts:', err);
+  }
+}
   /* =========================
      markDeletionNotificationReviewed
   ========================= */
