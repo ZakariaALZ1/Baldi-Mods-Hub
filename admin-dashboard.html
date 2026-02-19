@@ -9,6 +9,70 @@
   <script src="config.js"></script>
   <style>
     /* Admin Dashboard Styles - keep your existing styles */
+    body {
+      background: #0a0a0a;
+      color: #fff;
+      font-family: 'Inter', sans-serif;
+    }
+    .dashboard-container {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+    .admin-warning {
+      background: #332200;
+      border-left: 4px solid #ffaa00;
+      padding: 15px;
+      border-radius: 5px;
+      margin-bottom: 30px;
+      color: #ffaa00;
+    }
+    .admin-nav {
+      display: flex;
+      gap: 15px;
+      margin-bottom: 30px;
+      padding: 15px;
+      background: #1a1a1a;
+      border-radius: 8px;
+      flex-wrap: wrap;
+    }
+    .admin-nav a {
+      color: #fff;
+      text-decoration: none;
+      padding: 10px 20px;
+      border-radius: 5px;
+      background: #222;
+      position: relative;
+    }
+    .admin-nav a:hover {
+      background: #333;
+    }
+    .dashboard-section {
+      background: #1a1a1a;
+      padding: 25px;
+      border-radius: 10px;
+      margin-bottom: 30px;
+      border: 1px solid #333;
+    }
+    .dashboard-section h2 {
+      margin-top: 0;
+      margin-bottom: 20px;
+      color: #00ff88;
+      border-bottom: 1px solid #333;
+      padding-bottom: 15px;
+    }
+    .gb-badge {
+      display: inline-block;
+      padding: 4px 8px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: bold;
+      margin-left: 5px;
+    }
+    .loading {
+      text-align: center;
+      padding: 40px;
+    }
   </style>
 </head>
 <body>
@@ -27,6 +91,9 @@
         <a href="#flagged" onclick="document.getElementById('flagged').scrollIntoView({behavior:'smooth'})">🚨 Flagged Mods</a>
         <a href="#riskyUsers" onclick="document.getElementById('riskyUsers').scrollIntoView({behavior:'smooth'})">👥 Risky Users</a>
         <a href="#quarantineMods" onclick="document.getElementById('quarantineMods').scrollIntoView({behavior:'smooth'})">☣️ Quarantine</a>
+        <a href="#deletionRequestsSection" onclick="document.getElementById('deletionRequestsSection').scrollIntoView({behavior:'smooth'})">🗑️ Comment Deletions</a>
+        <a href="#deletionNotificationsAdmin" onclick="document.getElementById('deletionNotificationsAdmin').scrollIntoView({behavior:'smooth'})">🗑️ Deletions <span id="delNotificationBadge" class="gb-badge" style="background:#ff4444; display:none;">0</span></a>
+        <a href="#supportTicketsAdmin" onclick="document.getElementById('supportTicketsAdmin').scrollIntoView({behavior:'smooth'})">📋 Tickets <span id="ticketNotificationBadge" class="gb-badge" style="background:#ff4444; display:none;">0</span></a>
       </div>
 
       <h1>🛡 Admin Dashboard</h1>
@@ -47,18 +114,47 @@
         <div id="riskyUsers"></div>
       </div>
 
-      <!-- NEW: Deletion Requests Section – fixed ID conflict -->
+      <!-- Pending Comment Deletions -->
       <div id="deletionRequestsSection" class="dashboard-section">
         <h2>🗑️ Pending Comment Deletions</h2>
-        <div id="deletionRequests"></div>  <!-- This is where the list goes -->
+        <div id="deletionRequests"></div>
       </div>
 
       <div id="quarantineMods" class="dashboard-section">
         <h2>☣️ Quarantined Mods</h2>
         <div id="quarantineMods"></div>
       </div>
+
+      <!-- NEW: Mod Deletion Notifications -->
+      <div id="deletionNotificationsAdmin" class="dashboard-section">
+        <h2>🗑️ Mod Deletion Notifications</h2>
+        <div id="deletionNotificationsContainer"></div>
+      </div>
+
+      <!-- NEW: Support Tickets -->
+      <div id="supportTicketsAdmin" class="dashboard-section">
+        <h2>📋 Support Tickets</h2>
+        <div id="ticketsContainer"></div>
+      </div>
     </div>
   </main>
+
+  <!-- Ticket Reply Modal -->
+  <div id="ticketReplyModal" class="gb-modal" style="display: none;">
+    <div class="gb-modal-content" style="background: #1a1a1a; padding: 30px; border-radius: 20px; max-width: 500px;">
+      <span class="gb-modal-close" onclick="closeTicketReplyModal()" style="float:right; font-size:28px; cursor:pointer; color:#ccc;">&times;</span>
+      <h2>Reply to Ticket</h2>
+      <input type="hidden" id="replyTicketId">
+      <div class="gb-form-group">
+        <label>Message</label>
+        <textarea id="replyMessage" rows="5" style="width: 100%; padding: 10px; background: #222; color: #fff; border: 1px solid #444;"></textarea>
+      </div>
+      <div class="gb-form-actions" style="display: flex; gap: 10px; justify-content: flex-end;">
+        <button onclick="submitTicketReply()" class="gb-btn gb-btn-primary">Send Reply</button>
+        <button onclick="closeTicketReplyModal()" class="gb-btn gb-btn-secondary">Cancel</button>
+      </div>
+    </div>
+  </div>
 
   <footer><p>🔒 Admin Dashboard - All administrative actions are logged for security</p></footer>
 
@@ -80,6 +176,27 @@
       if (!reason) return;
       const note = prompt('Enter additional note (optional):', '');
       warnUser(userId, reason, note || '');
+    };
+
+    // ===== Ticket reply functions =====
+    window.closeTicketReplyModal = function() {
+      document.getElementById('ticketReplyModal').style.display = 'none';
+      document.getElementById('replyMessage').value = '';
+    };
+
+    window.submitTicketReply = async function() {
+      const ticketId = document.getElementById('replyTicketId').value;
+      const message = document.getElementById('replyMessage').value.trim();
+      if (!message) {
+        showNotification('Message cannot be empty', 'error');
+        return;
+      }
+      if (typeof addTicketResponse === 'function') {
+        await addTicketResponse(ticketId, message);
+      } else {
+        console.error('addTicketResponse not defined');
+      }
+      closeTicketReplyModal();
     };
 
     // ===== Main Initialization =====
@@ -108,9 +225,21 @@
       // Load all dashboard data
       if (typeof loadAdminStats === 'function') loadAdminStats();
       if (typeof loadFlaggedMods === 'function') loadFlaggedMods();
-      if (typeof loadRiskUsers === 'function') loadRiskUsers();      // ← already present
+      if (typeof loadRiskUsers === 'function') loadRiskUsers();
       if (typeof loadQuarantineMods === 'function') loadQuarantineMods();
-      if (typeof loadDeletionRequests === 'function') loadDeletionRequests(); // ← NEW
+      if (typeof loadDeletionRequests === 'function') loadDeletionRequests();
+
+      // Load new sections
+      if (typeof loadDeletionNotificationsAdmin === 'function') {
+        loadDeletionNotificationsAdmin('deletionNotificationsContainer');
+      }
+      if (typeof loadAllTickets === 'function') {
+        loadAllTickets('ticketsContainer');
+      }
+      if (typeof updateAdminNotificationCounts === 'function') {
+        updateAdminNotificationCounts();
+        setInterval(updateAdminNotificationCounts, 30000);
+      }
     })();
   </script>
 </body>

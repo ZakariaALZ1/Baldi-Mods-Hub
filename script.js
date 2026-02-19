@@ -888,6 +888,471 @@ if (screenshotFiles.length > 0) {
     }
   }
 
+  // =========================
+// SUPPORT TICKETS
+// =========================
+
+async function createSupportTicket(subject, description, priority = 'normal') {
+    const user = await getCurrentUser();
+    if (!user) {
+        showNotification('Please login to create a ticket', 'error');
+        return false;
+    }
+
+    try {
+        const { error } = await supabaseClient
+            .from('support_tickets')
+            .insert([{
+                user_id: user.id,
+                subject,
+                description,
+                priority,
+                status: 'open',
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString()
+            }]);
+
+        if (error) throw error;
+        showNotification('Ticket created successfully', 'success');
+        return true;
+    } catch (err) {
+        console.error('Failed to create ticket:', err);
+        showNotification('Failed to create ticket', 'error');
+        return false;
+    }
+}
+
+// Load tickets for the current user (profile page maybe)
+async function loadUserTickets(containerId) {
+    const user = await getCurrentUser();
+    if (!user) return;
+
+    try {
+        const { data, error } = await supabaseClient
+            .from('support_tickets')
+            .select('*')
+            .eq('user_id', user.id)
+            .order('created_at', { ascending: false });
+
+        if (error) throw error;
+
+        const container = document.getElementById(containerId);
+        if (!container) return;
+
+        if (!data || data.length === 0) {
+            container.innerHTML = '<p>No tickets yet.</p>';
+            return;
+        }
+
+        container.innerHTML = data.map(ticket => `
+            <div class="gb-card" style="margin-bottom: 15px; border-left: 4px solid ${ticket.status === 'open' ? '#ffaa00' : '#00ff88'}">
+                <h4>${escapeHTML(ticket.subject)}</h4>
+                <p>${escapeHTML(ticket.description.substring(0, 100))}...</p>
+                <div style="display: flex; gap: 15px; color: #ccc; font-size: 12px;">
+                    <span>Status: <strong>${ticket.status}</strong></span>
+                    <span>Priority: <strong>${ticket.priority}</strong></span>
+                    <span>Created: ${new Date(ticket.created_at).toLocaleDateString()}</span>
+                </div>
+            </div>
+        `).join('');
+    } catch (err) {
+        console.error('Failed to load tickets:', err);
+    }
+}
+
+// =========================
+// ADMIN: SUPPORT TICKETS REVIEW
+// =========================
+
+async function loadAllTickets(containerId) {
+    if (!await isModerator()) return;
+
+    try {
+        const { data, error } = await supabaseClient
+            .from('support_tickets')
+            .select(`
+                *,
+                profiles:user_id (username)
+            `)
+            .order('created_at', { ascending: false });
+
+        if (error) throw error;
+
+        const container = document.getElementById(containerId);
+        if (!container) return;
+
+        if (!data || data.length === 0) {
+            container.innerHTML = '<div class="gb-no-results">No support tickets</div>';
+            return;
+        }
+
+        container.innerHTML = data.map(ticket => `
+            <div class="gb-card" style="margin-bottom: 15px; border-left: 4px solid ${ticket.status === 'open' ? '#ffaa00' : '#00ff88'}" data-ticket-id="${ticket.id}">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <h3 style="margin: 0;">${escapeHTML(ticket.subject)}</h3>
+                    <span class="gb-badge" style="background:${ticket.status === 'open' ? '#ffaa00' : '#00ff88'}">${ticket.status}</span>
+                </div>
+                <p><strong>User:</strong> ${escapeHTML(ticket.profiles?.username || 'Unknown')}</p>
+                <p><strong>Description:</strong> ${escapeHTML(ticket.description)}</p>
+                <p><strong>Priority:</strong> ${ticket.priority}</p>
+                <p><strong>Created:</strong> ${new Date(ticket.created_at).toLocaleString()}</p>
+                <div style="display: flex; gap: 10px; margin-top: 15px;">
+                    <button onclick="updateTicketStatus('${ticket.id}', 'resolved')" class="gb-btn gb-btn-primary">✅ Accept</button>
+                    <button onclick="updateTicketStatus('${ticket.id}', 'closed')" class="gb-btn gb-btn-danger">❌ Decline</button>
+                    <button onclick="openTicketReplyModal('${ticket.id}')" class="gb-btn gb-btn-secondary">💬 Reply</button>
+                </div>
+                <div id="responses-${ticket.id}" class="ticket-responses" style="margin-top: 15px;"></div>
+            </div>
+        `).join('');
+
+        // Load responses for each ticket
+        data.forEach(ticket => loadTicketResponses(ticket.id));
+    } catch (err) {
+        console.error('Failed to load tickets:', err);
+    }
+}
+
+async function updateTicketStatus(ticketId, status) {
+    if (!await isModerator()) return;
+
+    try {
+        const { error } = await supabaseClient
+            .from('support_tickets')
+            .update({ status, updated_at: new Date().toISOString() })
+            .eq('id', ticketId);
+
+        if (error) throw error;
+        showNotification(`Ticket marked as ${status}`, 'success');
+        loadAllTickets('ticketsContainer'); // refresh
+    } catch (err) {
+        console.error('Failed to update ticket:', err);
+        showNotification('Failed to update ticket', 'error');
+    }
+}
+
+async function addTicketResponse(ticketId, message) {
+    const user = await getCurrentUser();
+    if (!user || !await isModerator()) return;
+
+    try {
+        const { error } = await supabaseClient
+            .from('ticket_responses')
+            .insert([{
+                ticket_id: ticketId,
+                user_id: user.id,
+                message,
+                created_at: new Date().toISOString()
+            }]);
+
+        if (error) throw error;
+
+        // Also update ticket status to in_progress if it was open
+        await supabaseClient
+            .from('support_tickets')
+            .update({ status: 'in_progress', updated_at: new Date().toISOString() })
+            .eq('id', ticketId);
+
+        showNotification('Reply added', 'success');
+        loadTicketResponses(ticketId);
+    } catch (err) {
+        console.error('Failed to add response:', err);
+        showNotification('Failed to add response', 'error');
+    }
+}
+
+async function loadTicketResponses(ticketId) {
+    const container = document.getElementById(`responses-${ticketId}`);
+    if (!container) return;
+
+    try {
+        const { data, error } = await supabaseClient
+            .from('ticket_responses')
+            .select(`
+                *,
+                profiles:user_id (username)
+            `)
+            .eq('ticket_id', ticketId)
+            .order('created_at', { ascending: true });
+
+        if (error) throw error;
+
+        if (!data || data.length === 0) {
+            container.innerHTML = '';
+            return;
+        }
+
+        container.innerHTML = data.map(resp => `
+            <div style="background: #2a2a2a; padding: 10px; border-radius: 5px; margin-bottom: 10px;">
+                <strong>${escapeHTML(resp.profiles?.username || 'Staff')}</strong> <span style="color: #ccc; font-size: 12px;">${new Date(resp.created_at).toLocaleString()}</span>
+                <p style="margin: 5px 0;">${escapeHTML(resp.message)}</p>
+            </div>
+        `).join('');
+    } catch (err) {
+        console.error('Failed to load responses:', err);
+    }
+}
+
+// Modal for replying to ticket
+function openTicketReplyModal(ticketId) {
+    const modal = document.getElementById('ticketReplyModal');
+    if (!modal) {
+        // Create modal if not exists
+        createTicketReplyModal();
+    }
+    document.getElementById('replyTicketId').value = ticketId;
+    document.getElementById('ticketReplyModal').style.display = 'flex';
+}
+
+function closeTicketReplyModal() {
+    document.getElementById('ticketReplyModal').style.display = 'none';
+    document.getElementById('replyMessage').value = '';
+}
+
+function createTicketReplyModal() {
+    const modalHTML = `
+        <div id="ticketReplyModal" class="gb-modal" style="display: none;">
+            <div class="gb-modal-content">
+                <span class="gb-modal-close" onclick="closeTicketReplyModal()">&times;</span>
+                <h2>Reply to Ticket</h2>
+                <input type="hidden" id="replyTicketId">
+                <div class="gb-form-group">
+                    <label>Message</label>
+                    <textarea id="replyMessage" rows="5" style="width: 100%; padding: 10px;"></textarea>
+                </div>
+                <div class="gb-form-actions">
+                    <button onclick="submitTicketReply()" class="gb-btn gb-btn-primary">Send Reply</button>
+                    <button onclick="closeTicketReplyModal()" class="gb-btn gb-btn-secondary">Cancel</button>
+                </div>
+            </div>
+        </div>
+    `;
+    document.body.insertAdjacentHTML('beforeend', modalHTML);
+}
+
+async function submitTicketReply() {
+    const ticketId = document.getElementById('replyTicketId').value;
+    const message = document.getElementById('replyMessage').value.trim();
+    if (!message) {
+        showNotification('Message cannot be empty', 'error');
+        return;
+    }
+    await addTicketResponse(ticketId, message);
+    closeTicketReplyModal();
+}
+
+// =========================
+// ADMIN: MOD DELETION NOTIFICATIONS
+// =========================
+
+async function loadDeletionNotificationsAdmin(containerId) {
+    if (!await isModerator()) return;
+
+    try {
+        const { data, error } = await supabaseClient
+            .from('mod_deletion_notifications')
+            .select(`
+                *,
+                profiles:deleted_by_user_id (username),
+                authors:mod_author_id (username)
+            `)
+            .order('deleted_at', { ascending: false });
+
+        if (error) throw error;
+
+        const container = document.getElementById(containerId);
+        if (!container) return;
+
+        if (!data || data.length === 0) {
+            container.innerHTML = '<div class="gb-no-results">No deletion notifications</div>';
+            return;
+        }
+
+        container.innerHTML = data.map(notif => `
+            <div class="gb-card" style="margin-bottom: 15px; border-left: 4px solid ${notif.reviewed ? '#00ff88' : '#ffaa00'}">
+                <div style="display: flex; justify-content: space-between;">
+                    <h4>${escapeHTML(notif.mod_title)}</h4>
+                    ${!notif.reviewed ? '<span class="gb-badge" style="background:#ffaa00;">New</span>' : ''}
+                </div>
+                <p><strong>Author:</strong> ${escapeHTML(notif.authors?.username || 'Unknown')}</p>
+                <p><strong>Deleted by:</strong> ${escapeHTML(notif.profiles?.username || notif.deleted_by_username || 'Unknown')}</p>
+                <p><strong>Reason:</strong> ${escapeHTML(notif.reason || 'No reason')}</p>
+                <p><strong>Date:</strong> ${new Date(notif.deleted_at).toLocaleString()}</p>
+                ${!notif.reviewed ? `<button onclick="markDeletionNotificationReviewed('${notif.id}')" class="gb-btn gb-btn-secondary">Mark as Reviewed</button>` : ''}
+            </div>
+        `).join('');
+    } catch (err) {
+        console.error('Failed to load deletion notifications:', err);
+    }
+}
+
+async function markDeletionNotificationReviewed(notificationId) {
+    const user = await getCurrentUser();
+    if (!user || !await isModerator()) return;
+
+    try {
+        const { error } = await supabaseClient
+            .from('mod_deletion_notifications')
+            .update({
+                reviewed: true,
+                reviewed_by: user.id,
+                reviewed_at: new Date().toISOString()
+            })
+            .eq('id', notificationId);
+
+        if (error) throw error;
+        showNotification('Notification marked as reviewed', 'success');
+        loadDeletionNotificationsAdmin('deletionNotificationsAdmin');
+    } catch (err) {
+        console.error('Failed to mark reviewed:', err);
+        showNotification('Failed to update', 'error');
+    }
+}
+
+// =========================
+// RED INDICATOR FOR ADMIN NAV
+// =========================
+
+async function updateAdminNotificationCounts() {
+    if (!await isModerator()) return;
+
+    try {
+        // Count unread deletion notifications (not reviewed)
+        const { count: delCount, error: delError } = await supabaseClient
+            .from('mod_deletion_notifications')
+            .select('*', { count: 'exact', head: true })
+            .eq('reviewed', false);
+
+        if (delError) throw delError;
+
+        // Count open support tickets
+        const { count: ticketCount, error: ticketError } = await supabaseClient
+            .from('support_tickets')
+            .select('*', { count: 'exact', head: true })
+            .eq('status', 'open');
+
+        if (ticketError) throw ticketError;
+
+        // Update badges in admin nav
+        const delBadge = document.getElementById('delNotificationBadge');
+        if (delBadge) {
+            delBadge.textContent = delCount || 0;
+            delBadge.style.display = delCount > 0 ? 'inline-block' : 'none';
+        }
+
+        const ticketBadge = document.getElementById('ticketNotificationBadge');
+        if (ticketBadge) {
+            ticketBadge.textContent = ticketCount || 0;
+            ticketBadge.style.display = ticketCount > 0 ? 'inline-block' : 'none';
+        }
+    } catch (err) {
+        console.error('Failed to update admin counts:', err);
+    }
+}
+
+// ===== NEW: Fetch admin notification counts =====
+async function fetchAdminNotificationCounts() {
+  try {
+    // Count unreviewed mod deletion notifications
+    const { count: delCount, error: delError } = await supabaseClient
+      .from('mod_deletion_notifications')
+      .select('*', { count: 'exact', head: true })
+      .eq('reviewed', false);
+
+    if (delError) throw delError;
+
+    // Count open support tickets
+    const { count: ticketCount, error: ticketError } = await supabaseClient
+      .from('support_tickets')
+      .select('*', { count: 'exact', head: true })
+      .eq('status', 'open');
+
+    if (ticketError) throw ticketError;
+
+    return { delCount: delCount || 0, ticketCount: ticketCount || 0 };
+  } catch (err) {
+    console.error('Failed to fetch admin counts:', err);
+    return { delCount: 0, ticketCount: 0 };
+  }
+}
+
+// ===== NEW: Update badges in main navigation =====
+async function updateMainNavBadges() {
+  // Only run if user is moderator/admin
+  if (!await isModerator()) return;
+
+  const { delCount, ticketCount } = await fetchAdminNotificationCounts();
+
+  const delBadge = document.getElementById('adminDelBadge');
+  const ticketBadge = document.getElementById('adminTicketBadge');
+
+  if (delBadge) {
+    delBadge.textContent = delCount;
+    delBadge.style.display = delCount > 0 ? 'inline-block' : 'none';
+  }
+  if (ticketBadge) {
+    ticketBadge.textContent = ticketCount;
+    ticketBadge.style.display = ticketCount > 0 ? 'inline-block' : 'none';
+  }
+}
+
+function showAuthenticatedUI(user, profile) {
+  const authSection = document.getElementById('auth-section');
+  if (authSection) authSection.style.display = 'none';
+  const userSection = document.getElementById('user-section');
+  if (userSection) {
+    userSection.style.display = 'block';
+    const userEmailEl = document.getElementById('userEmail');
+    if (userEmailEl) userEmailEl.textContent = user.email;
+    const roleBadge = document.getElementById('userRole');
+    if (roleBadge) {
+      roleBadge.className = `gb-badge ${profile.role || 'user'}`;
+      roleBadge.textContent = profile.role === 'admin' ? '👑 ADMIN' : 
+                             profile.role === 'moderator' ? '🛡️ MOD' : 
+                             profile.is_verified ? '✅ VERIFIED' : '👤 USER';
+    }
+  }
+  const nav = document.getElementById('main-nav');
+  if (nav) {
+    let adminLinks = '';
+    if (profile.role === 'admin' || profile.role === 'moderator') {
+      // Add badges to moderation and dashboard links
+      adminLinks += `<a href="admin.html" class="gb-nav-item" id="nav-admin">🛡️ Moderation <span id="adminDelBadge" class="gb-notification-badge" style="display:none;">0</span></a>`;
+    }
+    if (profile.role === 'admin') {
+      adminLinks += `<a href="admin-dashboard.html" class="gb-nav-item" id="nav-dashboard">📊 Dashboard <span id="adminTicketBadge" class="gb-notification-badge" style="display:none;">0</span></a>`;
+    }
+    nav.innerHTML = `
+      <div class="gb-nav-container">
+        <a href="index.html" class="gb-nav-item">🏠 Home</a>
+        <a href="upload.html" class="gb-nav-item">📤 Upload</a>
+        <a href="profile.html" class="gb-nav-item">👤 ${profile.username || 'Profile'}</a>
+        ${adminLinks}
+        <div class="gb-notification-bell" id="notificationBell">
+          <a href="announcements.html" style="color: inherit; text-decoration: none; position: relative;">
+            🔔
+            <span id="notificationCount" class="gb-notification-badge">0</span>
+          </a>
+        </div>
+        <span class="gb-nav-user">
+          <span class="gb-badge ${profile.role || 'user'}">${profile.role?.toUpperCase() || 'USER'}</span>
+          <span class="gb-nav-points">⭐ ${profile.trust_score || 0}</span>
+          <a href="moddeletenotification.html" style="color: var(--gb-primary); margin-left: 10px; text-decoration: none;" title="Mod Deletion Notifications">📋</a>
+          <button onclick="logout()" class="gb-btn gb-btn-secondary" style="padding:10px 20px;">🚪 Logout</button>
+        </span>
+      </div>
+    `;
+  }
+  updateNotificationCount();
+  startNotificationUpdates();
+
+  // Start periodic badge updates if user is moderator/admin
+  (async () => {
+    if (await isModerator()) {
+      updateMainNavBadges();
+      setInterval(updateMainNavBadges, 30000); // every 30 seconds
+    }
+  })();
+}
   /* =========================
      MOD PAGE
   ========================= */
@@ -2909,6 +3374,8 @@ if (screenshotFiles.length > 0) {
   window.showNotification = showNotification;
   window.formatFileSize = formatFileSize;
   window.escapeHTML = escapeHTML;
+  window.fetchAdminNotificationCounts = fetchAdminNotificationCounts;
+window.updateMainNavBadges = updateMainNavBadges;
   window.setLoading = setLoading;
 
   window.loadAdminStats = loadAdminStats;
@@ -2927,6 +3394,17 @@ if (screenshotFiles.length > 0) {
   window.verifyUser = verifyUser;
   window.resetTrustScore = resetTrustScore;
   window.clearFlags = clearFlags;
+  window.createSupportTicket = createSupportTicket;
+window.loadUserTickets = loadUserTickets;
+window.loadAllTickets = loadAllTickets;
+window.updateTicketStatus = updateTicketStatus;
+window.addTicketResponse = addTicketResponse;
+window.openTicketReplyModal = openTicketReplyModal;
+window.closeTicketReplyModal = closeTicketReplyModal;
+window.submitTicketReply = submitTicketReply;
+window.loadDeletionNotificationsAdmin = loadDeletionNotificationsAdmin;
+window.markDeletionNotificationReviewed = markDeletionNotificationReviewed;
+window.updateAdminNotificationCounts = updateAdminNotificationCounts;
 
   window.loadProfilePage = loadProfilePage;
   window.loadMyMods = loadMyMods;

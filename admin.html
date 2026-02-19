@@ -216,6 +216,7 @@
       padding: 10px 20px;
       border-radius: 5px;
       background: #222;
+      position: relative;
     }
     
     .mod-nav a:hover {
@@ -243,6 +244,16 @@
       color: #ccc;
       padding: 40px;
     }
+
+    /* Badge for notifications */
+    .gb-badge {
+      display: inline-block;
+      padding: 4px 8px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: bold;
+      margin-left: 5px;
+    }
   </style>
 </head>
 <body>
@@ -259,6 +270,9 @@
       <div class="mod-nav">
         <a href="#pending" onclick="document.getElementById('pending').scrollIntoView({behavior:'smooth'})">⏳ Pending Mods</a>
         <a href="#reported" onclick="document.getElementById('reported').scrollIntoView({behavior:'smooth'})">🚩 Reported Mods</a>
+        <a href="#reports" onclick="document.getElementById('reports').scrollIntoView({behavior:'smooth'})">📋 User Reports</a>
+        <a href="#deletionNotificationsAdmin" onclick="document.getElementById('deletionNotificationsAdmin').scrollIntoView({behavior:'smooth'})">🗑️ Deletions <span id="delNotificationBadge" class="gb-badge" style="background:#ff4444; display:none;">0</span></a>
+        <a href="#supportTicketsAdmin" onclick="document.getElementById('supportTicketsAdmin').scrollIntoView({behavior:'smooth'})">📋 Tickets <span id="ticketNotificationBadge" class="gb-badge" style="background:#ff4444; display:none;">0</span></a>
       </div>
       <h1>🛡 Moderation Panel</h1>
       <div class="admin-warning">⚠️ This area is restricted to moderators and administrators. All actions are logged.</div>
@@ -271,16 +285,26 @@
         <h2>🚩 Reported Mods</h2>
         <div id="reportedMods"></div>
       </div>
+      <div id="reports" class="mod-section">
+        <h2>📋 User Reports</h2>
+        <div id="reportsList"></div>
+      </div>
+
+      <!-- NEW: Mod Deletion Notifications -->
+      <div id="deletionNotificationsAdmin" class="mod-section">
+        <h2>🗑️ Mod Deletion Notifications <span id="delNotificationBadgeSection" class="gb-badge" style="background:#ff4444; display:none;">0</span></h2>
+        <div id="deletionNotificationsContainer"></div>
+      </div>
+
+      <!-- NEW: Support Tickets -->
+      <div id="supportTicketsAdmin" class="mod-section">
+        <h2>📋 Support Tickets <span id="ticketNotificationBadgeSection" class="gb-badge" style="background:#ff4444; display:none;">0</span></h2>
+        <div id="ticketsContainer"></div>
+      </div>
     </div>
   </main>
 
-
-        <div id="reports" class="mod-section">
-    <h2>📋 User Reports</h2>
-    <div id="reportsList"></div>
-  </div>
-  
-  <!-- Moderation Action Modal -->
+  <!-- Moderation Action Modal (existing) -->
   <div id="actionModal" class="gb-modal" style="display: none;">
     <div class="gb-modal-content" style="max-width: 500px;">
       <span class="gb-modal-close" onclick="closeActionModal()">&times;</span>
@@ -291,13 +315,13 @@
         <input type="hidden" id="actionTargetUserId">
         <div class="gb-form-group">
           <label for="actionType">Action <span>*</span></label>
-<select id="actionType" required onchange="toggleDurationField()">
-  <option value="">Select an action</option>
-  <option value="delete_comment">🗑️ Delete Comment</option>
-  <option value="warn_user">⚠️ Warn User</option>
-  <option value="mute_user">🔇 Mute User</option>
-  <option value="unmute_user">🔊 Unmute User</option>
-</select>
+          <select id="actionType" required onchange="toggleDurationField()">
+            <option value="">Select an action</option>
+            <option value="delete_comment">🗑️ Delete Comment</option>
+            <option value="warn_user">⚠️ Warn User</option>
+            <option value="mute_user">🔇 Mute User</option>
+            <option value="unmute_user">🔊 Unmute User</option>
+          </select>
         </div>
         <div id="durationGroup" class="gb-form-group" style="display: none;">
           <label for="muteDuration">Mute Duration</label>
@@ -320,6 +344,23 @@
     </div>
   </div>
 
+  <!-- Ticket Reply Modal (new) -->
+  <div id="ticketReplyModal" class="gb-modal" style="display: none;">
+    <div class="gb-modal-content">
+      <span class="gb-modal-close" onclick="closeTicketReplyModal()">&times;</span>
+      <h2>Reply to Ticket</h2>
+      <input type="hidden" id="replyTicketId">
+      <div class="gb-form-group">
+        <label>Message</label>
+        <textarea id="replyMessage" rows="5" style="width: 100%; padding: 10px; background: #222; color: #fff; border: 1px solid #444;"></textarea>
+      </div>
+      <div class="gb-form-actions" style="display: flex; gap: 10px; justify-content: flex-end;">
+        <button onclick="submitTicketReply()" class="gb-btn gb-btn-primary">Send Reply</button>
+        <button onclick="closeTicketReplyModal()" class="gb-btn gb-btn-secondary">Cancel</button>
+      </div>
+    </div>
+  </div>
+
   <footer><p>🔒 All moderation actions are logged for security</p></footer>
 
   <script src="script.js"></script>
@@ -335,140 +376,139 @@
     }
 
     // ===== Global report status updater =====
-window.updateReportStatus = async function(reportId, status) {
-  try {
-    const { error } = await supabaseClient
-      .from('reports')
-      .update({ status, updated_at: new Date().toISOString() })
-      .eq('id', reportId);
-    if (error) throw error;
-    showNotification('Report status updated', 'success');
-    await loadReports(); // ensure it's awaited
-  } catch (err) {
-    console.error('Failed to update report:', err);
-    showNotification('Failed to update report', 'error');
-  }
-};
+    window.updateReportStatus = async function(reportId, status) {
+      try {
+        const { error } = await supabaseClient
+          .from('reports')
+          .update({ status, updated_at: new Date().toISOString() })
+          .eq('id', reportId);
+        if (error) throw error;
+        showNotification('Report status updated', 'success');
+        await loadReports(); // ensure it's awaited
+      } catch (err) {
+        console.error('Failed to update report:', err);
+        showNotification('Failed to update report', 'error');
+      }
+    };
+
     // ===== Global function to load reports (two‑step fetch) =====
-  window.loadReports = async function() {
-  const box = document.getElementById('reportsList');
-  if (!box) return;
+    window.loadReports = async function() {
+      const box = document.getElementById('reportsList');
+      if (!box) return;
 
-  try {
-    // Step 1: Fetch reports with reporter username
-    const { data: reports, error } = await supabaseClient
-      .from('reports')
-      .select(`
-        *,
-        profiles:reporter_id (username)
-      `)
-      .order('created_at', { ascending: false });
-
-    if (error) throw error;
-
-    if (!reports?.length) {
-      box.innerHTML = '<div class="gb-no-results">No reports yet</div>';
-      return;
-    }
-
-    // Step 2: For each report, fetch additional details based on type
-    const reportsWithDetails = await Promise.all(reports.map(async (report) => {
-      let targetInfo = {};
-
-      if (report.mod_id) {
-        const { data: mod } = await supabaseClient
-          .from('mods2')
-          .select('title, author_name')
-          .eq('id', report.mod_id)
-          .single();
-        targetInfo = { type: 'mod', ...mod };
-      } else if (report.comment_id) {
-        // FIXED: Include user_id in the select
-        const { data: comment } = await supabaseClient
-          .from('comments')
+      try {
+        // Step 1: Fetch reports with reporter username
+        const { data: reports, error } = await supabaseClient
+          .from('reports')
           .select(`
-            user_id,
-            content,
-            mod_id,
-            profiles:user_id (username)
+            *,
+            profiles:reporter_id (username)
           `)
-          .eq('id', report.comment_id)
-          .single();
+          .order('created_at', { ascending: false });
 
-        const { data: mod } = await supabaseClient
-          .from('mods2')
-          .select('title')
-          .eq('id', comment?.mod_id)
-          .single();
+        if (error) throw error;
 
-        targetInfo = {
-          type: 'comment',
-          content: comment?.content,
-          commentAuthor: comment?.profiles?.username,
-          modTitle: mod?.title,
-          modId: comment?.mod_id,
-          commentUserId: comment?.user_id  // Now defined
-        };
+        if (!reports?.length) {
+          box.innerHTML = '<div class="gb-no-results">No reports yet</div>';
+          return;
+        }
+
+        // Step 2: For each report, fetch additional details based on type
+        const reportsWithDetails = await Promise.all(reports.map(async (report) => {
+          let targetInfo = {};
+
+          if (report.mod_id) {
+            const { data: mod } = await supabaseClient
+              .from('mods2')
+              .select('title, author_name')
+              .eq('id', report.mod_id)
+              .single();
+            targetInfo = { type: 'mod', ...mod };
+          } else if (report.comment_id) {
+            const { data: comment } = await supabaseClient
+              .from('comments')
+              .select(`
+                user_id,
+                content,
+                mod_id,
+                profiles:user_id (username)
+              `)
+              .eq('id', report.comment_id)
+              .single();
+
+            const { data: mod } = await supabaseClient
+              .from('mods2')
+              .select('title')
+              .eq('id', comment?.mod_id)
+              .single();
+
+            targetInfo = {
+              type: 'comment',
+              content: comment?.content,
+              commentAuthor: comment?.profiles?.username,
+              modTitle: mod?.title,
+              modId: comment?.mod_id,
+              commentUserId: comment?.user_id
+            };
+          }
+
+          return { ...report, targetInfo };
+        }));
+
+        // Step 3: Render
+        box.innerHTML = reportsWithDetails.map(report => {
+          const { targetInfo } = report;
+          let targetHtml = '';
+          let isCommentReport = false;
+          let commentId = null;
+          let targetUserId = null;
+
+          if (targetInfo.type === 'mod') {
+            targetHtml = `
+              <strong>Mod:</strong> <a href="mod.html?id=${report.mod_id}" target="_blank">${escapeHTML(targetInfo.title || 'Unknown')}</a><br>
+              <strong>Author:</strong> ${escapeHTML(targetInfo.author_name || 'Unknown')}<br>
+            `;
+          } else if (targetInfo.type === 'comment') {
+            isCommentReport = true;
+            commentId = report.comment_id;
+            targetUserId = targetInfo.commentUserId;
+            targetHtml = `
+              <strong>Comment:</strong> ${escapeHTML(targetInfo.content?.substring(0,100))}...<br>
+              <strong>Comment by:</strong> ${escapeHTML(targetInfo.commentAuthor || 'Unknown')}<br>
+              <strong>In mod:</strong> <a href="mod.html?id=${targetInfo.modId}" target="_blank">${escapeHTML(targetInfo.modTitle || 'Unknown mod')}</a><br>
+            `;
+          }
+
+          const actionButton = isCommentReport && report.status === 'pending' && commentId && targetUserId
+            ? `<button onclick="openActionModal('${report.id}', '${commentId}', '${targetUserId}')" class="gb-btn gb-btn-warning">🔧 Take Action</button>`
+            : '';
+
+          return `
+            <div class="gb-card" style="border-left: 4px solid #ffaa00; margin-bottom: 15px;">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                <h3 style="margin: 0; color: #fff;">Report #${report.id.slice(0,8)}</h3>
+                <span class="gb-badge" style="background:${report.status === 'pending' ? '#ffaa00' : '#00ff88'};">${report.status}</span>
+              </div>
+              <div style="margin-bottom: 10px;">
+                ${targetHtml}
+                <strong>Reported by:</strong> ${escapeHTML(report.profiles?.username || 'Unknown')}<br>
+                <strong>Reason:</strong> ${escapeHTML(report.reason)}<br>
+                ${report.description ? `<strong>Description:</strong> ${escapeHTML(report.description)}<br>` : ''}
+                <strong>Date:</strong> ${new Date(report.created_at).toLocaleString()}
+              </div>
+              <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                <button onclick="updateReportStatus('${report.id}', 'reviewed')" class="gb-btn gb-btn-primary">Mark Reviewed</button>
+                <button onclick="updateReportStatus('${report.id}', 'dismissed')" class="gb-btn gb-btn-secondary">Dismiss</button>
+                ${actionButton}
+              </div>
+            </div>
+          `;
+        }).join('');
+      } catch (err) {
+        console.error('Failed to load reports:', err);
+        box.innerHTML = '<div class="gb-error">Failed to load reports</div>';
       }
-
-      return { ...report, targetInfo };
-    }));
-
-    // Step 3: Render
-    box.innerHTML = reportsWithDetails.map(report => {
-      const { targetInfo } = report;
-      let targetHtml = '';
-      let isCommentReport = false;
-      let commentId = null;
-      let targetUserId = null;
-
-      if (targetInfo.type === 'mod') {
-        targetHtml = `
-          <strong>Mod:</strong> <a href="mod.html?id=${report.mod_id}" target="_blank">${escapeHTML(targetInfo.title || 'Unknown')}</a><br>
-          <strong>Author:</strong> ${escapeHTML(targetInfo.author_name || 'Unknown')}<br>
-        `;
-      } else if (targetInfo.type === 'comment') {
-        isCommentReport = true;
-        commentId = report.comment_id;
-        targetUserId = targetInfo.commentUserId; // Now correct
-        targetHtml = `
-          <strong>Comment:</strong> ${escapeHTML(targetInfo.content?.substring(0,100))}...<br>
-          <strong>Comment by:</strong> ${escapeHTML(targetInfo.commentAuthor || 'Unknown')}<br>
-          <strong>In mod:</strong> <a href="mod.html?id=${targetInfo.modId}" target="_blank">${escapeHTML(targetInfo.modTitle || 'Unknown mod')}</a><br>
-        `;
-      }
-
-      // Only show action button if both commentId and targetUserId exist
-      const actionButton = isCommentReport && report.status === 'pending' && commentId && targetUserId
-        ? `<button onclick="openActionModal('${report.id}', '${commentId}', '${targetUserId}')" class="gb-btn gb-btn-warning">🔧 Take Action</button>`
-        : '';
-
-      return `
-        <div class="gb-card" style="border-left: 4px solid #ffaa00; margin-bottom: 15px;">
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-            <h3 style="margin: 0; color: #fff;">Report #${report.id.slice(0,8)}</h3>
-            <span class="gb-badge" style="background:${report.status === 'pending' ? '#ffaa00' : '#00ff88'};">${report.status}</span>
-          </div>
-          <div style="margin-bottom: 10px;">
-            ${targetHtml}
-            <strong>Reported by:</strong> ${escapeHTML(report.profiles?.username || 'Unknown')}<br>
-            <strong>Reason:</strong> ${escapeHTML(report.reason)}<br>
-            ${report.description ? `<strong>Description:</strong> ${escapeHTML(report.description)}<br>` : ''}
-            <strong>Date:</strong> ${new Date(report.created_at).toLocaleString()}
-          </div>
-          <div style="display: flex; gap: 10px; flex-wrap: wrap;">
-            <button onclick="updateReportStatus('${report.id}', 'reviewed')" class="gb-btn gb-btn-primary">Mark Reviewed</button>
-            <button onclick="updateReportStatus('${report.id}', 'dismissed')" class="gb-btn gb-btn-secondary">Dismiss</button>
-            ${actionButton}
-          </div>
-        </div>
-      `;
-    }).join('');
-  } catch (err) {
-    console.error('Failed to load reports:', err);
-    box.innerHTML = '<div class="gb-error">Failed to load reports</div>';
-  }
-};
+    };
 
     // ===== Action Modal Functions =====
     window.openActionModal = function(reportId, commentId, targetUserId) {
@@ -484,84 +524,99 @@ window.updateReportStatus = async function(reportId, status) {
       document.getElementById('durationGroup').style.display = 'none';
     };
 
-window.toggleDurationField = function() {
-  const actionType = document.getElementById('actionType').value;
-  document.getElementById('durationGroup').style.display = actionType === 'mute_user' ? 'block' : 'none';
-};
+    window.toggleDurationField = function() {
+      const actionType = document.getElementById('actionType').value;
+      document.getElementById('durationGroup').style.display = actionType === 'mute_user' ? 'block' : 'none';
+    };
 
-window.executeAction = async function() {
-  const reportId = document.getElementById('actionReportId').value;
-  const commentId = document.getElementById('actionCommentId').value;
-  const targetUserId = document.getElementById('actionTargetUserId').value;
-  const actionType = document.getElementById('actionType').value;
-  const muteDuration = document.getElementById('muteDuration').value;
-  const note = document.getElementById('actionNote').value;
+    window.executeAction = async function() {
+      const reportId = document.getElementById('actionReportId').value;
+      const commentId = document.getElementById('actionCommentId').value;
+      const targetUserId = document.getElementById('actionTargetUserId').value;
+      const actionType = document.getElementById('actionType').value;
+      const muteDuration = document.getElementById('muteDuration').value;
+      const note = document.getElementById('actionNote').value;
 
-  console.log('Executing action:', { reportId, commentId, targetUserId, actionType, muteDuration, note });
+      console.log('Executing action:', { reportId, commentId, targetUserId, actionType, muteDuration, note });
 
-  if (!actionType) {
-    showNotification('Please select an action', 'error');
-    return;
-  }
+      if (!actionType) {
+        showNotification('Please select an action', 'error');
+        return;
+      }
 
-  // Validate required IDs based on action
-  if (actionType === 'delete_comment' && !commentId) {
-    console.error('Missing commentId for delete');
-    showNotification('Cannot delete: missing comment ID', 'error');
-    return;
-  }
-  if ((actionType === 'mute_user' || actionType === 'unmute_user') && !targetUserId) {
-    console.error('Missing targetUserId for mute/unmute');
-    showNotification('Cannot perform action: missing user ID', 'error');
-    return;
-  }
+      if (actionType === 'delete_comment' && !commentId) {
+        console.error('Missing commentId for delete');
+        showNotification('Cannot delete: missing comment ID', 'error');
+        return;
+      }
+      if ((actionType === 'mute_user' || actionType === 'unmute_user') && !targetUserId) {
+        console.error('Missing targetUserId for mute/unmute');
+        showNotification('Cannot perform action: missing user ID', 'error');
+        return;
+      }
 
-  try {
-    if (actionType === 'delete_comment') {
-      // Create deletion request instead of direct delete
-      console.log('Creating deletion request for comment:', commentId);
-      await createDeletionRequest(commentId, note || 'Reported comment');
-      showNotification('Deletion request sent to admin', 'success');
-      
-    } else if (actionType === 'warn_user') {
-      // Use the warnUser function (requires reason and note)
-      const reason = prompt('Enter warning reason:') || 'No reason provided';
-      await warnUser(targetUserId, reason, note);
-      
-    } else if (actionType === 'mute_user') {
-      let muteUntil = null;
-      const now = new Date();
-      if (muteDuration === '1 day') muteUntil = new Date(now.setDate(now.getDate() + 1));
-      else if (muteDuration === '3 days') muteUntil = new Date(now.setDate(now.getDate() + 3));
-      else if (muteDuration === '7 days') muteUntil = new Date(now.setDate(now.getDate() + 7));
-      else if (muteDuration === 'permanent') muteUntil = new Date(9999, 0, 1); // far future
+      try {
+        if (actionType === 'delete_comment') {
+          console.log('Creating deletion request for comment:', commentId);
+          await createDeletionRequest(commentId, note || 'Reported comment');
+          showNotification('Deletion request sent to admin', 'success');
+        } else if (actionType === 'warn_user') {
+          const reason = prompt('Enter warning reason:') || 'No reason provided';
+          await warnUser(targetUserId, reason, note);
+        } else if (actionType === 'mute_user') {
+          let muteUntil = null;
+          const now = new Date();
+          if (muteDuration === '1 day') muteUntil = new Date(now.setDate(now.getDate() + 1));
+          else if (muteDuration === '3 days') muteUntil = new Date(now.setDate(now.getDate() + 3));
+          else if (muteDuration === '7 days') muteUntil = new Date(now.setDate(now.getDate() + 7));
+          else if (muteDuration === 'permanent') muteUntil = new Date(9999, 0, 1);
 
-      console.log('Muting user:', targetUserId, 'until', muteUntil);
-      const { error } = await supabaseClient
-        .from('profiles')
-        .update({ muted_until: muteUntil })
-        .eq('id', targetUserId);
-      if (error) throw error;
-      showNotification(`User muted until ${muteUntil.toLocaleDateString()}`, 'success');
-      
-    } else if (actionType === 'unmute_user') {
-      console.log('Unmuting user:', targetUserId);
-      const { error } = await supabaseClient
-        .from('profiles')
-        .update({ muted_until: null })
-        .eq('id', targetUserId);
-      if (error) throw error;
-      showNotification('User unmuted', 'success');
-    }
+          console.log('Muting user:', targetUserId, 'until', muteUntil);
+          const { error } = await supabaseClient
+            .from('profiles')
+            .update({ muted_until: muteUntil })
+            .eq('id', targetUserId);
+          if (error) throw error;
+          showNotification(`User muted until ${muteUntil.toLocaleDateString()}`, 'success');
+        } else if (actionType === 'unmute_user') {
+          console.log('Unmuting user:', targetUserId);
+          const { error } = await supabaseClient
+            .from('profiles')
+            .update({ muted_until: null })
+            .eq('id', targetUserId);
+          if (error) throw error;
+          showNotification('User unmuted', 'success');
+        }
 
-    // Mark report as reviewed after action
-    await updateReportStatus(reportId, 'reviewed');
-    closeActionModal();
-  } catch (err) {
-    console.error('Action failed:', err);
-    showNotification('Action failed: ' + err.message, 'error');
-  }
-};
+        await updateReportStatus(reportId, 'reviewed');
+        closeActionModal();
+      } catch (err) {
+        console.error('Action failed:', err);
+        showNotification('Action failed: ' + err.message, 'error');
+      }
+    };
+
+    // ===== Ticket reply functions =====
+    window.closeTicketReplyModal = function() {
+      document.getElementById('ticketReplyModal').style.display = 'none';
+      document.getElementById('replyMessage').value = '';
+    };
+
+    window.submitTicketReply = async function() {
+      const ticketId = document.getElementById('replyTicketId').value;
+      const message = document.getElementById('replyMessage').value.trim();
+      if (!message) {
+        showNotification('Message cannot be empty', 'error');
+        return;
+      }
+      // This function should be defined in script.js
+      if (typeof addTicketResponse === 'function') {
+        await addTicketResponse(ticketId, message);
+      } else {
+        console.error('addTicketResponse not defined');
+      }
+      closeTicketReplyModal();
+    };
 
     // ===== Main Initialization =====
     (async function() {
@@ -590,6 +645,19 @@ window.executeAction = async function() {
       if (typeof loadPendingMods === 'function') loadPendingMods();
       if (typeof loadReportedMods === 'function') loadReportedMods();
       if (typeof loadReports === 'function') loadReports();
+      
+      // Load new sections
+      if (typeof loadDeletionNotificationsAdmin === 'function') {
+        loadDeletionNotificationsAdmin('deletionNotificationsContainer');
+      }
+      if (typeof loadAllTickets === 'function') {
+        loadAllTickets('ticketsContainer');
+      }
+      if (typeof updateAdminNotificationCounts === 'function') {
+        updateAdminNotificationCounts();
+        // Refresh counts periodically
+        setInterval(updateAdminNotificationCounts, 30000);
+      }
     })();
   </script>
 </body>

@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Support Ticket Review - Baldi Mods Hub</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="js/supabase.min.js"></script>
+  <script src="config.js"></script>
+  <style>
+    /* same admin styles as before */
+    body { background: #0a0a0a; }
+    .moderation-container { max-width: 1200px; margin: 0 auto; padding: 20px; }
+    .admin-warning { background: #332200; border-left: 4px solid #ffaa00; padding: 15px; border-radius: 5px; margin-bottom: 30px; color: #ffaa00; }
+    .mod-section { background: #1a1a1a; padding: 25px; border-radius: 10px; margin-bottom: 30px; border: 1px solid #333; }
+    .mod-section h2 { margin-top: 0; margin-bottom: 20px; color: #00ff88; border-bottom: 1px solid #333; padding-bottom: 15px; }
+    .gb-card { background: #222; padding: 20px; border-radius: 8px; margin-bottom: 15px; }
+    .gb-badge { display: inline-block; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: bold; }
+    .gb-btn { padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; margin-right: 10px; }
+    .gb-btn-primary { background: #00ff88; color: black; }
+    .gb-btn-danger { background: #ff4444; color: white; }
+    .gb-btn-secondary { background: #333; color: white; }
+    .ticket-responses { margin-top: 15px; padding-left: 20px; border-left: 2px solid #444; }
+    .gb-modal { position: fixed; z-index: 10000; left:0; top:0; width:100%; height:100%; background: rgba(0,0,0,0.7); display: flex; align-items: center; justify-content: center; }
+    .gb-modal-content { background: #1a1a1a; padding: 30px; border-radius: 20px; max-width: 500px; width:90%; }
+    .gb-modal-close { float:right; font-size:28px; cursor: pointer; color: #ccc; }
+    .gb-form-group { margin-bottom:20px; }
+    .gb-form-group textarea { width:100%; padding:10px; background:#222; border:1px solid #333; color:white; }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="header-content">
+      <h1>🎓 Baldi Mods Hub - Support Review</h1>
+      <nav id="main-nav" class="main-nav"><!-- filled by JS --></nav>
+    </div>
+  </header>
+  <main class="moderation-container">
+    <div id="loading" class="loading"><h2>Verifying permissions...</h2></div>
+    <div id="content" style="display: none;">
+      <h1>📋 Support Tickets</h1>
+      <div class="admin-warning">⚠️ Moderator area – review and respond to user tickets.</div>
+      <div id="ticketsContainer" class="mod-section"></div>
+    </div>
+  </main>
+
+  <!-- Reply Modal (will be created by JS if not present) -->
+  <div id="ticketReplyModal" class="gb-modal" style="display: none;">
+    <div class="gb-modal-content">
+      <span class="gb-modal-close" onclick="closeTicketReplyModal()">&times;</span>
+      <h2>Reply to Ticket</h2>
+      <input type="hidden" id="replyTicketId">
+      <div class="gb-form-group">
+        <label>Message</label>
+        <textarea id="replyMessage" rows="5" style="width: 100%; padding: 10px;"></textarea>
+      </div>
+      <div class="gb-form-actions">
+        <button onclick="submitTicketReply()" class="gb-btn gb-btn-primary">Send Reply</button>
+        <button onclick="closeTicketReplyModal()" class="gb-btn gb-btn-secondary">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="script.js"></script>
+  <script>
+    (async function() {
+      const waitForSupabase = async (maxAttempts = 30) => {
+        for (let i = 0; i < maxAttempts; i++) {
+          if (typeof window.supabaseClient !== 'undefined') return true;
+          await new Promise(resolve => setTimeout(resolve, 100));
+        }
+        return false;
+      };
+      await waitForSupabase();
+
+      const isMod = await window.isModerator?.();
+      if (!isMod) {
+        if (typeof window.showNotification === 'function') {
+          window.showNotification('Access denied. Moderator privileges required.', 'error');
+        }
+        setTimeout(() => window.location.href = 'index.html', 2000);
+        return;
+      }
+
+      document.getElementById('loading').style.display = 'none';
+      document.getElementById('content').style.display = 'block';
+
+      if (typeof loadAllTickets === 'function') {
+        loadAllTickets('ticketsContainer');
+      }
+    })();
+  </script>
+</body>
+</html>
