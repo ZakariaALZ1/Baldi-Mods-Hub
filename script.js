@@ -2028,8 +2028,18 @@ async function deleteMod(id) {
 
   if (!confirm('⚠️ Permanently delete this mod? This cannot be undone.')) return;
 
-  // Delete Mega file if exists (your existing code)
-  if (mod.file_url && mod.file_url.includes('mega.nz')) {
+  // --- Updated Mega file deletion ---
+  // Extract MEGA node ID from file_url
+  let nodeId = null;
+  if (mod.file_url) {
+    const match = mod.file_url.match(/\/file\/([^#]+)/);
+    if (match && match[1]) {
+      nodeId = match[1];
+    }
+  }
+
+  // Delete Mega file if it exists and we have a nodeId
+  if (mod.file_url && mod.file_url.includes('mega.nz') && nodeId) {
     try {
       const accessToken = await getAccessToken();
       if (!accessToken) {
@@ -2037,15 +2047,16 @@ async function deleteMod(id) {
         showNotification("Cannot delete file: not authenticated", "warning");
       } else {
         const csrfToken = getCSRFToken();
-        const response = await fetch(`${MEGA_BACKEND_URL}/delete-mod-file`, {
-          method: 'POST',
+        const response = await fetch(`${MEGA_BACKEND_URL}/delete-mega-file`, {
+          method: 'DELETE',   // ← changed to DELETE
           headers: {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${accessToken}`,
             'X-CSRF-Token': csrfToken
           },
-          body: JSON.stringify({ modId: id })
+          body: JSON.stringify({ nodeId: nodeId })   // ← send nodeId, not modId
         });
+
         const result = await response.json();
         if (!response.ok) {
           console.error('Mega file deletion failed:', result);
@@ -2055,11 +2066,10 @@ async function deleteMod(id) {
         }
       }
     } catch (err) {
-      console.error('Error calling delete-mod-file:', err);
+      console.error('Error calling delete-mega-file:', err);
       showNotification('Warning: Could not delete file from storage', 'warning');
     }
   }
-
   try {
     console.log('Deleting mod, screenshots:', mod.screenshots);
 
@@ -2071,23 +2081,25 @@ async function deleteMod(id) {
 
     if (error) throw error;
 
-    // Insert deletion notification (using correct column names)
-    try {
-      await supabaseClient
-        .from('mod_deletion_notifications')
-        .insert({
-          mod_id: mod.id,
-          mega_folder: mod.mega_folder,          // ✅ matches table
-          mod_title: mod.title,
-          mod_author_id: mod.user_id,
-          deleted_by_user_id: user.id,
-          deleted_at: new Date().toISOString(),
-          reason: null,
-          read: false                             // ✅ matches table
-        });
-      console.log('✅ Notification inserted');
-    } catch (notifErr) {
-      console.error('❌ Failed to insert deletion notification:', notifErr);
+    // Insert deletion notification
+    console.log('Attempting to insert notification...');
+    const { error: insertError } = await supabaseClient
+      .from('mod_deletion_notifications')
+      .insert({
+        mod_id: mod.id,
+        mega_folder: mod.mega_folder,
+        mod_title: mod.title,
+        mod_author_id: mod.user_id,
+        deleted_by_user_id: user.id,
+        deleted_at: new Date().toISOString(),
+        reason: null,
+        read: false
+      });
+
+    if (insertError) {
+      console.error('❌ Notification insert failed:', insertError);
+    } else {
+      console.log('✅ Notification inserted successfully');
     }
 
     showNotification("✅ Mod deleted", "success");
@@ -2099,7 +2111,6 @@ async function deleteMod(id) {
     showNotification("Failed to delete mod: " + err.message, "error");
   }
 }
-
   async function clearReport(id) {
     if (!await isModerator()) return;
     try {

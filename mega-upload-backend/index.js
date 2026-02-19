@@ -156,7 +156,7 @@ async function deleteMegaFile(nodeId) {
   const req = {
     a: 'd',                // 'd' = delete
     n: nodeId,             // node handle
-    i: storage.api.requestId()
+    i: crypto.randomUUID() // generate a unique request ID
   };
 
   const response = await storage.api.request(req);
