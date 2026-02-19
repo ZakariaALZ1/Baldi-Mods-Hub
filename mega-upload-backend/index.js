@@ -76,7 +76,7 @@ const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 const MAX_SIZE = 100 * 1024 * 1024;
 const ALLOWED_EXT = ['.zip','.rar','.7z','.baldimod'];
 
-const hashStore = new Map();
+// In‑memory stores for other purposes (optional)
 const moderationQueue = new Map();
 const abuseReports = [];
 const bannedIPs = new Set();
@@ -279,15 +279,13 @@ const upload = multer({
   limits: { fileSize: MAX_SIZE }
 });
 
-// ================= UPLOAD MOD (with text fields) =================
+// ================= UPLOAD MOD =================
 app.post('/upload', requireAuth, requireCSRF, upload.fields([
-  // Text fields (from form)
   { name: 'title', maxCount: 1 },
   { name: 'description', maxCount: 1 },
   { name: 'version', maxCount: 1 },
   { name: 'baldiVersion', maxCount: 1 },
   { name: 'tags', maxCount: 1 },
-  // File fields
   { name: 'mainScreenshot', maxCount: 1 },
   { name: 'screenshots', maxCount: 2 },
   { name: 'modFile', maxCount: 1 }
@@ -320,9 +318,6 @@ app.post('/upload', requireAuth, requireCSRF, upload.fields([
   }
 
   const hash = await sha256File(modFile.path);
-  if (hashStore.has(hash)) {
-    return res.status(409).json({ error: 'Duplicate file already uploaded' });
-  }
 
   const scan = await malwareScanHook(modFile.path);
   if (!scan.clean) {
@@ -408,6 +403,7 @@ app.post('/upload', requireAuth, requireCSRF, upload.fields([
   const modId = crypto.randomUUID();
 
   try {
+    // Insert mod record including the file hash
     const { error: dbError } = await supabaseAdmin
       .from('mods2')
       .insert([{
@@ -432,17 +428,23 @@ app.post('/upload', requireAuth, requireCSRF, upload.fields([
         download_count: 0,
         view_count: 0,
         created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
+        updated_at: new Date().toISOString(),
+        file_hash: hash   // ← new column
       }]);
 
-    if (dbError) throw dbError;
+    if (dbError) {
+      // If duplicate file_hash, return 409 Conflict
+      if (dbError.code === '23505') {
+        return res.status(409).json({ error: 'Duplicate file already uploaded' });
+      }
+      throw dbError;
+    }
   } catch (err) {
     console.error('Database insert error:', err);
     return res.status(500).json({ error: 'Failed to save mod data', details: err.message });
   }
 
-  hashStore.set(hash, modId);
-
+  // Cleanup temporary files
   [modFile, mainScreenshot, ...additionalScreenshots].forEach(f => {
     if (f?.path) fs.unlink(f.path, () => {});
   });
@@ -457,7 +459,7 @@ app.post('/upload', requireAuth, requireCSRF, upload.fields([
   });
 });
 
-// ... (all other endpoints remain the same) ...
+// ... (all other endpoints remain unchanged) ...
 
 app.get('/debug-env', (req, res) => {
   const key = process.env.FREEIMAGE_HOST_API_KEY;
@@ -508,12 +510,12 @@ app.post('/upload-announcement-images', requireAuth, upload.array('images', 2), 
     return res.status(400).json({ error: 'No images uploaded' });
   }
 
-const API_KEY = process.env.FREEIMAGE_HOST_API_KEY;
-if (!API_KEY) {
-  console.error('[upload-images] FREEIMAGE_HOST_API_KEY is not set in environment');
-  return res.status(500).json({ error: 'Server configuration error', details: 'API key missing' });
-}
-  console.log('[upload-images] Using hardcoded API key (first 5 chars):', API_KEY.substring(0, 5));
+  const API_KEY = process.env.FREEIMAGE_HOST_API_KEY;
+  if (!API_KEY) {
+    console.error('[upload-images] FREEIMAGE_HOST_API_KEY is not set in environment');
+    return res.status(500).json({ error: 'Server configuration error', details: 'API key missing' });
+  }
+  console.log('[upload-images] Using API key (first 5 chars):', API_KEY.substring(0, 5));
 
   const uploaded = [];
 
