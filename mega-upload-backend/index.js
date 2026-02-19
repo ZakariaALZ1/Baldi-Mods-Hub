@@ -15,10 +15,8 @@ const { createRemoteJWKSet, jwtVerify } = require('jose');
 const { createClient } = require('@supabase/supabase-js');
 
 const app = express();
-
 app.set('trust proxy', 1);
 
-// ===== LOGGING MIDDLEWARE (NEW) =====
 app.use((req, res, next) => {
   console.log(`${req.method} ${req.url} - Origin: ${req.headers.origin || 'none'}`);
   next();
@@ -26,7 +24,6 @@ app.use((req, res, next) => {
 
 app.get('/ping', (req, res) => res.send('pong'));
 
-/* ================= CORS ================= */
 const FRONTEND_ORIGIN = process.env.FRONTEND_ORIGIN || 'https://zakariaalz1.github.io';
 const allowedOrigins = [
   FRONTEND_ORIGIN,
@@ -34,7 +31,6 @@ const allowedOrigins = [
   'http://127.0.0.1:5500'
 ];
 
-// CORS middleware with logging
 app.use(cors({
   origin(origin, cb) {
     console.log('CORS check - origin:', origin);
@@ -49,14 +45,12 @@ app.use(cors({
   optionsSuccessStatus: 204
 }));
 
-// Explicit OPTIONS handler for /upload (ensures preflight works)
 app.options('/upload', (req, res) => {
   res.status(204).end();
 });
 
 app.use(express.json());
 
-/* ================= ENV LOGGING ================= */
 console.log('ENV STATUS', {
   MEGA_EMAIL: !!process.env.MEGA_EMAIL,
   MEGA_PASSWORD: !!process.env.MEGA_PASSWORD,
@@ -65,7 +59,6 @@ console.log('ENV STATUS', {
   SUPABASE_ANON_KEY: !!process.env.SUPABASE_ANON_KEY
 });
 
-/* ================= ENV VARIABLES ================= */
 const DOWNLOAD_SECRET = process.env.DOWNLOAD_SECRET;
 const MEGA_EMAIL = process.env.MEGA_EMAIL;
 const MEGA_PASSWORD = process.env.MEGA_PASSWORD;
@@ -80,7 +73,6 @@ if (!MEGA_EMAIL || !MEGA_PASSWORD || !DOWNLOAD_SECRET || !SUPABASE_URL || !SUPAB
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-/* ================= CONFIG ================= */
 const MAX_SIZE = 100 * 1024 * 1024;
 const ALLOWED_EXT = ['.zip','.rar','.7z','.baldimod'];
 
@@ -89,7 +81,6 @@ const moderationQueue = new Map();
 const abuseReports = [];
 const bannedIPs = new Set();
 
-/* ================= HELPERS ================= */
 function getIP(req) {
   return (
     req.headers['x-forwarded-for']?.split(',')[0] ||
@@ -160,12 +151,10 @@ async function deleteMegaFile(nodeId) {
   return response;
 }
 
-// Delete mod file from Mega (owner, admin, or moderator)
 app.post('/delete-mod-file', requireAuth, requireCSRF, async (req, res) => {
   const { modId } = req.body;
   if (!modId) return res.status(400).json({ error: 'Missing modId' });
 
-  // Fetch mod to check ownership and get file_url
   const { data: mod, error: fetchError } = await supabaseAdmin
     .from('mods2')
     .select('user_id, file_url')
@@ -176,7 +165,6 @@ app.post('/delete-mod-file', requireAuth, requireCSRF, async (req, res) => {
     return res.status(404).json({ error: 'Mod not found' });
   }
 
-  // Permission: owner, admin, or moderator
   const isOwner = mod.user_id === req.userId;
   const isStaff = req.userRole === 'admin' || req.userRole === 'moderator';
   if (!isOwner && !isStaff) {
@@ -188,7 +176,6 @@ app.post('/delete-mod-file', requireAuth, requireCSRF, async (req, res) => {
     return res.status(400).json({ error: 'No file URL associated' });
   }
 
-  // Extract nodeId from Mega URL (e.g., https://mega.nz/file/XXXXXXXX#YYYYYY)
   const match = fileUrl.match(/\/file\/([^#]+)/);
   if (!match) {
     return res.status(400).json({ error: 'Invalid file URL format' });
@@ -196,14 +183,18 @@ app.post('/delete-mod-file', requireAuth, requireCSRF, async (req, res) => {
   const nodeId = match[1];
 
   try {
-    await deleteMegaFile(nodeId);   // function already defined in your backend
+    await deleteMegaFile(nodeId);
     res.json({ success: true });
   } catch (err) {
+    if (err.message && err.message.includes('ENOENT')) {
+      console.log(`[delete-mod-file] File ${nodeId} already missing – treating as success.`);
+      return res.json({ success: true, note: 'File already missing' });
+    }
     console.error('Failed to delete Mega file:', err);
     res.status(500).json({ error: 'Failed to delete file from Mega', details: err.message });
   }
 });
-/* ================= IP BAN & RATE LIMIT ================= */
+
 app.use((req, res, next) => {
   if (bannedIPs.has(getIP(req))) return res.status(403).send('IP banned');
   next();
@@ -214,7 +205,6 @@ app.use(rateLimit({
   max: 200
 }));
 
-/* ================= SUPABASE JWT VERIFY ================= */
 const JWKS = createRemoteJWKSet(
   new URL(`${SUPABASE_URL}/auth/v1/.well-known/jwks.json?apikey=${SUPABASE_ANON_KEY}`)
 );
@@ -232,7 +222,6 @@ async function verifySupabaseJWT(token) {
   }
 }
 
-/* ================= AUTH MIDDLEWARE ================= */
 async function requireAuth(req, res, next) {
   if (req.method === 'OPTIONS') return next();
   try {
@@ -285,29 +274,29 @@ app.get('/debug-token', requireAuth, (req, res) => {
   res.json({ ok: true, user: req.userId, role: req.userRole });
 });
 
-/* ================= MULTER ================= */
 const upload = multer({
   dest: os.tmpdir(),
   limits: { fileSize: MAX_SIZE }
 });
 
-/* ================= UPLOAD MOD (MEGA + freeimage.host) ================= */
+// ================= UPLOAD MOD (with text fields) =================
 app.post('/upload', requireAuth, requireCSRF, upload.fields([
+  // Text fields (from form)
+  { name: 'title', maxCount: 1 },
+  { name: 'description', maxCount: 1 },
+  { name: 'version', maxCount: 1 },
+  { name: 'baldiVersion', maxCount: 1 },
+  { name: 'tags', maxCount: 1 },
+  // File fields
   { name: 'mainScreenshot', maxCount: 1 },
   { name: 'screenshots', maxCount: 2 },
   { name: 'modFile', maxCount: 1 }
 ]), async (req, res) => {
-  // ===============================
-  // AUTH CHECK
-  // ===============================
   const user = req.userId;
   if (!user) {
     return res.status(401).json({ error: 'Not authenticated' });
   }
 
-  // ===============================
-  // COLLECT FILES
-  // ===============================
   const files = req.files;
   if (!files) {
     return res.status(400).json({ error: 'No files uploaded' });
@@ -321,9 +310,6 @@ app.post('/upload', requireAuth, requireCSRF, upload.fields([
     return res.status(400).json({ error: 'Missing required files' });
   }
 
-  // ===============================
-  // VALIDATION
-  // ===============================
   const fileExt = '.' + modFile.originalname.split('.').pop().toLowerCase();
   if (!ALLOWED_EXT.includes(fileExt)) {
     return res.status(400).json({ error: `Only ${ALLOWED_EXT.join(', ')} files allowed` });
@@ -333,33 +319,21 @@ app.post('/upload', requireAuth, requireCSRF, upload.fields([
     return res.status(400).json({ error: `File exceeds ${Math.round(MAX_SIZE / (1024 * 1024))}MB` });
   }
 
-  // ===============================
-  // HASH DEDUP
-  // ===============================
   const hash = await sha256File(modFile.path);
   if (hashStore.has(hash)) {
     return res.status(409).json({ error: 'Duplicate file already uploaded' });
   }
 
-  // ===============================
-  // MALWARE SCAN (placeholder)
-  // ===============================
   const scan = await malwareScanHook(modFile.path);
   if (!scan.clean) {
     return res.status(400).json({ error: 'Malware detected' });
   }
 
-  // ===============================
-  // VIRUSTOTAL CHECK (optional)
-  // ===============================
   const vt = await virusTotalCheck(hash);
   if (vt.malicious > 0) {
     return res.status(400).json({ error: 'VirusTotal flagged file' });
   }
 
-  // ===============================
-  // FREEIMAGE.HOST UPLOAD (for screenshots)
-  // ===============================
   const FREEIMAGE_API_KEY = process.env.FREEIMAGE_HOST_API_KEY;
   if (!FREEIMAGE_API_KEY) {
     console.error('[upload] FREEIMAGE_HOST_API_KEY is not set');
@@ -387,7 +361,6 @@ app.post('/upload', requireAuth, requireCSRF, upload.fields([
     }
   }
 
-  // Upload main screenshot
   let mainScreenshotUrl;
   try {
     mainScreenshotUrl = await uploadToFreeimage(mainScreenshot);
@@ -396,7 +369,6 @@ app.post('/upload', requireAuth, requireCSRF, upload.fields([
     return res.status(500).json({ error: 'Failed to upload main screenshot', details: err.message });
   }
 
-  // Upload additional screenshots
   const screenshotUrls = [];
   for (const file of additionalScreenshots) {
     try {
@@ -408,9 +380,6 @@ app.post('/upload', requireAuth, requireCSRF, upload.fields([
     }
   }
 
-  // ===============================
-  // MEGA UPLOAD (mod file only)
-  // ===============================
   let storage, folder, modUp;
   try {
     storage = await new Storage({ email: MEGA_EMAIL, password: MEGA_PASSWORD }).ready;
@@ -421,9 +390,6 @@ app.post('/upload', requireAuth, requireCSRF, upload.fields([
     return res.status(500).json({ error: 'Failed to upload mod file to MEGA' });
   }
 
-  // ===============================
-  // GENERATE MEGA MOD FILE URL
-  // ===============================
   let modFileUrl;
   try {
     modFileUrl = await modUp.link();
@@ -432,9 +398,6 @@ app.post('/upload', requireAuth, requireCSRF, upload.fields([
     return res.status(500).json({ error: 'Failed to get MEGA link' });
   }
 
-  // ===============================
-  // FETCH AUTHOR NAME
-  // ===============================
   const { data: profile } = await supabaseAdmin
     .from('profiles')
     .select('username')
@@ -442,14 +405,8 @@ app.post('/upload', requireAuth, requireCSRF, upload.fields([
     .single();
   const authorName = profile?.username || user?.split('@')[0] || 'Unknown';
 
-  // ===============================
-  // GENERATE MOD ID
-  // ===============================
   const modId = crypto.randomUUID();
 
-  // ===============================
-  // STORE IN DATABASE (mods2 table)
-  // ===============================
   try {
     const { error: dbError } = await supabaseAdmin
       .from('mods2')
@@ -486,7 +443,6 @@ app.post('/upload', requireAuth, requireCSRF, upload.fields([
 
   hashStore.set(hash, modId);
 
-  // Clean up temp files
   [modFile, mainScreenshot, ...additionalScreenshots].forEach(f => {
     if (f?.path) fs.unlink(f.path, () => {});
   });
@@ -501,7 +457,8 @@ app.post('/upload', requireAuth, requireCSRF, upload.fields([
   });
 });
 
-/* ================= DEBUG ENDPOINTS ================= */
+// ... (all other endpoints remain the same) ...
+
 app.get('/debug-env', (req, res) => {
   const key = process.env.FREEIMAGE_HOST_API_KEY;
   res.json({
@@ -542,7 +499,6 @@ app.get('/test-auth', requireAuth, (req, res) => {
   res.json({ userId: req.userId, role: req.userRole });
 });
 
-/* ================= ANNOUNCEMENT IMAGE UPLOAD ================= */
 app.post('/upload-announcement-images', requireAuth, upload.array('images', 2), async (req, res) => {
   console.log('[upload-images] ===== ENTERED HANDLER =====');
   const files = req.files;
@@ -565,33 +521,28 @@ if (!API_KEY) {
     for (const file of files) {
       console.log(`[upload-images] Processing: ${file.originalname} (size: ${file.size} bytes)`);
 
-      // Read file and convert to base64
       const fileBuffer = await fsPromises.readFile(file.path);
       const base64Image = fileBuffer.toString('base64');
       console.log('[upload-images] Base64 length:', base64Image.length);
       console.log('[upload-images] Base64 preview (first 50 chars):', base64Image.substring(0, 50));
 
-      // Prepare form data
       const formData = new URLSearchParams();
       formData.append('key', API_KEY);
       formData.append('source', base64Image);
       formData.append('format', 'json');
       console.log('[upload-images] Sending to freeimage.host...');
 
-      // Upload to freeimage.host with timeout
       const response = await axios.post('https://freeimage.host/api/1/upload', formData, {
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         timeout: 15000
       });
 
-      // Clean up temp file
       await fsPromises.unlink(file.path).catch(err => console.warn('Temp file cleanup failed:', err));
 
       console.log('[upload-images] freeimage.host response status:', response.status);
       console.log('[upload-images] freeimage.host response data:', JSON.stringify(response.data, null, 2));
 
       if (response.data && response.data.success) {
-        // URL is at response.data.image.url
         const imageUrl = response.data.image?.url;
         if (!imageUrl) {
           throw new Error('Image URL missing in response');
@@ -618,7 +569,6 @@ if (!API_KEY) {
     } else {
       console.error('[upload-images] Error setting up request:', error.message);
     }
-    // Clean up any remaining temp files
     for (const file of files) {
       await fsPromises.unlink(file.path).catch(() => {});
     }
@@ -626,7 +576,6 @@ if (!API_KEY) {
   }
 });
 
-/* ================= OTHER ENDPOINTS ================= */
 app.get('/proxy-image', async (req, res) => {
   console.log(`[proxy-image] REQUEST for nodeId: ${req.query.nodeId}`);
   const { nodeId } = req.query;
@@ -705,8 +654,6 @@ app.delete('/delete-mega-folder', requireAuth, requireAdmin, async (req, res) =>
     const folder = storage.root?.children?.find(c => c.nodeId === folderNodeId);
     if (!folder) throw new Error('Folder not found');
 
-    // For simplicity, we just return success – actual recursive deletion is complex.
-    // You may enhance this later.
     res.json({ success: true });
   } catch (err) {
     console.error('Delete folder error:', err);
@@ -766,12 +713,10 @@ app.get('/health', (req, res) => {
   res.status(200).send('OK');
 });
 
-/* ================= GLOBAL ERROR HANDLER ================= */
 app.use((err, req, res, next) => {
   console.error('🔥 UNHANDLED ERROR:', err);
   res.status(500).json({ error: 'Internal server error', details: err.message });
 });
 
-/* ================= START SERVER ================= */
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log('✅ Secure backend running on', PORT));

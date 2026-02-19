@@ -769,13 +769,18 @@
       progressDiv.innerHTML =
         '<div class="gb-progress-spinner"></div> Uploading files...';
 
-      const formData = new FormData();
-      formData.append("mainScreenshot", mainScreenshot);
-      formData.append("modFile", file);
+const formData = new FormData();
+formData.append("mainScreenshot", mainScreenshot);
+formData.append("modFile", file);
+formData.append("title", title);
+formData.append("description", description);
+formData.append("version", version);
+formData.append("baldiVersion", baldiVersion);
+formData.append("tags", tags);
 
-      if (screenshotFiles.length > 0) {
-        screenshotFiles.forEach(f => formData.append("screenshots", f));
-      }
+if (screenshotFiles.length > 0) {
+  screenshotFiles.forEach(f => formData.append("screenshots", f));
+}
 
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 300000);
