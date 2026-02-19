@@ -248,45 +248,52 @@
       gap: 30px;
     }
     /* Sidebar */
+/* ===== MOD SIDEBAR (MATCH PROFILE.HTML BEHAVIOR) ===== */
 .gb-mod-sidebar {
   background: linear-gradient(135deg, #1a1a1a 0%, #151515 100%);
   border: 1px solid var(--gb-border);
   border-radius: 20px;
-  overflow: visible; /* ✅ FIX */
+  overflow: visible !important; /* IMPORTANT */
   position: sticky;
-  top: 200px;
+  top: 140px; /* was too big before */
   align-self: start;
+  z-index: 1;
 }
 
+/* Cover (Avatar Anchor) */
 .gb-author-cover {
-  height: 100px;
+  height: 110px;
   background: linear-gradient(135deg, var(--gb-primary), var(--gb-primary-dark));
   position: relative;
-  overflow: visible;
+  overflow: visible !important; /* MUST be visible */
+  border-radius: 20px 20px 0 0;
 }
 
+/* Floating Avatar (CENTERED like profile.html) */
 .gb-author-avatar {
   position: absolute;
-  bottom: -40px;
+  bottom: -45px;
   left: 50%;
   transform: translateX(-50%);
-  width: 80px;
-  height: 80px;
+  width: 90px;
+  height: 90px;
   border-radius: 50%;
   border: 4px solid var(--gb-primary);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 36px;
+  font-size: 38px;
   font-weight: 800;
   color: var(--gb-primary);
   background: linear-gradient(135deg, #222, #1a1a1a);
-  box-shadow: 0 10px 25px rgba(0,0,0,0.6);
-  z-index: 5;
+  box-shadow: 0 15px 35px rgba(0,0,0,0.7);
+  z-index: 10; /* FIX overlap issues */
 }
 
+/* Push content BELOW avatar */
 .gb-author-info {
-  padding: 90px 30px 30px;
+  padding: 80px 30px 30px; /* THIS is the key fix */
+  text-align: center;
 }
 
 
@@ -564,59 +571,67 @@
     }
 
     /* Responsive */
-    @media (max-width: 992px) {
-      .gb-mod-grid {
-        grid-template-columns: 1fr;
-      }
-      .gb-mod-sidebar {
-        position: static;
-      }
-    }
+/* ===== RESPONSIVE (MATCH PROFILE.HTML) ===== */
+@media (max-width: 992px) {
+  .gb-mod-grid {
+    grid-template-columns: 1fr;
+  }
 
-@media (max-width: 768px) {
-  /* Disable sticky sidebar on mobile */
+  /* Disable sticky on tablets & phones */
   .gb-mod-sidebar {
-    position: static !important;
-    top: auto !important;
-    overflow: visible !important;
-    margin-top: 20px;
-  }
-
-  /* Green header cover (anchor for avatar) */
-  .gb-author-cover {
-    height: 90px;
-    position: relative;
-    overflow: visible;
-  }
-
-  /* Avatar circle positioning */
-  .gb-author-avatar {
-    width: 70px;
-    height: 70px;
-    font-size: 30px;
-    bottom: -35px;
-    left: 50%;
-    transform: translateX(-50%);
-    z-index: 10;
-  }
-
-  /* MOST IMPORTANT: space for floating avatar */
-  .gb-author-info {
-    padding: 80px 20px 25px !important;
-    text-align: center;
+    position: relative !important;
+    top: 0 !important;
   }
 }
 
+@media (max-width: 768px) {
+  /* Prevent header overlap */
+  .gb-mod-sidebar {
+    margin-top: 10px;
+    overflow: visible !important;
+  }
 
-    @media (max-width: 480px) {
-      .gb-mod-meta-grid {
-        grid-template-columns: 1fr;
-      }
-      .gb-screenshot-grid {
-        grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
-      }
-    }
-    
+  .gb-author-cover {
+    height: 95px;
+  }
+
+  .gb-author-avatar {
+    width: 75px;
+    height: 75px;
+    font-size: 30px;
+    bottom: -38px;
+  }
+
+  /* CRITICAL: spacing fix so avatar doesn't collide with name */
+  .gb-author-info {
+    padding: 70px 20px 25px !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .gb-author-cover {
+    height: 85px;
+  }
+
+  .gb-author-avatar {
+    width: 68px;
+    height: 68px;
+    font-size: 26px;
+    bottom: -34px;
+  }
+
+  .gb-author-info {
+    padding: 65px 18px 22px !important;
+  }
+
+  .gb-mod-meta-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .gb-screenshot-grid {
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  }
+}
   </style>
 </head>
 <body>
