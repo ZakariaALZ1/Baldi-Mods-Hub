@@ -12,8 +12,20 @@
   <script src="js/supabase.min.js"></script>
   <script src="config.js"></script>
   <style>
-    /* reuse styles from upload.html or similar */
-    :root { --gb-primary: #00ff88; --gb-primary-dark: #00cc66; --gb-secondary: #ffaa00; --gb-danger: #ff4444; --gb-info: #2196f3; --gb-bg: #0a0a0a; --gb-bg-light: #1a1a1a; --gb-bg-lighter: #222; --gb-border: #333; --gb-text: #fff; --gb-text-muted: #ccc; }
+    /* Reuse your existing GameBanana styles – consistent with other pages */
+    :root {
+      --gb-primary: #00ff88;
+      --gb-primary-dark: #00cc66;
+      --gb-secondary: #ffaa00;
+      --gb-danger: #ff4444;
+      --gb-info: #2196f3;
+      --gb-bg: #0a0a0a;
+      --gb-bg-light: #1a1a1a;
+      --gb-bg-lighter: #222;
+      --gb-border: #333;
+      --gb-text: #fff;
+      --gb-text-muted: #ccc;
+    }
     * { margin:0; padding:0; box-sizing:border-box; }
     body { background: var(--gb-bg); color: var(--gb-text); font-family: 'Inter', sans-serif; line-height:1.6; }
     .gb-header { background: linear-gradient(180deg, #1a1a1a 0%, #0f0f0f 100%); border-bottom:3px solid var(--gb-primary); padding:20px 0; position:sticky; top:0; z-index:1000; }
@@ -36,14 +48,18 @@
     .gb-user-points { font-size:12px; color:var(--gb-primary); }
     .gb-btn { padding:10px 20px; border:none; border-radius:8px; font-weight:bold; cursor:pointer; transition:all 0.2s; display:inline-flex; align-items:center; gap:8px; }
     .gb-btn-primary { background:linear-gradient(135deg,var(--gb-primary),var(--gb-primary-dark)); color:black; }
+    .gb-btn-primary:hover { transform:translateY(-2px); box-shadow:0 5px 15px rgba(0,255,136,0.3); }
     .gb-btn-secondary { background:transparent; border:2px solid var(--gb-border); color:var(--gb-text-muted); }
+    .gb-btn-secondary:hover { border-color:var(--gb-primary); color:var(--gb-primary); }
     .gb-main { max-width:800px; margin:40px auto; padding:0 30px; }
     .gb-ticket-form { background:linear-gradient(135deg,#1a1a1a 0%,#151515 100%); border:1px solid var(--gb-border); border-radius:20px; padding:40px; }
     .gb-form-group { margin-bottom:25px; }
     .gb-form-group label { display:block; margin-bottom:10px; color:var(--gb-text-muted); font-weight:600; }
     .gb-form-group input, .gb-form-group textarea, .gb-form-group select { width:100%; padding:15px 20px; background:rgba(0,0,0,0.3); border:2px solid var(--gb-border); border-radius:12px; color:var(--gb-text); font-size:16px; }
-    .gb-form-group input:focus, .gb-form-group textarea:focus { outline:none; border-color:var(--gb-primary); }
-    .gb-form-actions { display:flex; gap:20px; justify-content:flex-end; }
+    .gb-form-group input:focus, .gb-form-group textarea:focus, .gb-form-group select:focus { outline:none; border-color:var(--gb-primary); }
+    .gb-form-actions { display:flex; gap:20px; justify-content:flex-end; margin-top:30px; }
+    .gb-back-link { display:inline-flex; align-items:center; gap:8px; color:var(--gb-text-muted); text-decoration:none; font-weight:600; margin-bottom:20px; transition:color 0.2s; }
+    .gb-back-link:hover { color:var(--gb-primary); }
   </style>
 </head>
 <body>
@@ -58,6 +74,7 @@
       </div>
     </div>
   </header>
+
   <nav class="gb-nav" id="main-nav">
     <div class="gb-nav-container">
       <div class="gb-nav-links">
@@ -85,19 +102,36 @@
       </div>
     </div>
   </nav>
+
   <main class="gb-main">
+    <a href="javascript:history.back()" class="gb-back-link"><span>←</span> Back</a>
     <div class="gb-ticket-form">
       <h1>📨 Create Support Ticket</h1>
       <p>Use this form to appeal a moderation action, report a problem, or ask a question.</p>
       <form id="ticketForm" onsubmit="event.preventDefault(); submitTicket();">
+        <!-- Subject -->
         <div class="gb-form-group">
           <label for="subject">Subject</label>
           <input type="text" id="subject" maxlength="200" required placeholder="Brief summary">
         </div>
+        <!-- Description -->
         <div class="gb-form-group">
           <label for="description">Description</label>
           <textarea id="description" rows="6" maxlength="5000" required placeholder="Explain your issue in detail..."></textarea>
         </div>
+        <!-- Topic -->
+        <div class="gb-form-group">
+          <label for="topic">Topic</label>
+          <select id="topic" required>
+            <option value="">Select a topic</option>
+            <option value="Mod">Mod</option>
+            <option value="Account">Account</option>
+            <option value="Report">Report</option>
+            <option value="Appeal">Appeal</option>
+            <option value="Other">Other</option>
+          </select>
+        </div>
+        <!-- Priority -->
         <div class="gb-form-group">
           <label for="priority">Priority</label>
           <select id="priority">
@@ -106,6 +140,7 @@
             <option value="high">High</option>
           </select>
         </div>
+        <!-- Actions -->
         <div class="gb-form-actions">
           <button type="submit" class="gb-btn gb-btn-primary">Submit Ticket</button>
           <button type="button" onclick="window.location.href='profile.html'" class="gb-btn gb-btn-secondary">Cancel</button>
@@ -113,21 +148,23 @@
       </form>
     </div>
   </main>
+
   <script src="script.js"></script>
   <script>
     async function submitTicket() {
       const subject = document.getElementById('subject').value.trim();
       const description = document.getElementById('description').value.trim();
       const priority = document.getElementById('priority').value;
+      const topic = document.getElementById('topic').value;
 
-      if (!subject || !description) {
+      if (!subject || !description || !topic) {
         showNotification('Please fill in all fields', 'error');
         return;
       }
 
-      const success = await createSupportTicket(subject, description, priority);
+      const success = await createSupportTicket(subject, description, priority, topic);
       if (success) {
-        window.location.href = 'profile.html'; // or stay
+        window.location.href = 'profile.html';
       }
     }
   </script>

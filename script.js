@@ -196,6 +196,20 @@
     .gb-error-container { text-align: center; padding: 50px; }
     .gb-no-results { text-align: center; padding: 60px; color: #ccc; background: #1a1a1a; border-radius: 10px; }
     .gb-error { text-align: center; padding: 40px; color: #ff4444; background: #1a1a1a; border-radius: 8px; }
+    /* Badge for admin nav */
+    .gb-notification-badge {
+      position: relative;
+      top: -2px;
+      background: #ff4444;
+      color: white;
+      border-radius: 50%;
+      padding: 2px 6px;
+      font-size: 11px;
+      font-weight: bold;
+      min-width: 18px;
+      text-align: center;
+      margin-left: 5px;
+    }
   `;
   document.head.appendChild(style);
 
@@ -455,6 +469,49 @@
     if (bell) bell.style.display = 'none';
   }
 
+  // ===== Fetch admin notification counts =====
+  async function fetchAdminNotificationCounts() {
+    try {
+      const { count: delCount, error: delError } = await supabaseClient
+        .from('mod_deletion_notifications')
+        .select('*', { count: 'exact', head: true })
+        .eq('reviewed', false);
+
+      if (delError) throw delError;
+
+      const { count: ticketCount, error: ticketError } = await supabaseClient
+        .from('support_tickets')
+        .select('*', { count: 'exact', head: true })
+        .eq('status', 'open');
+
+      if (ticketError) throw ticketError;
+
+      return { delCount: delCount || 0, ticketCount: ticketCount || 0 };
+    } catch (err) {
+      console.error('Failed to fetch admin counts:', err);
+      return { delCount: 0, ticketCount: 0 };
+    }
+  }
+
+  // ===== Update badges in main navigation =====
+  async function updateMainNavBadges() {
+    if (!await isModerator()) return;
+
+    const { delCount, ticketCount } = await fetchAdminNotificationCounts();
+
+    const delBadge = document.getElementById('adminDelBadge');
+    const ticketBadge = document.getElementById('adminTicketBadge');
+
+    if (delBadge) {
+      delBadge.textContent = delCount;
+      delBadge.style.display = delCount > 0 ? 'inline-block' : 'none';
+    }
+    if (ticketBadge) {
+      ticketBadge.textContent = ticketCount;
+      ticketBadge.style.display = ticketCount > 0 ? 'inline-block' : 'none';
+    }
+  }
+
   function showAuthenticatedUI(user, profile) {
     const authSection = document.getElementById('auth-section');
     if (authSection) authSection.style.display = 'none';
@@ -475,16 +532,17 @@
     if (nav) {
       let adminLinks = '';
       if (profile.role === 'admin' || profile.role === 'moderator') {
-        adminLinks += `<a href="admin.html" class="gb-nav-item">🛡️ Moderation</a>`;
+        adminLinks += `<a href="admin.html" class="gb-nav-item" id="nav-admin">🛡️ Moderation <span id="adminDelBadge" class="gb-notification-badge" style="display:none;">0</span></a>`;
       }
       if (profile.role === 'admin') {
-        adminLinks += `<a href="admin-dashboard.html" class="gb-nav-item">📊 Dashboard</a>`;
+        adminLinks += `<a href="admin-dashboard.html" class="gb-nav-item" id="nav-dashboard">📊 Dashboard <span id="adminTicketBadge" class="gb-notification-badge" style="display:none;">0</span></a>`;
       }
       nav.innerHTML = `
         <div class="gb-nav-container">
           <a href="index.html" class="gb-nav-item">🏠 Home</a>
           <a href="upload.html" class="gb-nav-item">📤 Upload</a>
           <a href="profile.html" class="gb-nav-item">👤 ${profile.username || 'Profile'}</a>
+          <a href="supportticket.html" class="gb-nav-item">📨 Support</a>
           ${adminLinks}
           <div class="gb-notification-bell" id="notificationBell">
             <a href="announcements.html" style="color: inherit; text-decoration: none; position: relative;">
@@ -495,12 +553,21 @@
           <span class="gb-nav-user">
             <span class="gb-badge ${profile.role || 'user'}">${profile.role?.toUpperCase() || 'USER'}</span>
             <span class="gb-nav-points">⭐ ${profile.trust_score || 0}</span>
+            <a href="moddeletenotification.html" style="color: var(--gb-primary); margin-left: 10px; text-decoration: none;" title="Mod Deletion Notifications">📋</a>
+            <button onclick="logout()" class="gb-btn gb-btn-secondary" style="padding:10px 20px;">🚪 Logout</button>
           </span>
         </div>
       `;
     }
     updateNotificationCount();
     startNotificationUpdates();
+
+    (async () => {
+      if (await isModerator()) {
+        updateMainNavBadges();
+        setInterval(updateMainNavBadges, 30000);
+      }
+    })();
   }
 
   /* =========================
@@ -629,7 +696,7 @@
   /* =========================
      MOD UPLOAD – MEGA.NZ VERSION (with screenshot limit & duplicate prevention)
   ========================= */
-  let isUploading = false; // prevents double submission
+  let isUploading = false;
 
   async function uploadMod() {
     if (isUploading) {
@@ -638,9 +705,6 @@
     }
     isUploading = true;
 
-    // ===============================
-    // AUTH CHECK
-    // ===============================
     const user = await getCurrentUser();
     if (!user) {
       showNotification("Please login to upload", "error");
@@ -648,9 +712,7 @@
       return;
     }
 
-    const { data: sessionData, error: sessErr } =
-      await supabaseClient.auth.getSession();
-
+    const { data: sessionData, error: sessErr } = await supabaseClient.auth.getSession();
     if (sessErr || !sessionData?.session?.access_token) {
       console.error("Session error:", sessErr);
       showNotification("Login expired — please sign in again", "error");
@@ -660,9 +722,6 @@
 
     const accessToken = sessionData.session.access_token;
 
-    // ===============================
-    // ENSURE CSRF
-    // ===============================
     if (!getCSRFToken()) generateCSRFToken();
     const csrfToken = getCSRFToken();
 
@@ -672,9 +731,6 @@
       return;
     }
 
-    // ===============================
-    // COLLECT INPUTS
-    // ===============================
     const title = sanitizeInput(val("title"));
     const description = sanitizeInput(val("description"));
     const version = val("version") || "1.0.0";
@@ -683,10 +739,8 @@
 
     const file = fileEl("file");
     const mainScreenshot = fileEl("mainScreenshot");
-    const additionalScreenshots =
-      document.getElementById("screenshots")?.files;
+    const additionalScreenshots = document.getElementById("screenshots")?.files;
 
-    // ----- LIMIT ADDITIONAL SCREENSHOTS TO 2 (fix for Multer error) -----
     let screenshotFiles = [];
     if (additionalScreenshots && additionalScreenshots.length > 0) {
       if (additionalScreenshots.length > 2) {
@@ -695,21 +749,16 @@
       screenshotFiles = Array.from(additionalScreenshots).slice(0, 2);
     }
 
-    // ===============================
-    // VALIDATION
-    // ===============================
     if (!title || title.length < 3 || title.length > 100) {
       showNotification("Title must be 3-100 characters", "error");
       isUploading = false;
       return;
     }
-
     if (!description || description.length < 10 || description.length > 5000) {
       showNotification("Description must be 10-5000 characters", "error");
       isUploading = false;
       return;
     }
-
     if (!file) {
       showNotification("Please select a mod file", "error");
       isUploading = false;
@@ -721,14 +770,8 @@
       return;
     }
 
-    const allowedExtensions =
-      window.ENV?.ALLOWED_FILE_TYPES ||
-      [".zip", ".rar", ".7z", ".baldimod"];
-
-    const maxSize =
-      window.ENV?.MAX_UPLOAD_SIZE ||
-      100 * 1024 * 1024;
-
+    const allowedExtensions = window.ENV?.ALLOWED_FILE_TYPES || [".zip", ".rar", ".7z", ".baldimod"];
+    const maxSize = window.ENV?.MAX_UPLOAD_SIZE || 100 * 1024 * 1024;
     const fileExt = "." + file.name.split(".").pop().toLowerCase();
 
     if (!allowedExtensions.includes(fileExt)) {
@@ -736,51 +779,39 @@
       isUploading = false;
       return;
     }
-
     if (file.size > maxSize) {
       showNotification(`File exceeds ${Math.round(maxSize / (1024 * 1024))}MB`, "error");
       isUploading = false;
       return;
     }
-
     if (!MEGA_BACKEND_URL) {
       showNotification("Backend URL missing", "error");
       isUploading = false;
       return;
     }
 
-    // ===============================
-    // UI STATE
-    // ===============================
     const button = document.querySelector('button[onclick="uploadMod()"]');
     setLoading(button, true, "📤 Uploading...");
 
     const progressDiv = document.createElement("div");
     progressDiv.className = "gb-progress-card";
-    progressDiv.innerHTML =
-      '<div class="gb-progress-spinner"></div> Preparing upload...';
-
+    progressDiv.innerHTML = '<div class="gb-progress-spinner"></div> Preparing upload...';
     document.querySelector(".gb-upload-form")?.appendChild(progressDiv);
 
     try {
-      // ===============================
-      // 1️⃣ BACKEND UPLOAD (all files)
-      // ===============================
-      progressDiv.innerHTML =
-        '<div class="gb-progress-spinner"></div> Uploading files...';
+      progressDiv.innerHTML = '<div class="gb-progress-spinner"></div> Uploading files...';
 
-const formData = new FormData();
-formData.append("mainScreenshot", mainScreenshot);
-formData.append("modFile", file);
-formData.append("title", title);
-formData.append("description", description);
-formData.append("version", version);
-formData.append("baldiVersion", baldiVersion);
-formData.append("tags", tags);
-
-if (screenshotFiles.length > 0) {
-  screenshotFiles.forEach(f => formData.append("screenshots", f));
-}
+      const formData = new FormData();
+      formData.append("mainScreenshot", mainScreenshot);
+      formData.append("modFile", file);
+      formData.append("title", title);
+      formData.append("description", description);
+      formData.append("version", version);
+      formData.append("baldiVersion", baldiVersion);
+      formData.append("tags", tags);
+      if (screenshotFiles.length > 0) {
+        screenshotFiles.forEach(f => formData.append("screenshots", f));
+      }
 
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 300000);
@@ -799,44 +830,27 @@ if (screenshotFiles.length > 0) {
 
       if (!response.ok) {
         let msg;
-        const clonedResponse = response.clone(); // Clone before reading
+        const clonedResponse = response.clone();
         try {
           const j = await clonedResponse.json();
           msg = j.error || j.message;
         } catch {
-          msg = await response.text(); // Use original if JSON fails
+          msg = await response.text();
         }
         throw new Error(`Server ${response.status}: ${msg}`);
       }
 
       const result = await response.json();
+      if (!result.modFileUrl) throw new Error("Missing modFileUrl");
 
-      if (!result.modFileUrl)
-        throw new Error("Missing modFileUrl");
-
-      // ===============================
-      // 2️⃣ BUILD SCREENSHOT ARRAY (from backend response)
-      // ===============================
       const screenshotsArray = [
         { url: result.mainScreenshotUrl, is_main: true, sort_order: 0 },
-        ...(result.screenshotUrls || []).map((url, i) => ({
-          url,
-          is_main: false,
-          sort_order: i + 1
-        }))
+        ...(result.screenshotUrls || []).map((url, i) => ({ url, is_main: false, sort_order: i + 1 }))
       ];
 
-      const tagArray = tags
-        ? tags.split(",")
-            .map(t => sanitizeInput(t))
-            .filter(Boolean)
-        : [];
+      const tagArray = tags ? tags.split(",").map(t => sanitizeInput(t)).filter(Boolean) : [];
 
-      // ===============================
-      // 3️⃣ DB INSERT
-      // ===============================
-      progressDiv.innerHTML =
-        '<div class="gb-progress-spinner"></div> Saving data...';
+      progressDiv.innerHTML = '<div class="gb-progress-spinner"></div> Saving data...';
 
       const { error: dbError } = await supabaseClient
         .from("mods2")
@@ -848,9 +862,7 @@ if (screenshotFiles.length > 0) {
           tags: tagArray,
           file_url: result.modFileUrl,
           user_id: user.id,
-          author_name:
-            currentUserProfile?.username ||
-            user.email?.split("@")[0],
+          author_name: currentUserProfile?.username || user.email?.split("@")[0],
           file_size: file.size,
           file_extension: fileExt,
           original_filename: file.name,
@@ -867,16 +879,11 @@ if (screenshotFiles.length > 0) {
 
       progressDiv.remove();
       showNotification("✅ Mod uploaded! Pending review.", "success", 8000);
-
-      // ===== REDIRECT TO PROFILE AFTER SUCCESS =====
-      setTimeout(() => {
-        window.location.href = "profile.html";
-      }, 2000);
+      setTimeout(() => window.location.href = "profile.html", 2000);
 
     } catch (err) {
       console.error("UPLOAD ERROR:", err);
       progressDiv?.remove();
-
       if (err.name === "AbortError") {
         showNotification("Upload timed out", "error");
       } else {
@@ -888,471 +895,6 @@ if (screenshotFiles.length > 0) {
     }
   }
 
-  // =========================
-// SUPPORT TICKETS
-// =========================
-
-async function createSupportTicket(subject, description, priority = 'normal') {
-    const user = await getCurrentUser();
-    if (!user) {
-        showNotification('Please login to create a ticket', 'error');
-        return false;
-    }
-
-    try {
-        const { error } = await supabaseClient
-            .from('support_tickets')
-            .insert([{
-                user_id: user.id,
-                subject,
-                description,
-                priority,
-                status: 'open',
-                created_at: new Date().toISOString(),
-                updated_at: new Date().toISOString()
-            }]);
-
-        if (error) throw error;
-        showNotification('Ticket created successfully', 'success');
-        return true;
-    } catch (err) {
-        console.error('Failed to create ticket:', err);
-        showNotification('Failed to create ticket', 'error');
-        return false;
-    }
-}
-
-// Load tickets for the current user (profile page maybe)
-async function loadUserTickets(containerId) {
-    const user = await getCurrentUser();
-    if (!user) return;
-
-    try {
-        const { data, error } = await supabaseClient
-            .from('support_tickets')
-            .select('*')
-            .eq('user_id', user.id)
-            .order('created_at', { ascending: false });
-
-        if (error) throw error;
-
-        const container = document.getElementById(containerId);
-        if (!container) return;
-
-        if (!data || data.length === 0) {
-            container.innerHTML = '<p>No tickets yet.</p>';
-            return;
-        }
-
-        container.innerHTML = data.map(ticket => `
-            <div class="gb-card" style="margin-bottom: 15px; border-left: 4px solid ${ticket.status === 'open' ? '#ffaa00' : '#00ff88'}">
-                <h4>${escapeHTML(ticket.subject)}</h4>
-                <p>${escapeHTML(ticket.description.substring(0, 100))}...</p>
-                <div style="display: flex; gap: 15px; color: #ccc; font-size: 12px;">
-                    <span>Status: <strong>${ticket.status}</strong></span>
-                    <span>Priority: <strong>${ticket.priority}</strong></span>
-                    <span>Created: ${new Date(ticket.created_at).toLocaleDateString()}</span>
-                </div>
-            </div>
-        `).join('');
-    } catch (err) {
-        console.error('Failed to load tickets:', err);
-    }
-}
-
-// =========================
-// ADMIN: SUPPORT TICKETS REVIEW
-// =========================
-
-async function loadAllTickets(containerId) {
-    if (!await isModerator()) return;
-
-    try {
-        const { data, error } = await supabaseClient
-            .from('support_tickets')
-            .select(`
-                *,
-                profiles:user_id (username)
-            `)
-            .order('created_at', { ascending: false });
-
-        if (error) throw error;
-
-        const container = document.getElementById(containerId);
-        if (!container) return;
-
-        if (!data || data.length === 0) {
-            container.innerHTML = '<div class="gb-no-results">No support tickets</div>';
-            return;
-        }
-
-        container.innerHTML = data.map(ticket => `
-            <div class="gb-card" style="margin-bottom: 15px; border-left: 4px solid ${ticket.status === 'open' ? '#ffaa00' : '#00ff88'}" data-ticket-id="${ticket.id}">
-                <div style="display: flex; justify-content: space-between; align-items: center;">
-                    <h3 style="margin: 0;">${escapeHTML(ticket.subject)}</h3>
-                    <span class="gb-badge" style="background:${ticket.status === 'open' ? '#ffaa00' : '#00ff88'}">${ticket.status}</span>
-                </div>
-                <p><strong>User:</strong> ${escapeHTML(ticket.profiles?.username || 'Unknown')}</p>
-                <p><strong>Description:</strong> ${escapeHTML(ticket.description)}</p>
-                <p><strong>Priority:</strong> ${ticket.priority}</p>
-                <p><strong>Created:</strong> ${new Date(ticket.created_at).toLocaleString()}</p>
-                <div style="display: flex; gap: 10px; margin-top: 15px;">
-                    <button onclick="updateTicketStatus('${ticket.id}', 'resolved')" class="gb-btn gb-btn-primary">✅ Accept</button>
-                    <button onclick="updateTicketStatus('${ticket.id}', 'closed')" class="gb-btn gb-btn-danger">❌ Decline</button>
-                    <button onclick="openTicketReplyModal('${ticket.id}')" class="gb-btn gb-btn-secondary">💬 Reply</button>
-                </div>
-                <div id="responses-${ticket.id}" class="ticket-responses" style="margin-top: 15px;"></div>
-            </div>
-        `).join('');
-
-        // Load responses for each ticket
-        data.forEach(ticket => loadTicketResponses(ticket.id));
-    } catch (err) {
-        console.error('Failed to load tickets:', err);
-    }
-}
-
-async function updateTicketStatus(ticketId, status) {
-    if (!await isModerator()) return;
-
-    try {
-        const { error } = await supabaseClient
-            .from('support_tickets')
-            .update({ status, updated_at: new Date().toISOString() })
-            .eq('id', ticketId);
-
-        if (error) throw error;
-        showNotification(`Ticket marked as ${status}`, 'success');
-        loadAllTickets('ticketsContainer'); // refresh
-    } catch (err) {
-        console.error('Failed to update ticket:', err);
-        showNotification('Failed to update ticket', 'error');
-    }
-}
-
-async function addTicketResponse(ticketId, message) {
-    const user = await getCurrentUser();
-    if (!user || !await isModerator()) return;
-
-    try {
-        const { error } = await supabaseClient
-            .from('ticket_responses')
-            .insert([{
-                ticket_id: ticketId,
-                user_id: user.id,
-                message,
-                created_at: new Date().toISOString()
-            }]);
-
-        if (error) throw error;
-
-        // Also update ticket status to in_progress if it was open
-        await supabaseClient
-            .from('support_tickets')
-            .update({ status: 'in_progress', updated_at: new Date().toISOString() })
-            .eq('id', ticketId);
-
-        showNotification('Reply added', 'success');
-        loadTicketResponses(ticketId);
-    } catch (err) {
-        console.error('Failed to add response:', err);
-        showNotification('Failed to add response', 'error');
-    }
-}
-
-async function loadTicketResponses(ticketId) {
-    const container = document.getElementById(`responses-${ticketId}`);
-    if (!container) return;
-
-    try {
-        const { data, error } = await supabaseClient
-            .from('ticket_responses')
-            .select(`
-                *,
-                profiles:user_id (username)
-            `)
-            .eq('ticket_id', ticketId)
-            .order('created_at', { ascending: true });
-
-        if (error) throw error;
-
-        if (!data || data.length === 0) {
-            container.innerHTML = '';
-            return;
-        }
-
-        container.innerHTML = data.map(resp => `
-            <div style="background: #2a2a2a; padding: 10px; border-radius: 5px; margin-bottom: 10px;">
-                <strong>${escapeHTML(resp.profiles?.username || 'Staff')}</strong> <span style="color: #ccc; font-size: 12px;">${new Date(resp.created_at).toLocaleString()}</span>
-                <p style="margin: 5px 0;">${escapeHTML(resp.message)}</p>
-            </div>
-        `).join('');
-    } catch (err) {
-        console.error('Failed to load responses:', err);
-    }
-}
-
-// Modal for replying to ticket
-function openTicketReplyModal(ticketId) {
-    const modal = document.getElementById('ticketReplyModal');
-    if (!modal) {
-        // Create modal if not exists
-        createTicketReplyModal();
-    }
-    document.getElementById('replyTicketId').value = ticketId;
-    document.getElementById('ticketReplyModal').style.display = 'flex';
-}
-
-function closeTicketReplyModal() {
-    document.getElementById('ticketReplyModal').style.display = 'none';
-    document.getElementById('replyMessage').value = '';
-}
-
-function createTicketReplyModal() {
-    const modalHTML = `
-        <div id="ticketReplyModal" class="gb-modal" style="display: none;">
-            <div class="gb-modal-content">
-                <span class="gb-modal-close" onclick="closeTicketReplyModal()">&times;</span>
-                <h2>Reply to Ticket</h2>
-                <input type="hidden" id="replyTicketId">
-                <div class="gb-form-group">
-                    <label>Message</label>
-                    <textarea id="replyMessage" rows="5" style="width: 100%; padding: 10px;"></textarea>
-                </div>
-                <div class="gb-form-actions">
-                    <button onclick="submitTicketReply()" class="gb-btn gb-btn-primary">Send Reply</button>
-                    <button onclick="closeTicketReplyModal()" class="gb-btn gb-btn-secondary">Cancel</button>
-                </div>
-            </div>
-        </div>
-    `;
-    document.body.insertAdjacentHTML('beforeend', modalHTML);
-}
-
-async function submitTicketReply() {
-    const ticketId = document.getElementById('replyTicketId').value;
-    const message = document.getElementById('replyMessage').value.trim();
-    if (!message) {
-        showNotification('Message cannot be empty', 'error');
-        return;
-    }
-    await addTicketResponse(ticketId, message);
-    closeTicketReplyModal();
-}
-
-// =========================
-// ADMIN: MOD DELETION NOTIFICATIONS
-// =========================
-
-async function loadDeletionNotificationsAdmin(containerId) {
-    if (!await isModerator()) return;
-
-    try {
-        const { data, error } = await supabaseClient
-            .from('mod_deletion_notifications')
-            .select(`
-                *,
-                profiles:deleted_by_user_id (username),
-                authors:mod_author_id (username)
-            `)
-            .order('deleted_at', { ascending: false });
-
-        if (error) throw error;
-
-        const container = document.getElementById(containerId);
-        if (!container) return;
-
-        if (!data || data.length === 0) {
-            container.innerHTML = '<div class="gb-no-results">No deletion notifications</div>';
-            return;
-        }
-
-        container.innerHTML = data.map(notif => `
-            <div class="gb-card" style="margin-bottom: 15px; border-left: 4px solid ${notif.reviewed ? '#00ff88' : '#ffaa00'}">
-                <div style="display: flex; justify-content: space-between;">
-                    <h4>${escapeHTML(notif.mod_title)}</h4>
-                    ${!notif.reviewed ? '<span class="gb-badge" style="background:#ffaa00;">New</span>' : ''}
-                </div>
-                <p><strong>Author:</strong> ${escapeHTML(notif.authors?.username || 'Unknown')}</p>
-                <p><strong>Deleted by:</strong> ${escapeHTML(notif.profiles?.username || notif.deleted_by_username || 'Unknown')}</p>
-                <p><strong>Reason:</strong> ${escapeHTML(notif.reason || 'No reason')}</p>
-                <p><strong>Date:</strong> ${new Date(notif.deleted_at).toLocaleString()}</p>
-                ${!notif.reviewed ? `<button onclick="markDeletionNotificationReviewed('${notif.id}')" class="gb-btn gb-btn-secondary">Mark as Reviewed</button>` : ''}
-            </div>
-        `).join('');
-    } catch (err) {
-        console.error('Failed to load deletion notifications:', err);
-    }
-}
-
-async function markDeletionNotificationReviewed(notificationId) {
-    const user = await getCurrentUser();
-    if (!user || !await isModerator()) return;
-
-    try {
-        const { error } = await supabaseClient
-            .from('mod_deletion_notifications')
-            .update({
-                reviewed: true,
-                reviewed_by: user.id,
-                reviewed_at: new Date().toISOString()
-            })
-            .eq('id', notificationId);
-
-        if (error) throw error;
-        showNotification('Notification marked as reviewed', 'success');
-        loadDeletionNotificationsAdmin('deletionNotificationsAdmin');
-    } catch (err) {
-        console.error('Failed to mark reviewed:', err);
-        showNotification('Failed to update', 'error');
-    }
-}
-
-// =========================
-// RED INDICATOR FOR ADMIN NAV
-// =========================
-
-async function updateAdminNotificationCounts() {
-    if (!await isModerator()) return;
-
-    try {
-        // Count unread deletion notifications (not reviewed)
-        const { count: delCount, error: delError } = await supabaseClient
-            .from('mod_deletion_notifications')
-            .select('*', { count: 'exact', head: true })
-            .eq('reviewed', false);
-
-        if (delError) throw delError;
-
-        // Count open support tickets
-        const { count: ticketCount, error: ticketError } = await supabaseClient
-            .from('support_tickets')
-            .select('*', { count: 'exact', head: true })
-            .eq('status', 'open');
-
-        if (ticketError) throw ticketError;
-
-        // Update badges in admin nav
-        const delBadge = document.getElementById('delNotificationBadge');
-        if (delBadge) {
-            delBadge.textContent = delCount || 0;
-            delBadge.style.display = delCount > 0 ? 'inline-block' : 'none';
-        }
-
-        const ticketBadge = document.getElementById('ticketNotificationBadge');
-        if (ticketBadge) {
-            ticketBadge.textContent = ticketCount || 0;
-            ticketBadge.style.display = ticketCount > 0 ? 'inline-block' : 'none';
-        }
-    } catch (err) {
-        console.error('Failed to update admin counts:', err);
-    }
-}
-
-// ===== NEW: Fetch admin notification counts =====
-async function fetchAdminNotificationCounts() {
-  try {
-    // Count unreviewed mod deletion notifications
-    const { count: delCount, error: delError } = await supabaseClient
-      .from('mod_deletion_notifications')
-      .select('*', { count: 'exact', head: true })
-      .eq('reviewed', false);
-
-    if (delError) throw delError;
-
-    // Count open support tickets
-    const { count: ticketCount, error: ticketError } = await supabaseClient
-      .from('support_tickets')
-      .select('*', { count: 'exact', head: true })
-      .eq('status', 'open');
-
-    if (ticketError) throw ticketError;
-
-    return { delCount: delCount || 0, ticketCount: ticketCount || 0 };
-  } catch (err) {
-    console.error('Failed to fetch admin counts:', err);
-    return { delCount: 0, ticketCount: 0 };
-  }
-}
-
-// ===== NEW: Update badges in main navigation =====
-async function updateMainNavBadges() {
-  // Only run if user is moderator/admin
-  if (!await isModerator()) return;
-
-  const { delCount, ticketCount } = await fetchAdminNotificationCounts();
-
-  const delBadge = document.getElementById('adminDelBadge');
-  const ticketBadge = document.getElementById('adminTicketBadge');
-
-  if (delBadge) {
-    delBadge.textContent = delCount;
-    delBadge.style.display = delCount > 0 ? 'inline-block' : 'none';
-  }
-  if (ticketBadge) {
-    ticketBadge.textContent = ticketCount;
-    ticketBadge.style.display = ticketCount > 0 ? 'inline-block' : 'none';
-  }
-}
-
-function showAuthenticatedUI(user, profile) {
-  const authSection = document.getElementById('auth-section');
-  if (authSection) authSection.style.display = 'none';
-  const userSection = document.getElementById('user-section');
-  if (userSection) {
-    userSection.style.display = 'block';
-    const userEmailEl = document.getElementById('userEmail');
-    if (userEmailEl) userEmailEl.textContent = user.email;
-    const roleBadge = document.getElementById('userRole');
-    if (roleBadge) {
-      roleBadge.className = `gb-badge ${profile.role || 'user'}`;
-      roleBadge.textContent = profile.role === 'admin' ? '👑 ADMIN' : 
-                             profile.role === 'moderator' ? '🛡️ MOD' : 
-                             profile.is_verified ? '✅ VERIFIED' : '👤 USER';
-    }
-  }
-  const nav = document.getElementById('main-nav');
-  if (nav) {
-    let adminLinks = '';
-    if (profile.role === 'admin' || profile.role === 'moderator') {
-      // Add badges to moderation and dashboard links
-      adminLinks += `<a href="admin.html" class="gb-nav-item" id="nav-admin">🛡️ Moderation <span id="adminDelBadge" class="gb-notification-badge" style="display:none;">0</span></a>`;
-    }
-    if (profile.role === 'admin') {
-      adminLinks += `<a href="admin-dashboard.html" class="gb-nav-item" id="nav-dashboard">📊 Dashboard <span id="adminTicketBadge" class="gb-notification-badge" style="display:none;">0</span></a>`;
-    }
-    nav.innerHTML = `
-      <div class="gb-nav-container">
-        <a href="index.html" class="gb-nav-item">🏠 Home</a>
-        <a href="upload.html" class="gb-nav-item">📤 Upload</a>
-        <a href="profile.html" class="gb-nav-item">👤 ${profile.username || 'Profile'}</a>
-        ${adminLinks}
-        <div class="gb-notification-bell" id="notificationBell">
-          <a href="announcements.html" style="color: inherit; text-decoration: none; position: relative;">
-            🔔
-            <span id="notificationCount" class="gb-notification-badge">0</span>
-          </a>
-        </div>
-        <span class="gb-nav-user">
-          <span class="gb-badge ${profile.role || 'user'}">${profile.role?.toUpperCase() || 'USER'}</span>
-          <span class="gb-nav-points">⭐ ${profile.trust_score || 0}</span>
-          <a href="moddeletenotification.html" style="color: var(--gb-primary); margin-left: 10px; text-decoration: none;" title="Mod Deletion Notifications">📋</a>
-          <button onclick="logout()" class="gb-btn gb-btn-secondary" style="padding:10px 20px;">🚪 Logout</button>
-        </span>
-      </div>
-    `;
-  }
-  updateNotificationCount();
-  startNotificationUpdates();
-
-  // Start periodic badge updates if user is moderator/admin
-  (async () => {
-    if (await isModerator()) {
-      updateMainNavBadges();
-      setInterval(updateMainNavBadges, 30000); // every 30 seconds
-    }
-  })();
-}
   /* =========================
      MOD PAGE
   ========================= */
@@ -1375,9 +917,7 @@ function showAuthenticatedUI(user, profile) {
 
       const user = await getCurrentUser();
 
-      // ===== VIEW COUNT LOGIC (unique per user / per browser) =====
       let shouldIncrement = false;
-
       if (user) {
         if (user.id !== mod.user_id) {
           try {
@@ -1400,7 +940,7 @@ function showAuthenticatedUI(user, profile) {
             }
           } catch (err) {
             console.warn("Failed to check existing view:", err);
-            shouldIncrement = true; // fallback
+            shouldIncrement = true;
           }
         }
       } else {
@@ -1419,7 +959,6 @@ function showAuthenticatedUI(user, profile) {
         }
       }
 
-      // Fetch author profile
       const { data: authorProfile } = await supabaseClient
         .from("profiles")
         .select("username, trust_score, upload_count, download_count, is_verified, role")
@@ -1435,7 +974,6 @@ function showAuthenticatedUI(user, profile) {
         authorProfile.download_count = totalDownloads;
       }
 
-      // Fetch buddy, subscriber, thank status for current user
       let isBuddy = false, isSubscribed = false, hasThanked = false;
       if (user) {
         const [buddyRes, subRes, thankRes] = await Promise.all([
@@ -1451,7 +989,6 @@ function showAuthenticatedUI(user, profile) {
       const modContainer = document.getElementById("mod");
       if (!modContainer) return;
 
-      // Generate screenshot gallery HTML
       let screenshotsHtml = '';
       if (mod.screenshots && mod.screenshots.length > 0) {
         const sorted = mod.screenshots.sort((a,b) => (a.sort_order||0) - (b.sort_order||0));
@@ -1469,19 +1006,16 @@ function showAuthenticatedUI(user, profile) {
         `;
       }
 
-      // Determine author badge
       let authorBadge = '👤 MEMBER';
       if (authorProfile?.role === 'admin') authorBadge = '👑 ADMIN';
       else if (authorProfile?.role === 'moderator') authorBadge = '🛡️ MOD';
       else if (authorProfile?.is_verified) authorBadge = '✅ VERIFIED';
 
-      // Check if current user is author or moderator
       const isAuthor = user && user.id === mod.user_id;
       const canEdit = isAuthor || (user && await isModerator());
 
       modContainer.innerHTML = `
         <div class="gb-mod-grid">
-          <!-- Sidebar (Author Info) -->
           <div class="gb-mod-sidebar">
             <div class="gb-author-cover"></div>
             <div class="gb-author-avatar" style="text-shadow: 0 0 8px var(--gb-primary);">
@@ -1490,22 +1024,11 @@ function showAuthenticatedUI(user, profile) {
             <div class="gb-author-info">
               <div class="gb-author-name"><a href="profile.html?id=${mod.user_id}" style="color: inherit; text-decoration: none;">${escapeHTML(authorProfile?.username || 'Unknown')}</a></div>
               <div class="gb-author-badge">${authorBadge}</div>
-              
               <div class="gb-author-stats">
-                <div class="gb-author-stat">
-                  <span>📦 Uploads</span>
-                  <span class="gb-author-stat-value">${authorProfile?.upload_count || 0}</span>
-                </div>
-                <div class="gb-author-stat">
-                  <span>📥 Downloads</span>
-                  <span class="gb-author-stat-value">${authorProfile?.download_count || 0}</span>
-                </div>
-                <div class="gb-author-stat">
-                  <span>⭐ Trust</span>
-                  <span class="gb-author-stat-value">${authorProfile?.trust_score || 0}</span>
-                </div>
+                <div class="gb-author-stat"><span>📦 Uploads</span><span class="gb-author-stat-value">${authorProfile?.upload_count || 0}</span></div>
+                <div class="gb-author-stat"><span>📥 Downloads</span><span class="gb-author-stat-value">${authorProfile?.download_count || 0}</span></div>
+                <div class="gb-author-stat"><span>⭐ Trust</span><span class="gb-author-stat-value">${authorProfile?.trust_score || 0}</span></div>
               </div>
-
               <div class="gb-author-actions">
                 <button onclick="toggleBuddy('${mod.user_id}')" class="gb-btn ${isBuddy ? 'gb-btn-primary' : 'gb-btn-outline'} gb-btn-block" id="buddyBtn-${mod.user_id}">${isBuddy ? '✓ Buddy' : '+ Add Buddy'}</button>
                 <button onclick="toggleSubscribe('${mod.user_id}')" class="gb-btn ${isSubscribed ? 'gb-btn-primary' : 'gb-btn-outline'} gb-btn-block" id="subBtn-${mod.user_id}">${isSubscribed ? '🔔 Subscribed' : '🔔 Subscribe'}</button>
@@ -1513,53 +1036,39 @@ function showAuthenticatedUI(user, profile) {
               </div>
             </div>
           </div>
-
-          <!-- Main Content -->
           <div class="gb-mod-main">
             <div style="display: flex; align-items: center; gap: 15px; margin-bottom: 15px; flex-wrap: wrap;">
               <h1 class="gb-mod-title" style="margin: 0;">${escapeHTML(mod.title)}</h1>
               ${canEdit ? `<a href="editmod.html?id=${mod.id}" class="gb-btn gb-btn-secondary" style="padding: 8px 16px;">✎ Edit</a>` : ''}
             </div>
-            
             <div class="gb-mod-badges">
               <span class="gb-badge">📦 v${escapeHTML(mod.version || '1.0.0')}</span>
               <span class="gb-badge">🎮 ${escapeHTML(mod.baldi_version || 'Any')}</span>
-              <span class="gb-badge" style="background:${mod.risk_score < 30 ? '#00ff88' : mod.risk_score < 60 ? '#ffaa00' : '#ff4444'};">
-                ${mod.risk_score < 30 ? '✅ Safe' : mod.risk_score < 60 ? '⚠️ Caution' : '❌ Unsafe'}
-              </span>
+              <span class="gb-badge" style="background:${mod.risk_score < 30 ? '#00ff88' : mod.risk_score < 60 ? '#ffaa00' : '#ff4444'};">${mod.risk_score < 30 ? '✅ Safe' : mod.risk_score < 60 ? '⚠️ Caution' : '❌ Unsafe'}</span>
             </div>
-
             <div class="gb-mod-meta-grid">
               <div class="gb-meta-item"><span class="gb-meta-label">Downloads</span><span class="gb-meta-value">📥 ${mod.download_count || 0}</span></div>
               <div class="gb-meta-item"><span class="gb-meta-label">Views</span><span class="gb-meta-value">👁️ ${mod.view_count || 0}</span></div>
               <div class="gb-meta-item"><span class="gb-meta-label">Uploaded</span><span class="gb-meta-value">📅 ${new Date(mod.created_at).toLocaleDateString()}</span></div>
               <div class="gb-meta-item"><span class="gb-meta-label">File Size</span><span class="gb-meta-value">💾 ${formatFileSize(mod.file_size || 0)}</span></div>
             </div>
-
             ${screenshotsHtml}
-
             <div class="gb-mod-description">
               <h2>Description</h2>
               <div class="gb-description-content">${escapeHTML(mod.description).replace(/\n/g, '<br>')}</div>
             </div>
-
             ${mod.tags?.length ? `
               <div class="gb-tag-list">
                 ${mod.tags.map(tag => `<span class="gb-tag">#${escapeHTML(tag)}</span>`).join('')}
               </div>
             ` : ''}
-
-            <!-- Favorite Button -->
             <div class="gb-mod-favorite">
               <button id="favoriteBtn" onclick="toggleFavorite('${mod.id}')" class="gb-btn gb-btn-outline gb-btn-large">🤍 Favorite</button>
             </div>
-
             <div class="gb-mod-actions">
               <a href="${escapeHTML(mod.file_url)}" class="gb-btn gb-btn-primary gb-btn-large" target="_blank" rel="noopener noreferrer" onclick="trackDownload('${mod.id}')">⬇️ Download Mod</a>
               <button onclick="reportMod('${mod.id}')" class="gb-btn gb-btn-secondary gb-btn-large">🚩 Report Mod</button>
             </div>
-
-            <!-- Comments Section -->
             <div class="gb-comments-section">
               <h2>Comments</h2>
               ${user ? `
@@ -1574,7 +1083,6 @@ function showAuthenticatedUI(user, profile) {
         </div>
       `;
 
-      // Load comments and favorite status after rendering
       loadComments(mod.id);
       updateFavoriteButton(mod.id);
 
@@ -1727,23 +1235,19 @@ function showAuthenticatedUI(user, profile) {
 
     try {
       await supabaseClient.rpc('increment_download_count', { mod_id: modId });
-
       await supabaseClient
         .from('user_downloads')
         .insert({ user_id: user.id, mod_id: modId });
-
       const { data: authorProfile } = await supabaseClient
         .from("profiles")
         .select("download_count")
         .eq("id", mod.user_id)
         .single();
-
       const newCount = (authorProfile?.download_count || 0) + 1;
       await supabaseClient
         .from("profiles")
         .update({ download_count: newCount })
         .eq("id", mod.user_id);
-
       showNotification("Download started", "success");
     } catch (err) {
       console.error("Failed to track download:", err);
@@ -1929,6 +1433,7 @@ function showAuthenticatedUI(user, profile) {
             <button class="gb-tab" onclick="window.switchTab('stats')">📊 Statistics</button>
             <button class="gb-tab" onclick="window.switchTab('buddies')">👥 Buddies</button>
             <button class="gb-tab" onclick="window.switchTab('subscribers')">👤 Subscribers</button>
+            <button class="gb-tab" onclick="window.switchTab('tickets')">📋 My Tickets</button>
             <button class="gb-tab" onclick="window.switchTab('settings')">⚙️ Settings</button>
           </div>
           <div id="uploads-tab" class="gb-tab-content active">
@@ -1951,6 +1456,10 @@ function showAuthenticatedUI(user, profile) {
           <div id="subscribers-tab" class="gb-tab-content">
             <h3>Subscribers</h3>
             <div id="profileSubscribersList" class="gb-user-grid" style="grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 15px;"></div>
+          </div>
+          <div id="tickets-tab" class="gb-tab-content">
+            <h3>My Support Tickets</h3>
+            <div id="userTicketsList" class="gb-ticket-list"></div>
           </div>
           <div id="settings-tab" class="gb-tab-content">
             <h3>Profile Settings</h3>
@@ -1977,6 +1486,7 @@ function showAuthenticatedUI(user, profile) {
     `;
     loadUserStats();
     loadMyMods();
+    // Load tickets when the tickets tab is first activated (handled by switchTab)
   }
 
   async function loadMyMods() {
@@ -2089,13 +1599,14 @@ function showAuthenticatedUI(user, profile) {
       loadProfileBuddies(currentUser.id);
     } else if (tabName === 'subscribers' && currentUser) {
       loadProfileSubscribers(currentUser.id);
+    } else if (tabName === 'tickets' && currentUser) {
+      loadUserTickets('userTicketsList');
     }
   };
 
   /* =========================
-     ADMIN FUNCTIONS (unchanged)
+     ADMIN FUNCTIONS
   ========================= */
-
   async function loadAdminStats() {
     const box = document.getElementById("stats");
     if (!box || !await isAdmin()) return;
@@ -2139,7 +1650,6 @@ function showAuthenticatedUI(user, profile) {
   // =========================
   // MODERATION ACTIONS
   // =========================
-
   async function warnUser(userId, reason, note = '') {
     if (!await isModerator()) return;
     const mod = await getCurrentUser();
@@ -2421,7 +1931,6 @@ function showAuthenticatedUI(user, profile) {
     const reason = prompt('Reason for rejection:');
     if (!reason) return;
 
-    // --- Delete Mega file first ---
     const { data: mod, error: fetchError } = await supabaseClient
       .from('mods2')
       .select('file_url')
@@ -2455,7 +1964,6 @@ function showAuthenticatedUI(user, profile) {
         console.error('Error deleting Mega file during reject:', err);
       }
     }
-    // --- End ---
 
     try {
       const { error } = await supabaseClient.from("mods2").update({ approved: false, scan_status: 'rejected', scan_reason: reason, updated_at: new Date().toISOString() }).eq("id", id);
@@ -2491,10 +1999,9 @@ function showAuthenticatedUI(user, profile) {
       return;
     }
 
-    // Fetch mod details including file_url
     const { data: mod, error: fetchError } = await supabaseClient
       .from("mods2")
-      .select("user_id, approved, quarantine, screenshots, file_storage_path, file_url")
+      .select("user_id, approved, quarantine, screenshots, file_storage_path, file_url, title")
       .eq("id", id)
       .single();
 
@@ -2503,7 +2010,6 @@ function showAuthenticatedUI(user, profile) {
       return;
     }
 
-    // Permission check
     const isOwner = user.id === mod.user_id;
     const isMod = await isModerator();
 
@@ -2521,7 +2027,6 @@ function showAuthenticatedUI(user, profile) {
 
     if (!confirm('⚠️ Permanently delete this mod? This cannot be undone.')) return;
 
-    // --- Delete Mega file if it exists ---
     if (mod.file_url && mod.file_url.includes('mega.nz')) {
       try {
         const accessToken = await getAccessToken();
@@ -2552,9 +2057,7 @@ function showAuthenticatedUI(user, profile) {
         showNotification('Warning: Could not delete file from storage', 'warning');
       }
     }
-    // --- End new code ---
 
-    // Proceed with Supabase deletion
     try {
       console.log('Deleting mod, screenshots:', mod.screenshots);
 
@@ -2565,40 +2068,27 @@ function showAuthenticatedUI(user, profile) {
 
       if (error) throw error;
 
-      // Attempt to delete screenshots from Supabase storage (if any – we now use freeimage.host, so this may be irrelevant)
-      if (mod.screenshots && Array.isArray(mod.screenshots)) {
-        for (const screenshot of mod.screenshots) {
-          const url = screenshot.url;
-          if (url && url.includes('supabase.co')) {
-            const match = url.match(/\/mod-screenshots\/(.+)$/);
-            if (match && match[1]) {
-              const path = match[1];
-              console.log(`Attempting to delete screenshot: ${path}`);
-              try {
-                const { error: deleteError } = await supabaseClient.storage
-                  .from('mod-screenshots')
-                  .remove([path]);
-                if (deleteError) {
-                  console.error('Failed to delete screenshot:', deleteError);
-                } else {
-                  console.log('Successfully deleted:', path);
-                }
-              } catch (storageErr) {
-                console.error('Exception deleting screenshot:', storageErr);
-              }
-            } else {
-              console.warn('Could not extract path from URL:', url);
-            }
-          }
-        }
-      }
+      try {
+        const { data: deleterProfile } = await supabaseClient
+          .from('profiles')
+          .select('username')
+          .eq('id', user.id)
+          .single();
 
-      if (mod.file_storage_path) {
-        try {
-          await supabaseClient.storage.from("baldi-mods").remove([mod.file_storage_path]);
-        } catch (storageErr) {
-          console.warn("Failed to delete mod file from storage:", storageErr);
-        }
+        await supabaseClient
+          .from('mod_deletion_notifications')
+          .insert({
+            mod_id: mod.id,
+            mod_title: mod.title,
+            mod_author_id: mod.user_id,
+            deleted_by_user_id: user.id,
+            deleted_by_username: deleterProfile?.username || user.email?.split('@')[0] || 'Unknown',
+            deleted_at: new Date().toISOString(),
+            reason: null,
+            reviewed: false
+          });
+      } catch (notifErr) {
+        console.error('Failed to insert deletion notification:', notifErr);
       }
 
       showNotification("✅ Mod deleted", "success");
@@ -2857,6 +2347,425 @@ function showAuthenticatedUI(user, profile) {
     } catch (err) {
       console.error('Failed to load deletion requests:', err);
       box.innerHTML = '<div class="gb-error">Failed to load requests</div>';
+    }
+  }
+
+  // =========================
+  // SUPPORT TICKETS
+  // =========================
+
+  async function createSupportTicket(subject, description, priority = 'normal', topic = 'General') {
+    const user = await getCurrentUser();
+    if (!user) {
+      showNotification('Please login to create a ticket', 'error');
+      return false;
+    }
+
+    try {
+      const { error } = await supabaseClient
+        .from('support_tickets')
+        .insert([{
+          user_id: user.id,
+          subject,
+          description,
+          priority,
+          topic,
+          status: 'open',
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        }]);
+
+      if (error) throw error;
+      showNotification('Ticket created successfully', 'success');
+      return true;
+    } catch (err) {
+      console.error('Failed to create ticket:', err);
+      showNotification('Failed to create ticket', 'error');
+      return false;
+    }
+  }
+
+  async function loadUserTickets(containerId) {
+    const user = await getCurrentUser();
+    if (!user) return;
+
+    try {
+      const { data, error } = await supabaseClient
+        .from('support_tickets')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      const container = document.getElementById(containerId);
+      if (!container) return;
+
+      if (!data || data.length === 0) {
+        container.innerHTML = '<p>No tickets yet.</p>';
+        return;
+      }
+
+      container.innerHTML = data.map(ticket => `
+        <div class="gb-card" style="margin-bottom: 15px; border-left: 4px solid ${ticket.status === 'open' ? '#ffaa00' : ticket.status === 'resolved' ? '#00ff88' : '#ff4444'}">
+          <h4><a href="ticket.html?id=${ticket.id}" style="color: #00ff88;">${escapeHTML(ticket.subject)}</a></h4>
+          <p><strong>Topic:</strong> ${escapeHTML(ticket.topic || 'General')}</p>
+          <p><strong>Status:</strong> ${ticket.status}</p>
+          <p><strong>Created:</strong> ${new Date(ticket.created_at).toLocaleDateString()}</p>
+        </div>
+      `).join('');
+    } catch (err) {
+      console.error('Failed to load user tickets:', err);
+    }
+  }
+
+  async function loadTicketDetails(ticketId) {
+    const user = await getCurrentUser();
+    if (!user) {
+      window.location.href = 'index.html?redirect=ticket';
+      return;
+    }
+
+    try {
+      const { data: ticket, error } = await supabaseClient
+        .from('support_tickets')
+        .select(`
+          *,
+          profiles:user_id (username)
+        `)
+        .eq('id', ticketId)
+        .single();
+
+      if (error || !ticket) throw error;
+
+      const isMod = await isModerator();
+      if (ticket.user_id !== user.id && !isMod) {
+        showNotification('You do not have permission to view this ticket', 'error');
+        setTimeout(() => window.location.href = 'index.html', 2000);
+        return;
+      }
+
+      const container = document.getElementById('ticketContainer');
+      if (!container) return;
+
+      container.innerHTML = `
+        <div class="gb-ticket-detail">
+          <h1>${escapeHTML(ticket.subject)}</h1>
+          <p><strong>Topic:</strong> ${escapeHTML(ticket.topic || 'General')}</p>
+          <p><strong>Status:</strong> <span style="color: ${ticket.status === 'open' ? '#ffaa00' : ticket.status === 'resolved' ? '#00ff88' : '#ff4444'};">${ticket.status}</span></p>
+          <p><strong>Created:</strong> ${new Date(ticket.created_at).toLocaleString()}</p>
+          <p><strong>Description:</strong></p>
+          <div class="gb-description-box">${escapeHTML(ticket.description).replace(/\n/g, '<br>')}</div>
+          <h2>Responses</h2>
+          <div id="responsesContainer"></div>
+          ${isMod ? `
+            <div class="gb-mod-actions">
+              <button onclick="handleTicketAction('${ticket.id}', 'resolved', '${ticket.topic}')" class="gb-btn gb-btn-primary" title="Accept this ticket">✅ Accept</button>
+              <button onclick="handleTicketAction('${ticket.id}', 'closed', '${ticket.topic}')" class="gb-btn gb-btn-danger" title="Decline and close">❌ Decline</button>
+              <button onclick="openTicketReplyModal('${ticket.id}')" class="gb-btn gb-btn-secondary">💬 Reply</button>
+            </div>
+          ` : ''}
+        </div>
+      `;
+
+      await loadTicketResponses(ticketId);
+    } catch (err) {
+      console.error('Failed to load ticket:', err);
+      document.getElementById('ticketContainer').innerHTML = '<div class="gb-error">Ticket not found</div>';
+    }
+  }
+
+  // Helper for accept/decline with reason for Mod topic
+  async function handleTicketAction(ticketId, status, topic) {
+    if (topic === 'Mod') {
+      const reason = prompt('Please enter a reason for this action:');
+      if (!reason) return; // user cancelled
+      await addTicketResponse(ticketId, `Action: ${status} - Reason: ${reason}`);
+    }
+    await updateTicketStatus(ticketId, status);
+  }
+
+  async function loadAllTickets(containerId) {
+    if (!await isModerator()) return;
+
+    try {
+      const { data, error } = await supabaseClient
+        .from('support_tickets')
+        .select(`
+          *,
+          profiles:user_id (username)
+        `)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      const container = document.getElementById(containerId);
+      if (!container) return;
+
+      if (!data || data.length === 0) {
+        container.innerHTML = '<div class="gb-no-results">No support tickets</div>';
+        return;
+      }
+
+      container.innerHTML = data.map(ticket => `
+        <div class="gb-card" style="margin-bottom: 15px; border-left: 4px solid ${ticket.status === 'open' ? '#ffaa00' : '#00ff88'}" data-ticket-id="${ticket.id}">
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <h3 style="margin: 0;"><a href="ticket.html?id=${ticket.id}" style="color: #00ff88;">${escapeHTML(ticket.subject)}</a></h3>
+            <span class="gb-badge" style="background:${ticket.status === 'open' ? '#ffaa00' : '#00ff88'}">${ticket.status}</span>
+          </div>
+          <p><strong>User:</strong> ${escapeHTML(ticket.profiles?.username || 'Unknown')}</p>
+          <p><strong>Topic:</strong> ${escapeHTML(ticket.topic || 'General')}</p>
+          <p><strong>Created:</strong> ${new Date(ticket.created_at).toLocaleString()}</p>
+          <div style="display: flex; gap: 10px; margin-top: 15px;">
+            <button onclick="handleTicketAction('${ticket.id}', 'resolved', '${ticket.topic}')" class="gb-btn gb-btn-primary" title="Accept this ticket">✅ Accept</button>
+            <button onclick="handleTicketAction('${ticket.id}', 'closed', '${ticket.topic}')" class="gb-btn gb-btn-danger" title="Decline and close">❌ Decline</button>
+            <button onclick="openTicketReplyModal('${ticket.id}')" class="gb-btn gb-btn-secondary">💬 Reply</button>
+          </div>
+          <div id="responses-${ticket.id}" class="ticket-responses" style="margin-top: 15px;"></div>
+        </div>
+      `).join('');
+
+      data.forEach(ticket => loadTicketResponses(ticket.id));
+    } catch (err) {
+      console.error('Failed to load tickets:', err);
+    }
+  }
+
+  async function updateTicketStatus(ticketId, status) {
+    if (!await isModerator()) return;
+
+    try {
+      const { error } = await supabaseClient
+        .from('support_tickets')
+        .update({ status, updated_at: new Date().toISOString() })
+        .eq('id', ticketId);
+
+      if (error) throw error;
+      showNotification(`Ticket marked as ${status}`, 'success');
+      // Refresh both views
+      if (document.getElementById('ticketsContainer')) loadAllTickets('ticketsContainer');
+      if (document.getElementById('ticketContainer')) {
+        const urlParams = new URLSearchParams(window.location.search);
+        const id = urlParams.get('id');
+        if (id) loadTicketDetails(id);
+      }
+    } catch (err) {
+      console.error('Failed to update ticket:', err);
+      showNotification('Failed to update ticket', 'error');
+    }
+  }
+
+  async function addTicketResponse(ticketId, message) {
+    const user = await getCurrentUser();
+    if (!user || !await isModerator()) return;
+
+    try {
+      const { error } = await supabaseClient
+        .from('ticket_responses')
+        .insert([{
+          ticket_id: ticketId,
+          user_id: user.id,
+          message,
+          created_at: new Date().toISOString()
+        }]);
+
+      if (error) throw error;
+
+      // Update ticket status to in_progress if open
+      await supabaseClient
+        .from('support_tickets')
+        .update({ status: 'in_progress', updated_at: new Date().toISOString() })
+        .eq('id', ticketId)
+        .eq('status', 'open');
+
+      showNotification('Reply added', 'success');
+      loadTicketResponses(ticketId);
+    } catch (err) {
+      console.error('Failed to add response:', err);
+      showNotification('Failed to add response', 'error');
+    }
+  }
+
+  async function loadTicketResponses(ticketId) {
+    const container = document.getElementById(`responses-${ticketId}`) || document.getElementById('responsesContainer');
+    if (!container) return;
+
+    try {
+      const { data, error } = await supabaseClient
+        .from('ticket_responses')
+        .select(`
+          *,
+          profiles:user_id (username)
+        `)
+        .eq('ticket_id', ticketId)
+        .order('created_at', { ascending: true });
+
+      if (error) throw error;
+
+      if (!data || data.length === 0) {
+        container.innerHTML = '';
+        return;
+      }
+
+      container.innerHTML = data.map(resp => `
+        <div style="background: #2a2a2a; padding: 10px; border-radius: 5px; margin-bottom: 10px;">
+          <strong>${escapeHTML(resp.profiles?.username || 'Staff')}</strong> <span style="color: #ccc; font-size: 12px;">${new Date(resp.created_at).toLocaleString()}</span>
+          <p style="margin: 5px 0;">${escapeHTML(resp.message)}</p>
+        </div>
+      `).join('');
+    } catch (err) {
+      console.error('Failed to load responses:', err);
+    }
+  }
+
+  window.openTicketReplyModal = function(ticketId) {
+    const modal = document.getElementById('ticketReplyModal');
+    if (!modal) {
+      const modalHTML = `
+        <div id="ticketReplyModal" class="gb-modal" style="display: none;">
+          <div class="gb-modal-content">
+            <span class="gb-modal-close" onclick="closeTicketReplyModal()">&times;</span>
+            <h2>Reply to Ticket</h2>
+            <input type="hidden" id="replyTicketId">
+            <div class="gb-form-group">
+              <label>Message</label>
+              <textarea id="replyMessage" rows="5" style="width: 100%; padding: 10px; background: #222; color: #fff; border: 1px solid #444;"></textarea>
+            </div>
+            <div class="gb-form-actions" style="display: flex; gap: 10px; justify-content: flex-end;">
+              <button onclick="submitTicketReply()" class="gb-btn gb-btn-primary">Send Reply</button>
+              <button onclick="closeTicketReplyModal()" class="gb-btn gb-btn-secondary">Cancel</button>
+            </div>
+          </div>
+        </div>
+      `;
+      document.body.insertAdjacentHTML('beforeend', modalHTML);
+    }
+    document.getElementById('replyTicketId').value = ticketId;
+    document.getElementById('ticketReplyModal').style.display = 'flex';
+  };
+
+  window.closeTicketReplyModal = function() {
+    const modal = document.getElementById('ticketReplyModal');
+    if (modal) modal.style.display = 'none';
+    const msg = document.getElementById('replyMessage');
+    if (msg) msg.value = '';
+  };
+
+  window.submitTicketReply = async function() {
+    const ticketId = document.getElementById('replyTicketId').value;
+    const message = document.getElementById('replyMessage').value.trim();
+    if (!message) {
+      showNotification('Message cannot be empty', 'error');
+      return;
+    }
+    await addTicketResponse(ticketId, message);
+    closeTicketReplyModal();
+  };
+
+  // =========================
+  // ADMIN: MOD DELETION NOTIFICATIONS
+  // =========================
+
+  async function loadDeletionNotificationsAdmin(containerId) {
+    if (!await isModerator()) return;
+
+    try {
+      const { data, error } = await supabaseClient
+        .from('mod_deletion_notifications')
+        .select(`
+          *,
+          profiles:deleted_by_user_id (username),
+          authors:mod_author_id (username)
+        `)
+        .order('deleted_at', { ascending: false });
+
+      if (error) throw error;
+
+      const container = document.getElementById(containerId);
+      if (!container) return;
+
+      if (!data || data.length === 0) {
+        container.innerHTML = '<div class="gb-no-results">No deletion notifications</div>';
+        return;
+      }
+
+      container.innerHTML = data.map(notif => `
+        <div class="gb-card" style="margin-bottom: 15px; border-left: 4px solid ${notif.reviewed ? '#00ff88' : '#ffaa00'}">
+          <div style="display: flex; justify-content: space-between;">
+            <h4>${escapeHTML(notif.mod_title)}</h4>
+            ${!notif.reviewed ? '<span class="gb-badge" style="background:#ffaa00;">New</span>' : ''}
+          </div>
+          <p><strong>Author:</strong> ${escapeHTML(notif.authors?.username || 'Unknown')}</p>
+          <p><strong>Deleted by:</strong> ${escapeHTML(notif.profiles?.username || notif.deleted_by_username || 'Unknown')}</p>
+          <p><strong>Reason:</strong> ${escapeHTML(notif.reason || 'No reason')}</p>
+          <p><strong>Date:</strong> ${new Date(notif.deleted_at).toLocaleString()}</p>
+          ${!notif.reviewed ? `<button onclick="markDeletionNotificationReviewed('${notif.id}')" class="gb-btn gb-btn-secondary">Mark as Reviewed</button>` : ''}
+        </div>
+      `).join('');
+    } catch (err) {
+      console.error('Failed to load deletion notifications:', err);
+    }
+  }
+
+  async function markDeletionNotificationReviewed(notificationId) {
+    const user = await getCurrentUser();
+    if (!user || !await isModerator()) return;
+
+    try {
+      const { error } = await supabaseClient
+        .from('mod_deletion_notifications')
+        .update({
+          reviewed: true,
+          reviewed_by: user.id,
+          reviewed_at: new Date().toISOString()
+        })
+        .eq('id', notificationId);
+
+      if (error) throw error;
+      showNotification('Notification marked as reviewed', 'success');
+      loadDeletionNotificationsAdmin('deletionNotificationsContainer');
+      updateAdminNotificationCounts();
+    } catch (err) {
+      console.error('Failed to mark reviewed:', err);
+      showNotification('Failed to update', 'error');
+    }
+  }
+
+  // =========================
+  // RED INDICATOR FOR ADMIN NAV
+  // =========================
+
+  async function updateAdminNotificationCounts() {
+    if (!await isModerator()) return;
+
+    try {
+      const { count: delCount, error: delError } = await supabaseClient
+        .from('mod_deletion_notifications')
+        .select('*', { count: 'exact', head: true })
+        .eq('reviewed', false);
+
+      if (delError) throw delError;
+
+      const { count: ticketCount, error: ticketError } = await supabaseClient
+        .from('support_tickets')
+        .select('*', { count: 'exact', head: true })
+        .eq('status', 'open');
+
+      if (ticketError) throw ticketError;
+
+      const delBadge = document.getElementById('adminDelBadge');
+      if (delBadge) {
+        delBadge.textContent = delCount || 0;
+        delBadge.style.display = delCount > 0 ? 'inline-block' : 'none';
+      }
+
+      const ticketBadge = document.getElementById('adminTicketBadge');
+      if (ticketBadge) {
+        ticketBadge.textContent = ticketCount || 0;
+        ticketBadge.style.display = ticketCount > 0 ? 'inline-block' : 'none';
+      }
+    } catch (err) {
+      console.error('Failed to update admin counts:', err);
     }
   }
 
@@ -3374,8 +3283,6 @@ function showAuthenticatedUI(user, profile) {
   window.showNotification = showNotification;
   window.formatFileSize = formatFileSize;
   window.escapeHTML = escapeHTML;
-  window.fetchAdminNotificationCounts = fetchAdminNotificationCounts;
-window.updateMainNavBadges = updateMainNavBadges;
   window.setLoading = setLoading;
 
   window.loadAdminStats = loadAdminStats;
@@ -3394,17 +3301,6 @@ window.updateMainNavBadges = updateMainNavBadges;
   window.verifyUser = verifyUser;
   window.resetTrustScore = resetTrustScore;
   window.clearFlags = clearFlags;
-  window.createSupportTicket = createSupportTicket;
-window.loadUserTickets = loadUserTickets;
-window.loadAllTickets = loadAllTickets;
-window.updateTicketStatus = updateTicketStatus;
-window.addTicketResponse = addTicketResponse;
-window.openTicketReplyModal = openTicketReplyModal;
-window.closeTicketReplyModal = closeTicketReplyModal;
-window.submitTicketReply = submitTicketReply;
-window.loadDeletionNotificationsAdmin = loadDeletionNotificationsAdmin;
-window.markDeletionNotificationReviewed = markDeletionNotificationReviewed;
-window.updateAdminNotificationCounts = updateAdminNotificationCounts;
 
   window.loadProfilePage = loadProfilePage;
   window.loadMyMods = loadMyMods;
@@ -3442,6 +3338,24 @@ window.updateAdminNotificationCounts = updateAdminNotificationCounts;
   // Announcement notification functions
   window.updateNotificationCount = updateNotificationCount;
   window.startNotificationUpdates = startNotificationUpdates;
+
+  // New support functions
+  window.createSupportTicket = createSupportTicket;
+  window.loadAllTickets = loadAllTickets;
+  window.loadUserTickets = loadUserTickets;
+  window.loadTicketDetails = loadTicketDetails;
+  window.handleTicketAction = handleTicketAction;
+  window.updateTicketStatus = updateTicketStatus;
+  window.addTicketResponse = addTicketResponse;
+  window.loadTicketResponses = loadTicketResponses;
+  window.openTicketReplyModal = openTicketReplyModal;
+  window.closeTicketReplyModal = closeTicketReplyModal;
+  window.submitTicketReply = submitTicketReply;
+  window.loadDeletionNotificationsAdmin = loadDeletionNotificationsAdmin;
+  window.markDeletionNotificationReviewed = markDeletionNotificationReviewed;
+  window.updateAdminNotificationCounts = updateAdminNotificationCounts;
+  window.fetchAdminNotificationCounts = fetchAdminNotificationCounts;
+  window.updateMainNavBadges = updateMainNavBadges;
 
   window.supabaseClient = supabaseClient;
 

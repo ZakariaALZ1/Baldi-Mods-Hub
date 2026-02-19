@@ -92,6 +92,21 @@
     }
     .gb-loading { text-align:center; padding:60px; color:var(--gb-text-muted); }
     .gb-no-results { text-align:center; padding:60px; color:var(--gb-text-muted); }
+
+    /* Back link style (reuse from other pages) */
+    .gb-back-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--gb-text-muted);
+      text-decoration: none;
+      font-weight: 600;
+      margin-bottom: 20px;
+      transition: color 0.2s;
+    }
+    .gb-back-link:hover {
+      color: var(--gb-primary);
+    }
   </style>
 </head>
 <body>
@@ -135,6 +150,9 @@
     </div>
   </nav>
   <main class="gb-main">
+    <!-- Back to Profile link -->
+    <a href="profile.html" class="gb-back-link"><span>←</span> Back to Profile</a>
+
     <div class="gb-page-header">
       <h1>🗑️ Mod Deletion Notifications</h1>
       <p>When someone deletes one of your mods, you'll see it here.</p>

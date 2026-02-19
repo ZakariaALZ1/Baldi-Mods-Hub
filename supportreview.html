@@ -3,39 +3,409 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="X-Content-Type-Options" content="nosniff">
+  <meta http-equiv="Referrer-Policy" content="strict-origin-when-cross-origin">
   <title>Support Ticket Review - Baldi Mods Hub</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90' fill='%2300ff88'>🎓</text></svg>">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
   <script src="js/supabase.min.js"></script>
   <script src="config.js"></script>
   <style>
-    /* same admin styles as before */
-    body { background: #0a0a0a; }
-    .moderation-container { max-width: 1200px; margin: 0 auto; padding: 20px; }
-    .admin-warning { background: #332200; border-left: 4px solid #ffaa00; padding: 15px; border-radius: 5px; margin-bottom: 30px; color: #ffaa00; }
-    .mod-section { background: #1a1a1a; padding: 25px; border-radius: 10px; margin-bottom: 30px; border: 1px solid #333; }
-    .mod-section h2 { margin-top: 0; margin-bottom: 20px; color: #00ff88; border-bottom: 1px solid #333; padding-bottom: 15px; }
-    .gb-card { background: #222; padding: 20px; border-radius: 8px; margin-bottom: 15px; }
-    .gb-badge { display: inline-block; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: bold; }
-    .gb-btn { padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; margin-right: 10px; }
-    .gb-btn-primary { background: #00ff88; color: black; }
-    .gb-btn-danger { background: #ff4444; color: white; }
-    .gb-btn-secondary { background: #333; color: white; }
-    .ticket-responses { margin-top: 15px; padding-left: 20px; border-left: 2px solid #444; }
-    .gb-modal { position: fixed; z-index: 10000; left:0; top:0; width:100%; height:100%; background: rgba(0,0,0,0.7); display: flex; align-items: center; justify-content: center; }
-    .gb-modal-content { background: #1a1a1a; padding: 30px; border-radius: 20px; max-width: 500px; width:90%; }
-    .gb-modal-close { float:right; font-size:28px; cursor: pointer; color: #ccc; }
-    .gb-form-group { margin-bottom:20px; }
-    .gb-form-group textarea { width:100%; padding:10px; background:#222; border:1px solid #333; color:white; }
+    /* GameBanana Admin Styles */
+    :root {
+      --gb-primary: #00ff88;
+      --gb-primary-dark: #00cc66;
+      --gb-secondary: #ffaa00;
+      --gb-danger: #ff4444;
+      --gb-info: #2196f3;
+      --gb-bg: #0a0a0a;
+      --gb-bg-light: #1a1a1a;
+      --gb-bg-lighter: #222;
+      --gb-border: #333;
+      --gb-text: #fff;
+      --gb-text-muted: #ccc;
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      background: var(--gb-bg);
+      color: var(--gb-text);
+      font-family: 'Inter', sans-serif;
+      line-height: 1.6;
+    }
+
+    .gb-header {
+      background: linear-gradient(180deg, #1a1a1a 0%, #0f0f0f 100%);
+      border-bottom: 3px solid var(--gb-primary);
+      padding: 20px 0;
+      position: sticky;
+      top: 0;
+      z-index: 1000;
+    }
+
+    .gb-header-content {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 0 30px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 15px;
+    }
+
+    .gb-logo {
+      display: flex;
+      align-items: center;
+      gap: 15px;
+    }
+
+    .gb-logo-icon {
+      font-size: 48px;
+      filter: drop-shadow(0 0 10px rgba(0,255,136,0.3));
+    }
+
+    .gb-logo-text h1 {
+      font-size: 28px;
+      font-weight: 800;
+      background: linear-gradient(135deg, #fff 0%, #00ff88 100%);
+      -webkit-background-clip: text;
+      background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin-bottom: 5px;
+    }
+
+    .gb-logo-tagline {
+      color: var(--gb-text-muted);
+      font-size: 14px;
+    }
+
+    .gb-nav {
+      background: var(--gb-bg-light);
+      border-bottom: 1px solid var(--gb-border);
+      padding: 0;
+      position: sticky;
+      top: 120px;
+      z-index: 999;
+    }
+
+    .gb-nav-container {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 0 30px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 15px;
+    }
+
+    .gb-nav-links {
+      display: flex;
+      gap: 5px;
+      padding: 10px 0;
+      flex-wrap: wrap;
+    }
+
+    .gb-nav-item {
+      color: var(--gb-text-muted);
+      text-decoration: none;
+      padding: 12px 24px;
+      border-radius: 8px;
+      font-weight: 600;
+      font-size: 15px;
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      white-space: nowrap;
+    }
+
+    .gb-nav-item:hover {
+      color: var(--gb-text);
+      background: rgba(255,255,255,0.05);
+    }
+
+    .gb-nav-item.active {
+      color: var(--gb-text);
+      background: linear-gradient(135deg, rgba(0,255,136,0.15) 0%, rgba(0,255,136,0.05) 100%);
+      border-bottom: 2px solid var(--gb-primary);
+    }
+
+    .gb-nav-user {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+      flex-wrap: wrap;
+    }
+
+    .gb-user-badge {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 16px;
+      background: rgba(255,255,255,0.05);
+      border-radius: 30px;
+    }
+
+    .gb-user-avatar {
+      width: 32px;
+      height: 32px;
+      background: linear-gradient(135deg, var(--gb-primary), var(--gb-primary-dark));
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      color: black;
+    }
+
+    .gb-user-info {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .gb-user-name {
+      font-size: 14px;
+      font-weight: 600;
+    }
+
+    .gb-user-points {
+      font-size: 12px;
+      color: var(--gb-primary);
+    }
+
+    .gb-btn {
+      padding: 10px 20px;
+      border: none;
+      border-radius: 8px;
+      font-weight: bold;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .gb-btn-primary {
+      background: linear-gradient(135deg, var(--gb-primary), var(--gb-primary-dark));
+      color: black;
+    }
+
+    .gb-btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 5px 15px rgba(0,255,136,0.3);
+    }
+
+    .gb-btn-danger {
+      background: #ff4444;
+      color: white;
+    }
+
+    .gb-btn-danger:hover {
+      background: #ff6666;
+      transform: translateY(-2px);
+    }
+
+    .gb-btn-secondary {
+      background: transparent;
+      border: 2px solid var(--gb-border);
+      color: var(--gb-text-muted);
+    }
+
+    .gb-btn-secondary:hover {
+      border-color: var(--gb-primary);
+      color: var(--gb-primary);
+    }
+
+    .gb-main {
+      max-width: 1200px;
+      margin: 40px auto;
+      padding: 0 30px;
+    }
+
+    .mod-section {
+      background: linear-gradient(135deg, #1a1a1a 0%, #151515 100%);
+      border: 1px solid var(--gb-border);
+      border-radius: 20px;
+      padding: 30px;
+      margin-bottom: 30px;
+    }
+
+    .mod-section h2 {
+      color: var(--gb-primary);
+      font-size: 24px;
+      font-weight: 700;
+      margin-bottom: 20px;
+      border-bottom: 1px solid var(--gb-border);
+      padding-bottom: 15px;
+    }
+
+    .gb-card {
+      background: var(--gb-bg-lighter);
+      border: 1px solid var(--gb-border);
+      border-radius: 12px;
+      padding: 20px;
+      margin-bottom: 15px;
+      transition: all 0.2s;
+    }
+
+    .gb-card:hover {
+      border-color: var(--gb-primary);
+      transform: translateY(-2px);
+    }
+
+    .gb-badge {
+      display: inline-block;
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: bold;
+    }
+
+    .ticket-responses {
+      margin-top: 15px;
+      padding-left: 20px;
+      border-left: 2px solid var(--gb-border);
+    }
+
+    .gb-modal {
+      position: fixed;
+      z-index: 10000;
+      left: 0;
+      top: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0,0,0,0.7);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .gb-modal-content {
+      background: var(--gb-bg-light);
+      padding: 30px;
+      border-radius: 20px;
+      max-width: 500px;
+      width: 90%;
+      border: 1px solid var(--gb-border);
+    }
+
+    .gb-modal-close {
+      float: right;
+      font-size: 28px;
+      cursor: pointer;
+      color: var(--gb-text-muted);
+    }
+
+    .gb-modal-close:hover {
+      color: var(--gb-text);
+    }
+
+    .gb-form-group {
+      margin-bottom: 20px;
+    }
+
+    .gb-form-group label {
+      display: block;
+      margin-bottom: 8px;
+      color: var(--gb-text-muted);
+    }
+
+    .gb-form-group textarea {
+      width: 100%;
+      padding: 12px;
+      background: var(--gb-bg-lighter);
+      border: 1px solid var(--gb-border);
+      border-radius: 8px;
+      color: var(--gb-text);
+      font-family: 'Inter', sans-serif;
+    }
+
+    .gb-form-group textarea:focus {
+      outline: none;
+      border-color: var(--gb-primary);
+    }
+
+    .gb-form-actions {
+      display: flex;
+      gap: 10px;
+      justify-content: flex-end;
+    }
+
+    .admin-warning {
+      background: rgba(255,170,0,0.1);
+      border-left: 4px solid var(--gb-secondary);
+      padding: 15px;
+      border-radius: 8px;
+      margin-bottom: 30px;
+      color: var(--gb-secondary);
+    }
+
+    .loading {
+      text-align: center;
+      padding: 40px;
+      color: var(--gb-text-muted);
+    }
+
+    .gb-notification-badge {
+      background: #ff4444;
+      color: white;
+      border-radius: 50%;
+      padding: 2px 6px;
+      font-size: 11px;
+      margin-left: 5px;
+    }
   </style>
 </head>
 <body>
-  <header>
-    <div class="header-content">
-      <h1>🎓 Baldi Mods Hub - Support Review</h1>
-      <nav id="main-nav" class="main-nav"><!-- filled by JS --></nav>
+  <header class="gb-header">
+    <div class="gb-header-content">
+      <div class="gb-logo">
+        <span class="gb-logo-icon">🎓</span>
+        <div class="gb-logo-text">
+          <h1>BALDI MODS HUB</h1>
+          <span class="gb-logo-tagline">Support Review</span>
+        </div>
+      </div>
     </div>
   </header>
-  <main class="moderation-container">
+
+  <nav class="gb-nav" id="main-nav">
+    <div class="gb-nav-container">
+      <div class="gb-nav-links">
+        <a href="index.html" class="gb-nav-item">🏠 Home</a>
+        <a href="upload.html" class="gb-nav-item">📤 Upload</a>
+        <a href="profile.html" class="gb-nav-item">👤 Profile</a>
+        <a href="admin.html" class="gb-nav-item" id="nav-admin">🛡️ Moderation</a>
+        <a href="admin-dashboard.html" class="gb-nav-item" id="nav-dashboard">📊 Dashboard</a>
+      </div>
+      <div class="gb-notification-bell" id="notificationBell" style="display: none;">
+        <a href="announcements.html" style="color: inherit; text-decoration: none; position: relative;">
+          🔔
+          <span id="notificationCount" class="gb-notification-badge">0</span>
+        </a>
+      </div>
+      <div class="gb-nav-user" id="user-section" style="display:none;">
+        <div class="gb-user-badge">
+          <div class="gb-user-avatar" id="userAvatar">?</div>
+          <div class="gb-user-info">
+            <span class="gb-user-name" id="userDisplayName"></span>
+            <span class="gb-user-points" id="userTrustScore">⭐ 0</span>
+          </div>
+        </div>
+        <button onclick="logout()" class="gb-btn gb-btn-secondary" style="padding:10px 20px;">🚪 Logout</button>
+      </div>
+    </div>
+  </nav>
+
+  <main class="gb-main">
     <div id="loading" class="loading"><h2>Verifying permissions...</h2></div>
     <div id="content" style="display: none;">
       <h1>📋 Support Tickets</h1>
@@ -44,7 +414,7 @@
     </div>
   </main>
 
-  <!-- Reply Modal (will be created by JS if not present) -->
+  <!-- Reply Modal -->
   <div id="ticketReplyModal" class="gb-modal" style="display: none;">
     <div class="gb-modal-content">
       <span class="gb-modal-close" onclick="closeTicketReplyModal()">&times;</span>
@@ -52,7 +422,7 @@
       <input type="hidden" id="replyTicketId">
       <div class="gb-form-group">
         <label>Message</label>
-        <textarea id="replyMessage" rows="5" style="width: 100%; padding: 10px;"></textarea>
+        <textarea id="replyMessage" rows="5" placeholder="Type your reply..."></textarea>
       </div>
       <div class="gb-form-actions">
         <button onclick="submitTicketReply()" class="gb-btn gb-btn-primary">Send Reply</button>

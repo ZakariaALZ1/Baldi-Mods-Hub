@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="X-Content-Type-Options" content="nosniff">
+  <meta http-equiv="Referrer-Policy" content="strict-origin-when-cross-origin">
+  <title>Ticket Details - Baldi Mods Hub</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90' fill='%2300ff88'>🎓</text></svg>">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+  <script src="js/supabase.min.js"></script>
+  <script src="config.js"></script>
+  <style>
+    /* Reuse your existing styles */
+    :root { --gb-primary: #00ff88; --gb-primary-dark: #00cc66; --gb-secondary: #ffaa00; --gb-danger: #ff4444; --gb-info: #2196f3; --gb-bg: #0a0a0a; --gb-bg-light: #1a1a1a; --gb-bg-lighter: #222; --gb-border: #333; --gb-text: #fff; --gb-text-muted: #ccc; }
+    * { margin:0; padding:0; box-sizing:border-box; }
+    body { background: var(--gb-bg); color: var(--gb-text); font-family: 'Inter', sans-serif; line-height:1.6; }
+    .gb-header { background: linear-gradient(180deg, #1a1a1a 0%, #0f0f0f 100%); border-bottom:3px solid var(--gb-primary); padding:20px 0; position:sticky; top:0; z-index:1000; }
+    .gb-header-content { max-width:1400px; margin:0 auto; padding:0 30px; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:15px; }
+    .gb-logo { display:flex; align-items:center; gap:15px; }
+    .gb-logo-icon { font-size:48px; filter:drop-shadow(0 0 10px rgba(0,255,136,0.3)); }
+    .gb-logo-text h1 { font-size:28px; font-weight:800; background:linear-gradient(135deg,#fff 0%,#00ff88 100%); -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; margin-bottom:5px; }
+    .gb-logo-tagline { color:var(--gb-text-muted); font-size:14px; }
+    .gb-nav { background:var(--gb-bg-light); border-bottom:1px solid var(--gb-border); padding:0; position:sticky; top:120px; z-index:999; }
+    .gb-nav-container { max-width:1400px; margin:0 auto; padding:0 30px; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:15px; }
+    .gb-nav-links { display:flex; gap:5px; padding:10px 0; flex-wrap:wrap; }
+    .gb-nav-item { color:var(--gb-text-muted); text-decoration:none; padding:12px 24px; border-radius:8px; font-weight:600; transition:all 0.2s; white-space:nowrap; }
+    .gb-nav-item:hover { background:rgba(255,255,255,0.05); color:var(--gb-text); }
+    .gb-nav-item.active { color:var(--gb-text); background:linear-gradient(135deg, rgba(0,255,136,0.15) 0%, rgba(0,255,136,0.05) 100%); border-bottom:2px solid var(--gb-primary); }
+    .gb-nav-user { display:flex; align-items:center; gap:20px; flex-wrap:wrap; }
+    .gb-user-badge { display:flex; align-items:center; gap:10px; padding:8px 16px; background:rgba(255,255,255,0.05); border-radius:30px; }
+    .gb-user-avatar { width:32px; height:32px; background:linear-gradient(135deg,var(--gb-primary),var(--gb-primary-dark)); border-radius:50%; display:flex; align-items:center; justify-content:center; font-weight:700; color:black; }
+    .gb-user-info { display:flex; flex-direction:column; }
+    .gb-user-name { font-size:14px; font-weight:600; }
+    .gb-user-points { font-size:12px; color:var(--gb-primary); }
+    .gb-btn { padding:10px 20px; border:none; border-radius:8px; font-weight:bold; cursor:pointer; transition:all 0.2s; display:inline-flex; align-items:center; gap:8px; }
+    .gb-btn-primary { background:linear-gradient(135deg,var(--gb-primary),var(--gb-primary-dark)); color:black; }
+    .gb-btn-primary:hover { transform:translateY(-2px); box-shadow:0 5px 15px rgba(0,255,136,0.3); }
+    .gb-btn-danger { background: #ff4444; color: white; }
+    .gb-btn-danger:hover { background: #ff6666; transform:translateY(-2px); }
+    .gb-btn-secondary { background:transparent; border:2px solid var(--gb-border); color:var(--gb-text-muted); }
+    .gb-main { max-width:1000px; margin:40px auto; padding:0 30px; }
+    .gb-ticket-detail { background: var(--gb-bg-light); border:1px solid var(--gb-border); border-radius:20px; padding:30px; }
+    .gb-description-box { background: var(--gb-bg-lighter); padding:20px; border-radius:8px; margin:15px 0; }
+    .gb-mod-actions { display:flex; gap:10px; margin-top:20px; }
+    .gb-back-link { display:inline-flex; align-items:center; gap:8px; color:var(--gb-text-muted); text-decoration:none; font-weight:600; margin-bottom:20px; transition:color 0.2s; }
+    .gb-back-link:hover { color:var(--gb-primary); }
+    .gb-modal { position:fixed; z-index:10000; left:0; top:0; width:100%; height:100%; background:rgba(0,0,0,0.7); display:flex; align-items:center; justify-content:center; }
+    .gb-modal-content { background:var(--gb-bg-light); padding:30px; border-radius:20px; max-width:500px; width:90%; }
+    .gb-modal-close { float:right; font-size:28px; cursor:pointer; color:#ccc; }
+    .gb-form-group { margin-bottom:20px; }
+    .gb-form-group textarea { width:100%; padding:10px; background:#222; border:1px solid #444; color:white; border-radius:5px; }
+  </style>
+</head>
+<body>
+  <header class="gb-header">
+    <div class="gb-header-content">
+      <div class="gb-logo">
+        <span class="gb-logo-icon">🎓</span>
+        <div class="gb-logo-text">
+          <h1>BALDI MODS HUB</h1>
+          <span class="gb-logo-tagline">Ticket Details</span>
+        </div>
+      </div>
+    </div>
+  </header>
+  <nav class="gb-nav" id="main-nav">
+    <div class="gb-nav-container">
+      <div class="gb-nav-links">
+        <a href="index.html" class="gb-nav-item">🏠 Home</a>
+        <a href="upload.html" class="gb-nav-item">📤 Upload</a>
+        <a href="profile.html" class="gb-nav-item">👤 Profile</a>
+        <a href="admin.html" class="gb-nav-item" id="nav-admin" style="display:none;">🛡️ Moderation</a>
+        <a href="admin-dashboard.html" class="gb-nav-item" id="nav-dashboard" style="display:none;">📊 Dashboard</a>
+      </div>
+      <div class="gb-notification-bell" id="notificationBell" style="display: none;">
+        <a href="announcements.html" style="color: inherit; text-decoration: none; position: relative;">
+          🔔
+          <span id="notificationCount" class="gb-notification-badge">0</span>
+        </a>
+      </div>
+      <div class="gb-nav-user" id="user-section" style="display:none;">
+        <div class="gb-user-badge">
+          <div class="gb-user-avatar" id="userAvatar">?</div>
+          <div class="gb-user-info">
+            <span class="gb-user-name" id="userDisplayName"></span>
+            <span class="gb-user-points" id="userTrustScore">⭐ 0</span>
+          </div>
+        </div>
+        <button onclick="logout()" class="gb-btn gb-btn-secondary" style="padding:10px 20px;">🚪 Logout</button>
+      </div>
+    </div>
+  </nav>
+  <main class="gb-main">
+    <a href="javascript:history.back()" class="gb-back-link"><span>←</span> Back</a>
+    <div id="ticketContainer" class="gb-ticket-detail">
+      <div class="gb-loading">Loading ticket...</div>
+    </div>
+  </main>
+
+  <!-- Reply Modal -->
+  <div id="ticketReplyModal" class="gb-modal" style="display: none;">
+    <div class="gb-modal-content">
+      <span class="gb-modal-close" onclick="closeTicketReplyModal()">&times;</span>
+      <h2>Reply to Ticket</h2>
+      <input type="hidden" id="replyTicketId">
+      <div class="gb-form-group">
+        <label>Message</label>
+        <textarea id="replyMessage" rows="5" style="width: 100%; padding: 10px; background: #222; color: #fff; border: 1px solid #444;"></textarea>
+      </div>
+      <div class="gb-form-actions">
+        <button onclick="submitTicketReply()" class="gb-btn gb-btn-primary">Send Reply</button>
+        <button onclick="closeTicketReplyModal()" class="gb-btn gb-btn-secondary">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="script.js"></script>
+  <script>
+    (async function() {
+      const waitForSupabase = async (maxAttempts = 30) => {
+        for (let i = 0; i < maxAttempts; i++) {
+          if (typeof window.supabaseClient !== 'undefined') return true;
+          await new Promise(resolve => setTimeout(resolve, 100));
+        }
+        return false;
+      };
+      await waitForSupabase();
+
+      const urlParams = new URLSearchParams(window.location.search);
+      const ticketId = urlParams.get('id');
+      if (!ticketId) {
+        window.location.href = 'index.html';
+        return;
+      }
+
+      if (typeof loadTicketDetails === 'function') {
+        loadTicketDetails(ticketId);
+      }
+    })();
+  </script>
+</body>
+</html>
