@@ -2666,46 +2666,55 @@ async function uploadMod() {
   // ADMIN: MOD DELETION NOTIFICATIONS
   // =========================
 
-  async function loadDeletionNotificationsAdmin(containerId) {
-    if (!await isModerator()) return;
+// =========================
+// ADMIN: MOD DELETION NOTIFICATIONS
+// =========================
 
-    try {
-      const { data, error } = await supabaseClient
-        .from('mod_deletion_notifications')
-        .select(`
-          *,
-          profiles:deleted_by_user_id (username),
-          authors:mod_author_id (username)
-        `)
-        .order('deleted_at', { ascending: false });
+// =========================
+// ADMIN: MOD DELETION NOTIFICATIONS
+// =========================
 
-      if (error) throw error;
+async function loadDeletionNotificationsAdmin(containerId) {
+  if (!await isModerator()) return;
 
-      const container = document.getElementById(containerId);
-      if (!container) return;
+  try {
+    const { data, error } = await supabaseClient
+      .from('mod_deletion_notifications')
+      .select(`
+        *,
+        profiles:deleted_by_user_id (username),
+        authors:mod_author_id (username)
+      `)
+      .order('deleted_at', { ascending: false });
 
-      if (!data || data.length === 0) {
-        container.innerHTML = '<div class="gb-no-results">No deletion notifications</div>';
-        return;
-      }
+    if (error) throw error;
 
-      container.innerHTML = data.map(notif => `
-        <div class="gb-card" style="margin-bottom: 15px; border-left: 4px solid ${notif.reviewed ? '#00ff88' : '#ffaa00'}">
-          <div style="display: flex; justify-content: space-between;">
-            <h4>${escapeHTML(notif.mod_title)}</h4>
-            ${!notif.reviewed ? '<span class="gb-badge" style="background:#ffaa00;">New</span>' : ''}
-          </div>
-          <p><strong>Author:</strong> ${escapeHTML(notif.authors?.username || 'Unknown')}</p>
-          <p><strong>Deleted by:</strong> ${escapeHTML(notif.profiles?.username || notif.deleted_by_username || 'Unknown')}</p>
-          <p><strong>Reason:</strong> ${escapeHTML(notif.reason || 'No reason')}</p>
-          <p><strong>Date:</strong> ${new Date(notif.deleted_at).toLocaleString()}</p>
-          ${!notif.reviewed ? `<button onclick="markDeletionNotificationReviewed('${notif.id}')" class="gb-btn gb-btn-secondary">Mark as Reviewed</button>` : ''}
-        </div>
-      `).join('');
-    } catch (err) {
-      console.error('Failed to load deletion notifications:', err);
+    const container = document.getElementById(containerId);
+    if (!container) return;
+
+    if (!data || data.length === 0) {
+      container.innerHTML = '<div class="gb-no-results">No deletion notifications</div>';
+      return;
     }
+
+    container.innerHTML = data.map(notif => `
+      <div class="gb-card" style="margin-bottom: 15px; border-left: 4px solid ${notif.reviewed ? '#00ff88' : '#ffaa00'}">
+        <div style="display: flex; justify-content: space-between;">
+          <h4>${escapeHTML(notif.mod_title)}</h4>
+          ${!notif.reviewed ? '<span class="gb-badge" style="background:#ffaa00;">New</span>' : ''}
+        </div>
+        <p><strong>Mod ID:</strong> ${escapeHTML(notif.mod_id)}</p>
+        <p><strong>Author:</strong> ${escapeHTML(notif.authors?.username || 'Unknown')}</p>
+        <p><strong>Deleted by:</strong> ${escapeHTML(notif.profiles?.username || notif.deleted_by_username || 'Unknown')}</p>
+        <p><strong>Reason:</strong> ${escapeHTML(notif.reason || 'No reason')}</p>
+        <p><strong>Date:</strong> ${new Date(notif.deleted_at).toLocaleString()}</p>
+        ${!notif.reviewed ? `<button onclick="markDeletionNotificationReviewed('${notif.id}')" class="gb-btn gb-btn-secondary">Mark as Reviewed</button>` : ''}
+      </div>
+    `).join('');
+  } catch (err) {
+    console.error('Failed to load deletion notifications:', err);
   }
+}
 
   async function markDeletionNotificationReviewed(notificationId) {
     const user = await getCurrentUser();
