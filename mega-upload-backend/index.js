@@ -421,6 +421,7 @@ app.post(
           tags: req.body.tags ? req.body.tags.split(',').map(t => t.trim()) : [],
           file_url: modFileUrl,
           user_id: req.userId,
+          mega_folder: folder.name,  
           author_name: authorName,
           file_size: mod.size,
           file_extension: fileExt,

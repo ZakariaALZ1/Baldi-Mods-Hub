@@ -1999,10 +1999,10 @@ async function deleteMod(id) {
     return;
   }
 
-  // Fetch mod details including mega_folder_name
+  // Fetch mod details including mega_folder
   const { data: mod, error: fetchError } = await supabaseClient
     .from("mods2")
-    .select("id, user_id, approved, quarantine, screenshots, file_storage_path, file_url, title, mega_folder_name")
+    .select("id, user_id, approved, quarantine, screenshots, file_storage_path, file_url, title, mega_folder")
     .eq("id", id)
     .single();
 
@@ -2028,7 +2028,7 @@ async function deleteMod(id) {
 
   if (!confirm('⚠️ Permanently delete this mod? This cannot be undone.')) return;
 
-  // Delete Mega file if it exists
+  // Delete Mega file if exists (your existing code)
   if (mod.file_url && mod.file_url.includes('mega.nz')) {
     try {
       const accessToken = await getAccessToken();
@@ -2071,29 +2071,23 @@ async function deleteMod(id) {
 
     if (error) throw error;
 
-    // Insert deletion notification for the author
+    // Insert deletion notification (using correct column names)
     try {
-      const { data: deleterProfile } = await supabaseClient
-        .from('profiles')
-        .select('username')
-        .eq('id', user.id)
-        .single();
-
       await supabaseClient
         .from('mod_deletion_notifications')
         .insert({
           mod_id: mod.id,
-          mega_folder_name: mod.mega_folder_name,   // <-- store MEGA folder name
+          mega_folder: mod.mega_folder,          // ✅ matches table
           mod_title: mod.title,
           mod_author_id: mod.user_id,
           deleted_by_user_id: user.id,
-          deleted_by_username: deleterProfile?.username || user.email?.split('@')[0] || 'Unknown',
           deleted_at: new Date().toISOString(),
           reason: null,
-          reviewed: false
+          read: false                             // ✅ matches table
         });
+      console.log('✅ Notification inserted');
     } catch (notifErr) {
-      console.error('Failed to insert deletion notification:', notifErr);
+      console.error('❌ Failed to insert deletion notification:', notifErr);
     }
 
     showNotification("✅ Mod deleted", "success");
@@ -2681,6 +2675,7 @@ async function deleteMod(id) {
 
 async function loadDeletionNotificationsAdmin(containerId) {
   if (!await isModerator()) return;
+
   try {
     const { data, error } = await supabaseClient
       .from('mod_deletion_notifications')
@@ -2702,18 +2697,18 @@ async function loadDeletionNotificationsAdmin(containerId) {
     }
 
     container.innerHTML = data.map(notif => `
-      <div class="gb-card" style="margin-bottom: 15px; border-left: 4px solid ${notif.reviewed ? '#00ff88' : '#ffaa00'}">
+      <div class="gb-card" style="margin-bottom: 15px; border-left: 4px solid ${notif.read ? '#00ff88' : '#ffaa00'}">
         <div style="display: flex; justify-content: space-between;">
           <h4>${escapeHTML(notif.mod_title)}</h4>
-          ${!notif.reviewed ? '<span class="gb-badge" style="background:#ffaa00;">New</span>' : ''}
+          ${!notif.read ? '<span class="gb-badge" style="background:#ffaa00;">New</span>' : ''}
         </div>
         <p><strong>Database ID:</strong> ${escapeHTML(notif.mod_id || '')}</p>
-        <p><strong>MEGA Folder:</strong> ${escapeHTML(notif.mega_folder_name || '')}</p>
+        <p><strong>MEGA Folder:</strong> ${escapeHTML(notif.mega_folder || '')}</p>
         <p><strong>Author:</strong> ${escapeHTML(notif.authors?.username || 'Unknown')}</p>
-        <p><strong>Deleted by:</strong> ${escapeHTML(notif.profiles?.username || notif.deleted_by_username || 'Unknown')}</p>
+        <p><strong>Deleted by:</strong> ${escapeHTML(notif.profiles?.username || 'Unknown')}</p>
         <p><strong>Reason:</strong> ${escapeHTML(notif.reason || 'No reason')}</p>
         <p><strong>Date:</strong> ${new Date(notif.deleted_at).toLocaleString()}</p>
-        ${!notif.reviewed ? `<button onclick="markDeletionNotificationReviewed('${notif.id}')" class="gb-btn gb-btn-secondary">Mark as Reviewed</button>` : ''}
+        ${!notif.read ? `<button onclick="markDeletionNotificationReviewed('${notif.id}')" class="gb-btn gb-btn-secondary">Mark as Reviewed</button>` : ''}
       </div>
     `).join('');
   } catch (err) {
@@ -2757,6 +2752,38 @@ async function loadDeletionNotificationsAdmin(containerId) {
       console.error('Failed to update admin counts:', err);
     }
   }
+
+  
+  /* =========================
+     markDeletionNotificationReviewed
+  ========================= */
+
+  async function markDeletionNotificationReviewed(notificationId) {
+  const user = await getCurrentUser();
+  if (!user || !await isModerator()) return;
+
+  try {
+    const { error } = await supabaseClient
+      .from('mod_deletion_notifications')
+      .update({ read: true })
+      .eq('id', notificationId);
+
+    if (error) throw error;
+
+    showNotification('Notification marked as reviewed', 'success');
+
+    // Refresh the notifications list and update the red badge count
+    if (typeof loadDeletionNotificationsAdmin === 'function') {
+      loadDeletionNotificationsAdmin('deletionNotificationsContainer');
+    }
+    if (typeof updateAdminNotificationCounts === 'function') {
+      updateAdminNotificationCounts();
+    }
+  } catch (err) {
+    console.error('Failed to mark reviewed:', err);
+    showNotification('Failed to update: ' + err.message, 'error');
+  }
+}
 
   /* =========================
      COMMENTS & FAVORITES
