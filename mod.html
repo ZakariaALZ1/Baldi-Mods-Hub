@@ -249,26 +249,27 @@
     }
 
     /* Sidebar */
-    .gb-mod-sidebar {
-      background: linear-gradient(135deg, #1a1a1a 0%, #151515 100%);
-      border: 1px solid var(--gb-border);
-      border-radius: 20px;
-      overflow: hidden;
-      position: sticky;
-      top: 200px;
-      align-self: start;
-    }
+.gb-mod-sidebar {
+  background: linear-gradient(135deg, #1a1a1a 0%, #151515 100%);
+  border: 1px solid var(--gb-border);
+  border-radius: 20px;
+  overflow: visible; /* FIX: allow avatar to overflow */
+  position: sticky;
+  top: 200px;
+  align-self: start;
+}
 
-    .gb-author-cover {
-      height: 100px;
-      background: linear-gradient(135deg, var(--gb-primary), var(--gb-primary-dark));
-      position: relative;
-    }
+.gb-author-cover {
+  height: 100px;
+  background: linear-gradient(135deg, var(--gb-primary), var(--gb-primary-dark));
+  position: relative;
+  overflow: visible; /* CRITICAL: stops avatar from being cut off */
+}
 
 .gb-author-avatar {
   position: absolute;
-  bottom: -50px;          /* same as profile.html */
-  left: 50%;              /* center horizontally */
+  bottom: -40px; /* perfect overlap like profile.html */
+  left: 50%;
   transform: translateX(-50%);
   width: 80px;
   height: 80px;
@@ -281,14 +282,16 @@
   font-size: 36px;
   font-weight: 800;
   color: var(--gb-primary);
-  box-shadow: 0 10px 20px rgba(0,0,0,0.3);
+  box-shadow: 0 10px 25px rgba(0,0,0,0.6);
   line-height: 1;
-  text-shadow: 0 0 8px var(--gb-primary);
+  z-index: 5; /* ensures it sits above cover */
+  text-shadow: 0 0 12px var(--gb-primary);
 }
 
 .gb-author-info {
-  padding: 90px 30px 30px;
+  padding: 70px 30px 30px; /* matches avatar overlap spacing */
 }
+
 
     .gb-author-name {
       font-size: 24px;
@@ -572,18 +575,21 @@
       }
     }
 
-    @media (max-width: 768px) {
-      .gb-author-avatar {
-        width: 60px;
-        height: 60px;
-        font-size: 28px;
-        bottom: -30px;
-        left: 20px;
-      }
-      .gb-author-info {
-        padding-top: 50px;
-      }
-    }
+@media (max-width: 768px) {
+  .gb-author-avatar {
+    width: 60px;
+    height: 60px;
+    font-size: 28px;
+    bottom: -30px;
+    left: 50%;
+    transform: translateX(-50%);
+  }
+
+  .gb-author-info {
+    padding-top: 55px;
+  }
+}
+
 
     @media (max-width: 480px) {
       .gb-mod-meta-grid {
