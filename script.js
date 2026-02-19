@@ -698,203 +698,203 @@
   ========================= */
   let isUploading = false;
 
-  async function uploadMod() {
-    if (isUploading) {
-      showNotification("Upload already in progress...", "info");
-      return;
-    }
-    isUploading = true;
-
-    const user = await getCurrentUser();
-    if (!user) {
-      showNotification("Please login to upload", "error");
-      isUploading = false;
-      return;
-    }
-
-    const { data: sessionData, error: sessErr } = await supabaseClient.auth.getSession();
-    if (sessErr || !sessionData?.session?.access_token) {
-      console.error("Session error:", sessErr);
-      showNotification("Login expired — please sign in again", "error");
-      isUploading = false;
-      return;
-    }
-
-    const accessToken = sessionData.session.access_token;
-
-    if (!getCSRFToken()) generateCSRFToken();
-    const csrfToken = getCSRFToken();
-
-    if (!csrfToken) {
-      showNotification("Security token missing — reload page", "error");
-      isUploading = false;
-      return;
-    }
-
-    const title = sanitizeInput(val("title"));
-    const description = sanitizeInput(val("description"));
-    const version = val("version") || "1.0.0";
-    const baldiVersion = val("baldiVersion");
-    const tags = val("tags");
-
-    const file = fileEl("file");
-    const mainScreenshot = fileEl("mainScreenshot");
-    const additionalScreenshots = document.getElementById("screenshots")?.files;
-
-    let screenshotFiles = [];
-    if (additionalScreenshots && additionalScreenshots.length > 0) {
-      if (additionalScreenshots.length > 2) {
-        showNotification("You can only upload up to 2 additional screenshots. Extra files will be ignored.", "warning");
-      }
-      screenshotFiles = Array.from(additionalScreenshots).slice(0, 2);
-    }
-
-    if (!title || title.length < 3 || title.length > 100) {
-      showNotification("Title must be 3-100 characters", "error");
-      isUploading = false;
-      return;
-    }
-    if (!description || description.length < 10 || description.length > 5000) {
-      showNotification("Description must be 10-5000 characters", "error");
-      isUploading = false;
-      return;
-    }
-    if (!file) {
-      showNotification("Please select a mod file", "error");
-      isUploading = false;
-      return;
-    }
-    if (!mainScreenshot) {
-      showNotification("Please select a main screenshot", "error");
-      isUploading = false;
-      return;
-    }
-
-    const allowedExtensions = window.ENV?.ALLOWED_FILE_TYPES || [".zip", ".rar", ".7z", ".baldimod"];
-    const maxSize = window.ENV?.MAX_UPLOAD_SIZE || 100 * 1024 * 1024;
-    const fileExt = "." + file.name.split(".").pop().toLowerCase();
-
-    if (!allowedExtensions.includes(fileExt)) {
-      showNotification(`Only ${allowedExtensions.join(", ")} files allowed`, "error");
-      isUploading = false;
-      return;
-    }
-    if (file.size > maxSize) {
-      showNotification(`File exceeds ${Math.round(maxSize / (1024 * 1024))}MB`, "error");
-      isUploading = false;
-      return;
-    }
-    if (!MEGA_BACKEND_URL) {
-      showNotification("Backend URL missing", "error");
-      isUploading = false;
-      return;
-    }
-
-    const button = document.querySelector('button[onclick="uploadMod()"]');
-    setLoading(button, true, "📤 Uploading...");
-
-    const progressDiv = document.createElement("div");
-    progressDiv.className = "gb-progress-card";
-    progressDiv.innerHTML = '<div class="gb-progress-spinner"></div> Preparing upload...';
-    document.querySelector(".gb-upload-form")?.appendChild(progressDiv);
-
-    try {
-      progressDiv.innerHTML = '<div class="gb-progress-spinner"></div> Uploading files...';
-
-      const formData = new FormData();
-      formData.append("mainScreenshot", mainScreenshot);
-      formData.append("modFile", file);
-      formData.append("title", title);
-      formData.append("description", description);
-      formData.append("version", version);
-      formData.append("baldiVersion", baldiVersion);
-      formData.append("tags", tags);
-      if (screenshotFiles.length > 0) {
-        screenshotFiles.forEach(f => formData.append("screenshots", f));
-      }
-
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 300000);
-
-      const response = await fetch(`${MEGA_BACKEND_URL}/upload`, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-          "X-CSRF-Token": csrfToken
-        },
-        body: formData,
-        signal: controller.signal
-      });
-
-      clearTimeout(timeoutId);
-
-      if (!response.ok) {
-        let msg;
-        const clonedResponse = response.clone();
-        try {
-          const j = await clonedResponse.json();
-          msg = j.error || j.message;
-        } catch {
-          msg = await response.text();
-        }
-        throw new Error(`Server ${response.status}: ${msg}`);
-      }
-
-      const result = await response.json();
-      if (!result.modFileUrl) throw new Error("Missing modFileUrl");
-
-      const screenshotsArray = [
-        { url: result.mainScreenshotUrl, is_main: true, sort_order: 0 },
-        ...(result.screenshotUrls || []).map((url, i) => ({ url, is_main: false, sort_order: i + 1 }))
-      ];
-
-      const tagArray = tags ? tags.split(",").map(t => sanitizeInput(t)).filter(Boolean) : [];
-
-      progressDiv.innerHTML = '<div class="gb-progress-spinner"></div> Saving data...';
-
-      const { error: dbError } = await supabaseClient
-        .from("mods2")
-        .insert([{
-          title,
-          description,
-          version,
-          baldi_version: baldiVersion,
-          tags: tagArray,
-          file_url: result.modFileUrl,
-          user_id: user.id,
-          author_name: currentUserProfile?.username || user.email?.split("@")[0],
-          file_size: file.size,
-          file_extension: fileExt,
-          original_filename: file.name,
-          screenshots: screenshotsArray,
-          approved: false,
-          scan_status: "pending",
-          download_count: 0,
-          view_count: 0,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        }]);
-
-      if (dbError) throw dbError;
-
-      progressDiv.remove();
-      showNotification("✅ Mod uploaded! Pending review.", "success", 8000);
-      setTimeout(() => window.location.href = "profile.html", 2000);
-
-    } catch (err) {
-      console.error("UPLOAD ERROR:", err);
-      progressDiv?.remove();
-      if (err.name === "AbortError") {
-        showNotification("Upload timed out", "error");
-      } else {
-        showNotification("Upload failed: " + err.message, "error");
-      }
-    } finally {
-      setLoading(button, false);
-      isUploading = false;
-    }
+/* =========================
+   MOD UPLOAD – MEGA.NZ VERSION (with backend DB insert)
+========================= */
+async function uploadMod() {
+  // ===============================
+  // AUTH CHECK
+  // ===============================
+  const user = await getCurrentUser();
+  if (!user) {
+    showNotification("Please login to upload", "error");
+    return;
   }
 
+  const { data: sessionData, error: sessErr } =
+    await supabaseClient.auth.getSession();
+
+  if (sessErr || !sessionData?.session?.access_token) {
+    console.error("Session error:", sessErr);
+    showNotification("Login expired — please sign in again", "error");
+    return;
+  }
+
+  const accessToken = sessionData.session.access_token;
+
+  // ===============================
+  // ENSURE CSRF
+  // ===============================
+  if (!getCSRFToken()) generateCSRFToken();
+  const csrfToken = getCSRFToken();
+
+  if (!csrfToken) {
+    showNotification("Security token missing — reload page", "error");
+    return;
+  }
+
+  // ===============================
+  // COLLECT INPUTS
+  // ===============================
+  const title = sanitizeInput(val("title"));
+  const description = sanitizeInput(val("description"));
+  const version = val("version") || "1.0.0";
+  const baldiVersion = val("baldiVersion");
+  const tags = val("tags");
+
+  const file = fileEl("file");
+  const mainScreenshot = fileEl("mainScreenshot");
+  const additionalScreenshots =
+    document.getElementById("screenshots")?.files;
+
+  // ----- LIMIT ADDITIONAL SCREENSHOTS TO 2 -----
+  let screenshotFiles = [];
+  if (additionalScreenshots && additionalScreenshots.length > 0) {
+    if (additionalScreenshots.length > 2) {
+      showNotification("You can only upload up to 2 additional screenshots. Extra files will be ignored.", "warning");
+    }
+    screenshotFiles = Array.from(additionalScreenshots).slice(0, 2);
+  }
+
+  // ===============================
+  // VALIDATION
+  // ===============================
+  if (!title || title.length < 3 || title.length > 100) {
+    showNotification("Title must be 3-100 characters", "error");
+    return;
+  }
+
+  if (!description || description.length < 10 || description.length > 5000) {
+    showNotification("Description must be 10-5000 characters", "error");
+    return;
+  }
+
+  if (!file) {
+    showNotification("Please select a mod file", "error");
+    return;
+  }
+  if (!mainScreenshot) {
+    showNotification("Please select a main screenshot", "error");
+    return;
+  }
+
+  const allowedExtensions =
+    window.ENV?.ALLOWED_FILE_TYPES ||
+    [".zip", ".rar", ".7z", ".baldimod"];
+
+  const maxSize =
+    window.ENV?.MAX_UPLOAD_SIZE ||
+    100 * 1024 * 1024;
+
+  const fileExt = "." + file.name.split(".").pop().toLowerCase();
+
+  if (!allowedExtensions.includes(fileExt)) {
+    showNotification(`Only ${allowedExtensions.join(", ")} files allowed`, "error");
+    return;
+  }
+
+  if (file.size > maxSize) {
+    showNotification(`File exceeds ${Math.round(maxSize / (1024 * 1024))}MB`, "error");
+    return;
+  }
+
+  const MEGA_BACKEND_URL =
+    window.ENV?.MEGA_BACKEND_URL ||
+    "https://baldi-mods-hub.pxxl.click";
+
+  if (!MEGA_BACKEND_URL) {
+    showNotification("Backend URL missing", "error");
+    return;
+  }
+
+  // ===============================
+  // UI STATE
+  // ===============================
+  const button = document.querySelector('button[onclick="uploadMod()"]');
+  setLoading(button, true, "📤 Uploading...");
+
+  const progressDiv = document.createElement("div");
+  progressDiv.className = "gb-progress-card";
+  progressDiv.innerHTML =
+    '<div class="gb-progress-spinner"></div> Preparing upload...';
+
+  document.querySelector(".gb-upload-form")?.appendChild(progressDiv);
+
+  try {
+    // ===============================
+    // BACKEND UPLOAD (all files + text fields)
+    // ===============================
+    progressDiv.innerHTML =
+      '<div class="gb-progress-spinner"></div> Uploading files...';
+
+    const formData = new FormData();
+    formData.append("mainScreenshot", mainScreenshot);
+    formData.append("modFile", file);
+    formData.append("title", title);
+    formData.append("description", description);
+    formData.append("version", version);
+    formData.append("baldiVersion", baldiVersion);
+    formData.append("tags", tags);
+
+    if (screenshotFiles.length > 0) {
+      screenshotFiles.forEach(f => formData.append("screenshots", f));
+    }
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 300000);
+
+    const response = await fetch(`${MEGA_BACKEND_URL}/upload`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "X-CSRF-Token": csrfToken
+      },
+      body: formData,
+      signal: controller.signal
+    });
+
+    clearTimeout(timeoutId);
+
+    if (!response.ok) {
+      let msg;
+      try {
+        const j = await response.json();
+        msg = j.error || j.message;
+      } catch {
+        msg = await response.text();
+      }
+      throw new Error(`Server ${response.status}: ${msg}`);
+    }
+
+    const result = await response.json();
+
+    if (!result.modFileUrl)
+      throw new Error("Missing modFileUrl");
+
+    // ===============================
+    // SUCCESS – backend already saved everything
+    // ===============================
+    progressDiv.remove();
+    showNotification("✅ Mod uploaded! Pending review.", "success", 8000);
+
+    // ===== REDIRECT TO PROFILE AFTER SUCCESS =====
+    setTimeout(() => {
+      window.location.href = "profile.html";
+    }, 2000);
+
+  } catch (err) {
+    console.error("UPLOAD ERROR:", err);
+    progressDiv?.remove();
+
+    if (err.name === "AbortError") {
+      showNotification("Upload timed out", "error");
+    } else {
+      showNotification("Upload failed: " + err.message, "error");
+    }
+  } finally {
+    setLoading(button, false);
+  }
+}
   /* =========================
      MOD PAGE
   ========================= */
