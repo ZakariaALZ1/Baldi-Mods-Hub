@@ -1016,12 +1016,13 @@ async function uploadMod() {
 
       modContainer.innerHTML = `
         <div class="gb-mod-grid">
-          <div class="gb-mod-sidebar">
-            <div class="gb-author-cover"></div>
-            <div class="gb-author-avatar" style="text-shadow: 0 0 8px var(--gb-primary);">
-              ${escapeHTML((authorProfile?.username || 'U').charAt(0).toUpperCase())}
-            </div>
-            <div class="gb-author-info">
+<div class="gb-mod-sidebar">
+  <div class="gb-author-cover">
+    <div class="gb-author-avatar" style="text-shadow: 0 0 8px var(--gb-primary);">
+      ${escapeHTML((authorProfile?.username || 'U').charAt(0).toUpperCase())}
+    </div>
+  </div>
+  <div class="gb-author-info">
               <div class="gb-author-name"><a href="profile.html?id=${mod.user_id}" style="color: inherit; text-decoration: none;">${escapeHTML(authorProfile?.username || 'Unknown')}</a></div>
               <div class="gb-author-badge">${authorBadge}</div>
               <div class="gb-author-stats">
