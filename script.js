@@ -1428,63 +1428,112 @@ async function uploadMod() {
             <p>${escapeHTML(profile?.bio || 'No bio yet.')}</p>
           </div>
         </div>
-        <div class="gb-profile-main">
-          <div class="gb-tabs">
-            <button class="gb-tab active" onclick="window.switchTab('uploads')">📦 My Mods</button>
-            <button class="gb-tab" onclick="window.switchTab('stats')">📊 Statistics</button>
-            <button class="gb-tab" onclick="window.switchTab('buddies')">👥 Buddies</button>
-            <button class="gb-tab" onclick="window.switchTab('subscribers')">👤 Subscribers</button>
-            <button class="gb-tab" onclick="window.switchTab('tickets')">📋 My Tickets</button>
-            <button class="gb-tab" onclick="window.switchTab('settings')">⚙️ Settings</button>
-          </div>
-          <div id="uploads-tab" class="gb-tab-content active">
-            <h3>My Uploaded Mods</h3>
-            <div id="myMods" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px; margin-top: 20px;"></div>
-          </div>
-          <div id="stats-tab" class="gb-tab-content">
-            <h3>Statistics</h3>
-            <div class="gb-stats-detailed">
-              <div class="gb-stat-card"><div class="gb-stat-icon">📤</div><div class="gb-stat-info"><span class="gb-stat-label">Total Uploads</span><span class="gb-stat-number" id="statTotalUploads">0</span></div></div>
-              <div class="gb-stat-card"><div class="gb-stat-icon">✅</div><div class="gb-stat-info"><span class="gb-stat-label">Approved</span><span class="gb-stat-number" id="statApprovedMods">0</span></div></div>
-              <div class="gb-stat-card"><div class="gb-stat-icon">⏳</div><div class="gb-stat-info"><span class="gb-stat-label">Pending</span><span class="gb-stat-number" id="statPendingMods">0</span></div></div>
-              <div class="gb-stat-card"><div class="gb-stat-icon">📥</div><div class="gb-stat-info"><span class="gb-stat-label">Downloads</span><span class="gb-stat-number" id="statTotalDownloads">0</span></div></div>
+        <div class="gb-tabs">
+          <button class="gb-tab active" onclick="window.switchTab('uploads')">📦 My Mods</button>
+          <button class="gb-tab" onclick="window.switchTab('stats')">📊 Statistics</button>
+          <button class="gb-tab" onclick="window.switchTab('buddies')">👥 Buddies</button>
+          <button class="gb-tab" onclick="window.switchTab('subscribers')">👤 Subscribers</button>
+          <button class="gb-tab" onclick="window.switchTab('tickets')">📋 My Tickets</button>
+          <button class="gb-tab" onclick="window.switchTab('settings')">⚙️ Settings</button>
+        </div>
+
+        <div id="uploads-tab" class="gb-tab-content active">
+          <h3>My Uploaded Mods</h3>
+          <div id="myMods" class="gb-mods-grid"></div>
+        </div>
+
+        <div id="stats-tab" class="gb-tab-content">
+          <h3>Statistics</h3>
+          <div class="gb-stats-detailed">
+            <div class="gb-stat-card">
+              <div class="gb-stat-icon">📤</div>
+              <div class="gb-stat-info">
+                <span class="gb-stat-label">Total Uploads</span>
+                <span class="gb-stat-number" id="statTotalUploads">0</span>
+              </div>
+            </div>
+
+            <div class="gb-stat-card">
+              <div class="gb-stat-icon">✅</div>
+              <div class="gb-stat-info">
+                <span class="gb-stat-label">Approved</span>
+                <span class="gb-stat-number" id="statApprovedMods">0</span>
+              </div>
+            </div>
+
+            <div class="gb-stat-card">
+              <div class="gb-stat-icon">⏳</div>
+              <div class="gb-stat-info">
+                <span class="gb-stat-label">Pending</span>
+                <span class="gb-stat-number" id="statPendingMods">0</span>
+              </div>
+            </div>
+
+            <div class="gb-stat-card">
+              <div class="gb-stat-icon">📥</div>
+              <div class="gb-stat-info">
+                <span class="gb-stat-label">Downloads</span>
+                <span class="gb-stat-number" id="statTotalDownloads">0</span>
+              </div>
             </div>
           </div>
-          <div id="buddies-tab" class="gb-tab-content">
-            <h3>Buddies</h3>
-            <div id="profileBuddiesList" class="gb-user-grid" style="grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 15px;"></div>
-          </div>
-          <div id="subscribers-tab" class="gb-tab-content">
-            <h3>Subscribers</h3>
-            <div id="profileSubscribersList" class="gb-user-grid" style="grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 15px;"></div>
-          </div>
-          <div id="tickets-tab" class="gb-tab-content">
-            <h3>My Support Tickets</h3>
-            <div id="userTicketsList" class="gb-ticket-list"></div>
-          </div>
-          <div id="settings-tab" class="gb-tab-content">
-            <h3>Profile Settings</h3>
-            <form class="gb-settings-form">
-              <div class="gb-form-group">
-                <label>Display Name</label>
-                <input type="text" id="displayName" value="${escapeHTML(username)}" maxlength="30">
-                <span class="gb-char-counter" id="nameCounter">${username.length}/30</span>
-              </div>
-              <div class="gb-form-group">
-                <label>Bio</label>
-                <textarea id="userBio" rows="4" maxlength="500" placeholder="Tell us about yourself...">${escapeHTML(profile?.bio || '')}</textarea>
-                <span class="gb-char-counter" id="bioCounter">${profile?.bio?.length || 0}/500</span>
-              </div>
-              <div class="gb-form-group">
-                <label>Email</label>
-                <input type="email" value="${escapeHTML(user.email)}" disabled style="background: #333; opacity: 0.7;">
-              </div>
-              <button type="button" onclick="updateProfile()" class="gb-btn gb-btn-primary">💾 Save Changes</button>
-            </form>
-          </div>
         </div>
+
+        <div id="buddies-tab" class="gb-tab-content">
+          <h3>Buddies</h3>
+          <div id="profileBuddiesList" class="gb-user-grid"></div>
+        </div>
+
+        <div id="subscribers-tab" class="gb-tab-content">
+          <h3>Subscribers</h3>
+          <div id="profileSubscribersList" class="gb-user-grid"></div>
+        </div>
+
+        <div id="tickets-tab" class="gb-tab-content">
+          <h3>My Support Tickets</h3>
+          <div id="userTicketsList" class="gb-ticket-list"></div>
+        </div>
+
+        <div id="settings-tab" class="gb-tab-content">
+          <h3>Profile Settings</h3>
+          <form class="gb-settings-form">
+            <div class="gb-form-group">
+              <label>Display Name</label>
+              <input type="text" id="displayName" 
+                value="${escapeHTML(username)}" maxlength="30">
+              <span class="gb-char-counter" id="nameCounter">
+                ${username.length}/30
+              </span>
+            </div>
+
+            <div class="gb-form-group">
+              <label>Bio</label>
+              <textarea id="userBio" rows="4" maxlength="500"
+                placeholder="Tell us about yourself...">
+                ${escapeHTML(profile?.bio || '')}
+              </textarea>
+              <span class="gb-char-counter" id="bioCounter">
+                ${profile?.bio?.length || 0}/500
+              </span>
+            </div>
+
+            <div class="gb-form-group">
+              <label>Email</label>
+              <input type="email" value="${escapeHTML(user.email)}"
+                disabled style="background:#333;opacity:0.7;">
+            </div>
+
+            <button type="button" onclick="updateProfile()" 
+              class="gb-btn gb-btn-primary">
+              💾 Save Changes
+            </button>
+          </form>
+        </div>
+
       </div>
-    `;
+    </div>
+  </div>
+`;
     loadUserStats();
     loadMyMods();
     // Load tickets when the tickets tab is first activated (handled by switchTab)
