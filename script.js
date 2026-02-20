@@ -1014,22 +1014,33 @@ async function uploadMod() {
       const isAuthor = user && user.id === mod.user_id;
       const canEdit = isAuthor || (user && await isModerator());
 
-      modContainer.innerHTML = `
+     modContainer.innerHTML = `
         <div class="gb-mod-grid">
-<div class="gb-mod-sidebar">
-  <div class="gb-author-cover">
-    <div class="gb-author-avatar" style="text-shadow: 0 0 8px var(--gb-primary);">
-      ${escapeHTML((authorProfile?.username || 'U').charAt(0).toUpperCase())}
-    </div>
-  </div>
-  <div class="gb-author-info">
+          <!-- Sidebar (Author Info) -->
+          <div class="gb-mod-sidebar">
+            <div class="gb-author-cover"></div>
+            <div class="gb-author-avatar" style="text-shadow: 0 0 8px var(--gb-primary);">
+              ${escapeHTML((authorProfile?.username || 'U').charAt(0).toUpperCase())}
+            </div>
+            <div class="gb-author-info">
               <div class="gb-author-name"><a href="profile.html?id=${mod.user_id}" style="color: inherit; text-decoration: none;">${escapeHTML(authorProfile?.username || 'Unknown')}</a></div>
               <div class="gb-author-badge">${authorBadge}</div>
+              
               <div class="gb-author-stats">
-                <div class="gb-author-stat"><span>📦 Uploads</span><span class="gb-author-stat-value">${authorProfile?.upload_count || 0}</span></div>
-                <div class="gb-author-stat"><span>📥 Downloads</span><span class="gb-author-stat-value">${authorProfile?.download_count || 0}</span></div>
-                <div class="gb-author-stat"><span>⭐ Trust</span><span class="gb-author-stat-value">${authorProfile?.trust_score || 0}</span></div>
+                <div class="gb-author-stat">
+                  <span>📦 Uploads</span>
+                  <span class="gb-author-stat-value">${authorProfile?.upload_count || 0}</span>
+                </div>
+                <div class="gb-author-stat">
+                  <span>📥 Downloads</span>
+                  <span class="gb-author-stat-value">${authorProfile?.download_count || 0}</span>
+                </div>
+                <div class="gb-author-stat">
+                  <span>⭐ Trust</span>
+                  <span class="gb-author-stat-value">${authorProfile?.trust_score || 0}</span>
+                </div>
               </div>
+
               <div class="gb-author-actions">
                 <button onclick="toggleBuddy('${mod.user_id}')" class="gb-btn ${isBuddy ? 'gb-btn-primary' : 'gb-btn-outline'} gb-btn-block" id="buddyBtn-${mod.user_id}">${isBuddy ? '✓ Buddy' : '+ Add Buddy'}</button>
                 <button onclick="toggleSubscribe('${mod.user_id}')" class="gb-btn ${isSubscribed ? 'gb-btn-primary' : 'gb-btn-outline'} gb-btn-block" id="subBtn-${mod.user_id}">${isSubscribed ? '🔔 Subscribed' : '🔔 Subscribe'}</button>
@@ -1037,39 +1048,53 @@ async function uploadMod() {
               </div>
             </div>
           </div>
+
+          <!-- Main Content -->
           <div class="gb-mod-main">
             <div style="display: flex; align-items: center; gap: 15px; margin-bottom: 15px; flex-wrap: wrap;">
               <h1 class="gb-mod-title" style="margin: 0;">${escapeHTML(mod.title)}</h1>
               ${canEdit ? `<a href="editmod.html?id=${mod.id}" class="gb-btn gb-btn-secondary" style="padding: 8px 16px;">✎ Edit</a>` : ''}
             </div>
+            
             <div class="gb-mod-badges">
               <span class="gb-badge">📦 v${escapeHTML(mod.version || '1.0.0')}</span>
               <span class="gb-badge">🎮 ${escapeHTML(mod.baldi_version || 'Any')}</span>
-              <span class="gb-badge" style="background:${mod.risk_score < 30 ? '#00ff88' : mod.risk_score < 60 ? '#ffaa00' : '#ff4444'};">${mod.risk_score < 30 ? '✅ Safe' : mod.risk_score < 60 ? '⚠️ Caution' : '❌ Unsafe'}</span>
+              <span class="gb-badge" style="background:${mod.risk_score < 30 ? '#00ff88' : mod.risk_score < 60 ? '#ffaa00' : '#ff4444'};">
+                ${mod.risk_score < 30 ? '✅ Safe' : mod.risk_score < 60 ? '⚠️ Caution' : '❌ Unsafe'}
+              </span>
             </div>
+
             <div class="gb-mod-meta-grid">
               <div class="gb-meta-item"><span class="gb-meta-label">Downloads</span><span class="gb-meta-value">📥 ${mod.download_count || 0}</span></div>
               <div class="gb-meta-item"><span class="gb-meta-label">Views</span><span class="gb-meta-value">👁️ ${mod.view_count || 0}</span></div>
               <div class="gb-meta-item"><span class="gb-meta-label">Uploaded</span><span class="gb-meta-value">📅 ${new Date(mod.created_at).toLocaleDateString()}</span></div>
               <div class="gb-meta-item"><span class="gb-meta-label">File Size</span><span class="gb-meta-value">💾 ${formatFileSize(mod.file_size || 0)}</span></div>
             </div>
+
             ${screenshotsHtml}
+
             <div class="gb-mod-description">
               <h2>Description</h2>
               <div class="gb-description-content">${escapeHTML(mod.description).replace(/\n/g, '<br>')}</div>
             </div>
+
             ${mod.tags?.length ? `
               <div class="gb-tag-list">
                 ${mod.tags.map(tag => `<span class="gb-tag">#${escapeHTML(tag)}</span>`).join('')}
               </div>
             ` : ''}
+
+            <!-- Favorite Button -->
             <div class="gb-mod-favorite">
               <button id="favoriteBtn" onclick="toggleFavorite('${mod.id}')" class="gb-btn gb-btn-outline gb-btn-large">🤍 Favorite</button>
             </div>
+
             <div class="gb-mod-actions">
               <a href="${escapeHTML(mod.file_url)}" class="gb-btn gb-btn-primary gb-btn-large" target="_blank" rel="noopener noreferrer" onclick="trackDownload('${mod.id}')">⬇️ Download Mod</a>
               <button onclick="reportMod('${mod.id}')" class="gb-btn gb-btn-secondary gb-btn-large">🚩 Report Mod</button>
             </div>
+
+            <!-- Comments Section -->
             <div class="gb-comments-section">
               <h2>Comments</h2>
               ${user ? `
@@ -1084,6 +1109,7 @@ async function uploadMod() {
         </div>
       `;
 
+      // Load comments and favorite status after rendering
       loadComments(mod.id);
       updateFavoriteButton(mod.id);
 
