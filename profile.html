@@ -678,115 +678,92 @@ margin: 20px auto 16px;
       margin-bottom: 30px;
       color: var(--gb-text-muted);
     }
-
-.gb-stat {
-  text-align: center;
-  padding: 10px 5px; /* add vertical padding */
-  min-height: 70px;  /* ensure enough height */
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-}
-
-.gb-stat-value {
-  display: block;
-  font-size: 28px;
-  font-weight: 800;
-  color: var(--gb-primary);
-  line-height: 1.2; /* keep from before */
-  word-break: break-word;
-}
-
-/* ===== JOIN DATE FIX (overflow bug) ===== */
 /* =========================
-   JOIN DATE + STATS OVERFLOW FIX (SCRIPT SAFE)
+   MASTER FIX — SCRIPT SAFE
+   Fixes:
+   - Date overflow
+   - Split cards
+   - Buttons jumping UI
+   - Desktop + Mobile
 ========================= */
 
-/* Fix long join date text injected by script.js */
-.gb-stat-value,
-.gb-stat-value.join-date {
-  font-size: 18px;
-  white-space: normal !important;
-  word-break: break-word;
-  overflow-wrap: anywhere;
-  line-height: 1.4;
-  text-align: center;
-  max-width: 100%;
-  display: block;
+/* STOP global centering from breaking layout */
+.gb-profile {
+  text-align: left;
 }
 
-/* =========================
-   GAMEBANANA STYLE PROFILE
-   FULL RESPONSIVE FIX (FINAL)
-   Compatible with script.js UI
-========================= */
-
-/* Desktop safety (prevents weird stretching & split cards) */
-.gb-profile-grid {
-  display: grid;
-  grid-template-columns: 320px 1fr;
+/* Main container created by script.js */
+.gb-profile-container {
+  display: grid !important;
+  grid-template-columns: 320px 1fr !important;
   gap: 25px;
   align-items: start;
+  max-width: 1200px;
+  margin: 30px auto;
   width: 100%;
 }
 
-/* Ensure injected cards never overflow */
-.gb-profile-main,
-.gb-profile-card,
+/* Fix sidebar card */
 .gb-profile-sidebar {
-  max-width: 100%;
-  box-sizing: border-box;
+  width: 100%;
+  max-width: 320px;
 }
 
-/* IMPORTANT: correct class used by your script.js */
-.gb-stats-grid {
-  display: grid;
+/* Fix main content card */
+.gb-profile-main {
+  width: 100%;
+  min-width: 0; /* CRITICAL: prevents overflow */
+}
+
+/* Fix stats row (uploads / downloads / joined) */
+.gb-profile-stats {
+  display: grid !important;
   grid-template-columns: repeat(3, 1fr);
   gap: 15px;
+  text-align: center;
 }
 
-/* Tablet */
-@media (max-width: 1200px) {
+/* Fix JOIN DATE overflow specifically */
+.gb-stat-value {
+  white-space: normal !important;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+  font-size: 18px;
+  line-height: 1.4;
+}
 
-  /* Stack sidebar + content into ONE column */
-  .gb-profile-grid {
+/* =========================
+   TABLET FIX
+========================= */
+@media (max-width: 1100px) {
+  .gb-profile-container {
     grid-template-columns: 1fr !important;
   }
 
-  /* Remove sticky sidebar (fixes split UI bug) */
   .gb-profile-sidebar {
-    position: static !important;
-    top: auto !important;
-    width: 100% !important;
+    max-width: 100%;
   }
 
-  /* Make main card full width */
-  .gb-profile-main {
-    width: 100% !important;
-  }
-
-  /* Stats adapt earlier to prevent overflow */
-  .gb-stats-grid {
-    grid-template-columns: 1fr 1fr !important;
+  .gb-profile-stats {
+    grid-template-columns: repeat(2, 1fr) !important;
   }
 }
 
-/* Mobile (MAIN FIX – GameBanana stacking) */
+/* =========================
+   MOBILE (GAMEBANANA STYLE)
+========================= */
 @media (max-width: 768px) {
 
-  /* Force single column like GameBanana */
-  .gb-profile-grid {
+  .gb-profile-container {
     grid-template-columns: 1fr !important;
     gap: 20px;
   }
 
-  /* Fix profile card alignment */
   .gb-profile-info {
     padding: 90px 20px 25px !important;
     text-align: center;
   }
 
-  /* Avatar scaling */
   .gb-profile-avatar {
     width: 80px;
     height: 80px;
@@ -794,59 +771,15 @@ margin: 20px auto 16px;
     margin: -40px auto 12px;
   }
 
-  /* CRITICAL: use the REAL stats class from script.js */
-  .gb-stats-grid {
+  .gb-profile-stats {
     grid-template-columns: 1fr !important;
-    gap: 12px;
-    text-align: center;
   }
 
-  .gb-stat-value {
-    font-size: 20px;
-  }
-
-  .gb-stat-label {
-    font-size: 11px;
-  }
-
-  /* Fix tabs squishing */
-  .gb-tabs {
-    flex-wrap: wrap;
-    justify-content: center;
-    gap: 8px;
-  }
-
-  .gb-tab {
-    padding: 8px 16px;
-    font-size: 14px;
-  }
-
-  /* CRITICAL: prevent buttons jumping into another card */
+  /* Prevent buttons jumping outside card */
   .gb-profile-main,
-  .gb-profile-card,
   .gb-profile-sidebar {
-    width: 100% !important;
     max-width: 100% !important;
-  }
-}
-
-/* Small Phones */
-@media (max-width: 480px) {
-
-  .gb-profile-grid {
-    grid-template-columns: 1fr !important;
-  }
-
-  .gb-stats-grid {
-    grid-template-columns: 1fr !important;
-  }
-
-  .gb-stat-value {
-    font-size: 17px;
-  }
-
-  .gb-profile-info {
-    padding: 80px 15px 20px !important;
+    width: 100% !important;
   }
 }
   </style>
