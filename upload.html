@@ -571,39 +571,81 @@
       color: var(--gb-primary);
     }
 
-    /* Responsive */
-    @media (max-width: 768px) {
-      .gb-header-content {
-        flex-direction: column;
-        gap: 20px;
-      }
-      
-      .gb-nav-container {
-        flex-direction: column;
-      }
-      
-      .gb-nav-links {
-        flex-wrap: wrap;
-        justify-content: center;
-      }
-      
-      .gb-security-card {
-        flex-direction: column;
-        text-align: center;
-      }
-      
-      .gb-security-list {
-        justify-content: center;
-      }
-      
-      .gb-form-actions {
-        flex-direction: column;
-      }
-      
-      .gb-upload-header h1 {
-        font-size: 36px;
-      }
-    }
+/* =================================
+   RESPONSIVE (UPLOAD PAGE — FIXED)
+   Clean GameBanana-style mobile
+================================= */
+@media (max-width: 768px) {
+
+  /* Stop double sticky overlap (VERY IMPORTANT) */
+  .gb-header {
+    position: relative !important;
+  }
+
+  .gb-nav {
+    position: relative !important;
+    top: 0 !important;
+  }
+
+  /* Stack header properly */
+  .gb-header-content {
+    flex-direction: column;
+    gap: 15px;
+    text-align: center;
+  }
+
+  /* Make nav clean on mobile */
+  .gb-nav-container {
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .gb-nav-links {
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 8px;
+  }
+
+  /* Fix page spacing so content is visible */
+  .gb-upload {
+    margin: 20px auto !important;
+    padding: 0 15px !important;
+    width: 100%;
+  }
+
+  /* Make upload card full width */
+  .gb-upload-form {
+    padding: 20px !important;
+  }
+
+  /* Title scaling (less giant on phones) */
+  .gb-upload-header h1 {
+    font-size: 28px !important;
+    text-align: center;
+  }
+
+  /* Security card stack */
+  .gb-security-card {
+    flex-direction: column;
+    text-align: center;
+    gap: 15px;
+  }
+
+  .gb-security-list {
+    justify-content: center;
+  }
+
+  /* Buttons stack vertically */
+  .gb-form-actions {
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  /* Prevent horizontal cut-off */
+  body {
+    overflow-x: hidden;
+  }
+}
   </style>
 </head>
 <body>
