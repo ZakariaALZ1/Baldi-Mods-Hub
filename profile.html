@@ -687,65 +687,61 @@ margin: 20px auto 16px;
    - Desktop + Mobile
 ========================= */
 
-/* STOP global centering from breaking layout */
-.gb-profile {
-  text-align: left;
-}
+/* =========================
+   REAL PROFILE LAYOUT FIX (FINAL)
+   Targets ACTUAL container used in your HTML
+========================= */
 
-/* Main container created by script.js */
+/* FIX MAIN LAYOUT (DESKTOP) */
 .gb-profile-container {
   display: grid !important;
   grid-template-columns: 320px 1fr !important;
-  gap: 25px;
-  align-items: start;
-  max-width: 1200px;
-  margin: 30px auto;
-  width: 100%;
+  gap: 25px !important;
+  align-items: start !important;
+  width: 100% !important;
 }
 
-/* Fix sidebar card */
-.gb-profile-sidebar {
-  width: 100%;
-  max-width: 320px;
-}
-
-/* Fix main content card */
+/* Prevent cards from shrinking or escaping */
+.gb-profile-sidebar,
 .gb-profile-main {
-  width: 100%;
-  min-width: 0; /* CRITICAL: prevents overflow */
+  width: 100% !important;
+  max-width: 100% !important;
+  box-sizing: border-box !important;
 }
 
-/* Fix stats row (uploads / downloads / joined) */
-.gb-profile-stats {
+/* FIX stats overflow (JOIN DATE BUG) */
+.gb-profile-stats,
+.gb-stats-grid {
   display: grid !important;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 15px;
-  text-align: center;
+  grid-template-columns: repeat(3, 1fr) !important;
+  gap: 15px !important;
+  text-align: center !important;
 }
 
-/* Fix JOIN DATE overflow specifically */
 .gb-stat-value {
   white-space: normal !important;
-  word-break: break-word;
-  overflow-wrap: anywhere;
-  font-size: 18px;
-  line-height: 1.4;
+  overflow-wrap: anywhere !important;
+  word-break: break-word !important;
+  line-height: 1.4 !important;
+  font-size: 18px !important;
 }
 
 /* =========================
    TABLET FIX
 ========================= */
-@media (max-width: 1100px) {
+@media (max-width: 1200px) {
   .gb-profile-container {
     grid-template-columns: 1fr !important;
   }
 
+  /* Remove sticky sidebar (causes split UI bug) */
   .gb-profile-sidebar {
-    max-width: 100%;
+    position: relative !important;
+    top: 0 !important;
   }
 
-  .gb-profile-stats {
-    grid-template-columns: repeat(2, 1fr) !important;
+  .gb-stats-grid {
+    grid-template-columns: 1fr 1fr !important;
   }
 }
 
@@ -754,32 +750,48 @@ margin: 20px auto 16px;
 ========================= */
 @media (max-width: 768px) {
 
+  /* Stack EVERYTHING in one column */
   .gb-profile-container {
     grid-template-columns: 1fr !important;
-    gap: 20px;
+    gap: 20px !important;
   }
 
+  /* Fix avatar overlap with header */
   .gb-profile-info {
     padding: 90px 20px 25px !important;
-    text-align: center;
+    text-align: center !important;
   }
 
   .gb-profile-avatar {
-    width: 80px;
-    height: 80px;
-    font-size: 36px;
-    margin: -40px auto 12px;
+    width: 80px !important;
+    height: 80px !important;
+    font-size: 36px !important;
+    margin: -40px auto 12px !important;
   }
 
+  /* FIX DATE + STATS breaking UI */
+  .gb-stats-grid,
   .gb-profile-stats {
     grid-template-columns: 1fr !important;
+    gap: 12px !important;
   }
 
-  /* Prevent buttons jumping outside card */
+  /* CRITICAL: prevents buttons jumping to another card */
   .gb-profile-main,
   .gb-profile-sidebar {
-    max-width: 100% !important;
     width: 100% !important;
+    max-width: 100% !important;
+  }
+}
+
+/* Small phones */
+@media (max-width: 480px) {
+  .gb-stat-value {
+    font-size: 16px !important;
+  }
+
+  .gb-profile-info {
+    padding: 80px 15px 20px !important;
   }
 }
   </style>
