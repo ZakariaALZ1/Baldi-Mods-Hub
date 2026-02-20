@@ -697,41 +697,96 @@ margin: 20px auto 16px;
   word-break: break-word;
 }
 
+/* ===== JOIN DATE FIX (overflow bug) ===== */
+/* =========================
+   JOIN DATE + STATS OVERFLOW FIX (SCRIPT SAFE)
+========================= */
+
+/* Fix long join date text injected by script.js */
+.gb-stat-value,
 .gb-stat-value.join-date {
   font-size: 18px;
-  white-space: normal;
-  line-height: 1.4; /* slightly larger for multi‑line */
+  white-space: normal !important;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+  line-height: 1.4;
+  text-align: center;
+  max-width: 100%;
+  display: block;
 }
+
 /* =========================
-   RESPONSIVE (FIXED)
-   GameBanana Style Mobile
+   GAMEBANANA STYLE PROFILE
+   FULL RESPONSIVE FIX (FINAL)
+   Compatible with script.js UI
 ========================= */
+
+/* Desktop safety (prevents weird stretching & split cards) */
+.gb-profile-grid {
+  display: grid;
+  grid-template-columns: 320px 1fr;
+  gap: 25px;
+  align-items: start;
+  width: 100%;
+}
+
+/* Ensure injected cards never overflow */
+.gb-profile-main,
+.gb-profile-card,
+.gb-profile-sidebar {
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+/* IMPORTANT: correct class used by your script.js */
+.gb-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 15px;
+}
 
 /* Tablet */
 @media (max-width: 1200px) {
+
+  /* Stack sidebar + content into ONE column */
   .gb-profile-grid {
     grid-template-columns: 1fr !important;
   }
 
+  /* Remove sticky sidebar (fixes split UI bug) */
   .gb-profile-sidebar {
     position: static !important;
+    top: auto !important;
+    width: 100% !important;
+  }
+
+  /* Make main card full width */
+  .gb-profile-main {
+    width: 100% !important;
+  }
+
+  /* Stats adapt earlier to prevent overflow */
+  .gb-stats-grid {
+    grid-template-columns: 1fr 1fr !important;
   }
 }
 
-/* Mobile */
+/* Mobile (MAIN FIX – GameBanana stacking) */
 @media (max-width: 768px) {
 
-  /* Stack everything in one column */
+  /* Force single column like GameBanana */
   .gb-profile-grid {
     grid-template-columns: 1fr !important;
+    gap: 20px;
   }
 
-  /* Fix avatar spacing */
+  /* Fix profile card alignment */
   .gb-profile-info {
     padding: 90px 20px 25px !important;
     text-align: center;
   }
 
+  /* Avatar scaling */
   .gb-profile-avatar {
     width: 80px;
     height: 80px;
@@ -739,10 +794,11 @@ margin: 20px auto 16px;
     margin: -40px auto 12px;
   }
 
-  /* Stats full width like GameBanana */
-  .gb-profile-stats {
+  /* CRITICAL: use the REAL stats class from script.js */
+  .gb-stats-grid {
     grid-template-columns: 1fr !important;
-    gap: 10px;
+    gap: 12px;
+    text-align: center;
   }
 
   .gb-stat-value {
@@ -753,7 +809,7 @@ margin: 20px auto 16px;
     font-size: 11px;
   }
 
-  /* Tabs wrap nicely instead of squishing */
+  /* Fix tabs squishing */
   .gb-tabs {
     flex-wrap: wrap;
     justify-content: center;
@@ -764,17 +820,33 @@ margin: 20px auto 16px;
     padding: 8px 16px;
     font-size: 14px;
   }
+
+  /* CRITICAL: prevent buttons jumping into another card */
+  .gb-profile-main,
+  .gb-profile-card,
+  .gb-profile-sidebar {
+    width: 100% !important;
+    max-width: 100% !important;
+  }
 }
 
-/* Small phones */
+/* Small Phones */
 @media (max-width: 480px) {
-  .gb-profile-stats {
+
+  .gb-profile-grid {
     grid-template-columns: 1fr !important;
-    gap: 10px;
+  }
+
+  .gb-stats-grid {
+    grid-template-columns: 1fr !important;
   }
 
   .gb-stat-value {
-    font-size: 18px;
+    font-size: 17px;
+  }
+
+  .gb-profile-info {
+    padding: 80px 15px 20px !important;
   }
 }
   </style>
