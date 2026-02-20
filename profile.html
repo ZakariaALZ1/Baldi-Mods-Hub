@@ -964,6 +964,7 @@ margin: 20px auto 16px;
           <button class="gb-tab" onclick="window.switchTab('stats')">📊 Statistics</button>
           <button class="gb-tab" onclick="window.switchTab('buddies')">👥 Buddies</button>
           <button class="gb-tab" onclick="window.switchTab('subscribers')">👤 Subscribers</button>
+          <button class="gb-tab" onclick="window.switchTab('tickets')">📋 My Tickets</button>
           <button class="gb-tab" onclick="window.switchTab('settings')">⚙️ Settings</button>
         </div>
 
@@ -992,6 +993,11 @@ margin: 20px auto 16px;
           <h3>Subscribers</h3>
           <div id="profileSubscribersList" class="gb-user-grid" style="grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 15px;"></div>
         </div>
+
+        <div id="tickets-tab" class="gb-tab-content">
+  <h3>My Support Tickets</h3>
+  <div id="userTicketsList"></div>
+</div>
         
         <div id="settings-tab" class="gb-tab-content">
           <h3>Profile Settings</h3>
