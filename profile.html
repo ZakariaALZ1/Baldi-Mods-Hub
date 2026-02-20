@@ -686,97 +686,124 @@ margin: 20px auto 16px;
    - Buttons jumping UI
    - Desktop + Mobile
 ========================= */
-
 /* =========================
-   REAL PROFILE LAYOUT FIX (FINAL)
-   Targets ACTUAL container used in your HTML
+   FINAL PROFILE LAYOUT FIX
+   (Compatible with script.js + gb-profile-container)
 ========================= */
 
-/* FIX MAIN LAYOUT (DESKTOP) */
+/* MAIN container used by script.js */
 .gb-profile-container {
-  display: grid !important;
-  grid-template-columns: 320px 1fr !important;
-  gap: 25px !important;
-  align-items: start !important;
-  width: 100% !important;
+  display: grid;
+  grid-template-columns: 320px 1fr;
+  gap: 25px;
+  align-items: start;
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 20px;
+  box-sizing: border-box;
 }
 
-/* Prevent cards from shrinking or escaping */
+/* Prevent cards from breaking layout */
 .gb-profile-sidebar,
 .gb-profile-main {
-  width: 100% !important;
-  max-width: 100% !important;
-  box-sizing: border-box !important;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
-/* FIX stats overflow (JOIN DATE BUG) */
+/* FIX stats overflow + join date (script injected text) */
+.gb-stat-value,
+.gb-stat-value.join-date {
+  font-size: 18px;
+  white-space: normal !important;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+  line-height: 1.4;
+  text-align: center;
+  display: block;
+  max-width: 100%;
+}
+
+/* Proper stats grid (used by your script.js) */
 .gb-profile-stats,
 .gb-stats-grid {
-  display: grid !important;
-  grid-template-columns: repeat(3, 1fr) !important;
-  gap: 15px !important;
-  text-align: center !important;
-}
-
-.gb-stat-value {
-  white-space: normal !important;
-  overflow-wrap: anywhere !important;
-  word-break: break-word !important;
-  line-height: 1.4 !important;
-  font-size: 18px !important;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 15px;
+  text-align: center;
 }
 
 /* =========================
    TABLET FIX
 ========================= */
 @media (max-width: 1200px) {
+
+  /* Stack sidebar and main */
   .gb-profile-container {
     grid-template-columns: 1fr !important;
+    gap: 20px;
   }
 
   /* Remove sticky sidebar (causes split UI bug) */
   .gb-profile-sidebar {
-    position: relative !important;
-    top: 0 !important;
+    position: static !important;
+    top: auto !important;
   }
 
+  /* Stats become 2 columns */
+  .gb-profile-stats,
   .gb-stats-grid {
     grid-template-columns: 1fr 1fr !important;
   }
 }
 
 /* =========================
-   MOBILE (GAMEBANANA STYLE)
+   MOBILE FIX (MAIN)
 ========================= */
 @media (max-width: 768px) {
 
-  /* Stack EVERYTHING in one column */
+  /* Single column like GameBanana */
   .gb-profile-container {
     grid-template-columns: 1fr !important;
-    gap: 20px !important;
+    padding: 15px;
   }
 
-  /* Fix avatar overlap with header */
+  /* Fix header overlap spacing */
+  .gb-profile {
+    padding-top: 10px;
+  }
+
+  /* Avatar scaling */
+  .gb-profile-avatar {
+    width: 80px;
+    height: 80px;
+    font-size: 36px;
+    margin: -40px auto 12px;
+  }
+
+  /* Fix profile info alignment */
   .gb-profile-info {
     padding: 90px 20px 25px !important;
-    text-align: center !important;
+    text-align: center;
   }
 
-  .gb-profile-avatar {
-    width: 80px !important;
-    height: 80px !important;
-    font-size: 36px !important;
-    margin: -40px auto 12px !important;
-  }
-
-  /* FIX DATE + STATS breaking UI */
-  .gb-stats-grid,
-  .gb-profile-stats {
+  /* Stack stats vertically (fix date going outside UI) */
+  .gb-profile-stats,
+  .gb-stats-grid {
     grid-template-columns: 1fr !important;
-    gap: 12px !important;
+    gap: 12px;
   }
 
-  /* CRITICAL: prevents buttons jumping to another card */
+  .gb-stat-value {
+    font-size: 20px;
+  }
+
+  .gb-stat-label {
+    font-size: 11px;
+  }
+
+  /* CRITICAL: prevent buttons jumping outside card */
   .gb-profile-main,
   .gb-profile-sidebar {
     width: 100% !important;
@@ -784,10 +811,16 @@ margin: 20px auto 16px;
   }
 }
 
-/* Small phones */
+/* =========================
+   SMALL PHONES
+========================= */
 @media (max-width: 480px) {
+  .gb-profile-container {
+    padding: 10px;
+  }
+
   .gb-stat-value {
-    font-size: 16px !important;
+    font-size: 17px;
   }
 
   .gb-profile-info {
@@ -934,7 +967,7 @@ margin: 20px auto 16px;
           profile = newProfile;
         }
 
-        renderGameBananaProfile(profile, user);
+        renderProfile(profile, user);
       } catch (err) {
         console.error('Failed to load profile:', err);
         document.getElementById('profile-content').innerHTML = `
