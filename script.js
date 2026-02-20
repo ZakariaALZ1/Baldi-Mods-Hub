@@ -1394,7 +1394,7 @@ async function uploadMod() {
     }
   }
 
-   function renderProfile(profile, user) {
+  function renderProfile(profile, user) {
     const container = document.getElementById('profile-content');
     if (!container) return;
     const username = profile?.username || user.email?.split('@')[0] || 'User';
@@ -1434,6 +1434,7 @@ async function uploadMod() {
             <button class="gb-tab" onclick="window.switchTab('stats')">📊 Statistics</button>
             <button class="gb-tab" onclick="window.switchTab('buddies')">👥 Buddies</button>
             <button class="gb-tab" onclick="window.switchTab('subscribers')">👤 Subscribers</button>
+            <button class="gb-tab" onclick="window.switchTab('tickets')">📋 My Tickets</button>
             <button class="gb-tab" onclick="window.switchTab('settings')">⚙️ Settings</button>
           </div>
           <div id="uploads-tab" class="gb-tab-content active">
@@ -1456,6 +1457,10 @@ async function uploadMod() {
           <div id="subscribers-tab" class="gb-tab-content">
             <h3>Subscribers</h3>
             <div id="profileSubscribersList" class="gb-user-grid" style="grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 15px;"></div>
+          </div>
+          <div id="tickets-tab" class="gb-tab-content">
+            <h3>My Support Tickets</h3>
+            <div id="userTicketsList" class="gb-ticket-list"></div>
           </div>
           <div id="settings-tab" class="gb-tab-content">
             <h3>Profile Settings</h3>
@@ -1482,8 +1487,8 @@ async function uploadMod() {
     `;
     loadUserStats();
     loadMyMods();
+    // Load tickets when the tickets tab is first activated (handled by switchTab)
   }
-
 
   async function loadMyMods() {
     const box = document.getElementById("myMods");
