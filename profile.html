@@ -702,34 +702,21 @@ margin: 20px auto 16px;
   white-space: normal;
   line-height: 1.4; /* slightly larger for multi‑line */
 }
-/* =========================
-   RESPONSIVE (FIXED)
-   GameBanana Style Mobile
-========================= */
 
-/* Tablet */
-@media (max-width: 1200px) {
-  .gb-profile-grid {
-    grid-template-columns: 1fr !important;
-  }
+    /* Responsive */
+    @media (max-width: 1200px) {
+      .gb-profile-grid {
+        grid-template-columns: 1fr;
+      }
+      .gb-profile-sidebar {
+        position: static;
+      }
+    }
 
-  .gb-profile-sidebar {
-    position: static !important;
-  }
-}
-
-/* Mobile */
 @media (max-width: 768px) {
 
-  /* Stack everything in one column */
-  .gb-profile-grid {
-    grid-template-columns: 1fr !important;
-  }
-
-  /* Fix avatar spacing */
   .gb-profile-info {
-    padding: 90px 20px 25px !important;
-    text-align: center;
+    padding: 90px 20px 25px;
   }
 
   .gb-profile-avatar {
@@ -739,9 +726,10 @@ margin: 20px auto 16px;
     margin: -40px auto 12px;
   }
 
-  /* Stats full width like GameBanana */
+}
+
   .gb-profile-stats {
-    grid-template-columns: 1fr !important;
+    grid-template-columns: 1fr;
     gap: 10px;
   }
 
@@ -753,30 +741,25 @@ margin: 20px auto 16px;
     font-size: 11px;
   }
 
-  /* Tabs wrap nicely instead of squishing */
   .gb-tabs {
     flex-wrap: wrap;
     justify-content: center;
-    gap: 8px;
   }
 
   .gb-tab {
     padding: 8px 16px;
     font-size: 14px;
   }
-}
 
-/* Small phones */
-@media (max-width: 480px) {s
-  .gb-profile-stats {
-    grid-template-columns: 1fr !important;
-    gap: 10px;
-  }
-
-  .gb-stat-value {
-    font-size: 18px;
-  }
-}
+    @media (max-width: 480px) {
+      .gb-profile-stats {
+        grid-template-columns: 1fr;
+        gap: 10px;
+      }
+      .gb-stat-value {
+        font-size: 20px;
+      }
+    }
   </style>
 </head>
 <body>
