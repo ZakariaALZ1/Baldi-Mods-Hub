@@ -1014,33 +1014,22 @@ async function uploadMod() {
       const isAuthor = user && user.id === mod.user_id;
       const canEdit = isAuthor || (user && await isModerator());
 
-     modContainer.innerHTML = `
+      modContainer.innerHTML = `
         <div class="gb-mod-grid">
-          <!-- Sidebar (Author Info) -->
-          <div class="gb-mod-sidebar">
-            <div class="gb-author-cover"></div>
-            <div class="gb-author-avatar" style="text-shadow: 0 0 8px var(--gb-primary);">
-              ${escapeHTML((authorProfile?.username || 'U').charAt(0).toUpperCase())}
-            </div>
-            <div class="gb-author-info">
+<div class="gb-mod-sidebar">
+  <div class="gb-author-cover">
+    <div class="gb-author-avatar" style="text-shadow: 0 0 8px var(--gb-primary);">
+      ${escapeHTML((authorProfile?.username || 'U').charAt(0).toUpperCase())}
+    </div>
+  </div>
+  <div class="gb-author-info">
               <div class="gb-author-name"><a href="profile.html?id=${mod.user_id}" style="color: inherit; text-decoration: none;">${escapeHTML(authorProfile?.username || 'Unknown')}</a></div>
               <div class="gb-author-badge">${authorBadge}</div>
-              
               <div class="gb-author-stats">
-                <div class="gb-author-stat">
-                  <span>📦 Uploads</span>
-                  <span class="gb-author-stat-value">${authorProfile?.upload_count || 0}</span>
-                </div>
-                <div class="gb-author-stat">
-                  <span>📥 Downloads</span>
-                  <span class="gb-author-stat-value">${authorProfile?.download_count || 0}</span>
-                </div>
-                <div class="gb-author-stat">
-                  <span>⭐ Trust</span>
-                  <span class="gb-author-stat-value">${authorProfile?.trust_score || 0}</span>
-                </div>
+                <div class="gb-author-stat"><span>📦 Uploads</span><span class="gb-author-stat-value">${authorProfile?.upload_count || 0}</span></div>
+                <div class="gb-author-stat"><span>📥 Downloads</span><span class="gb-author-stat-value">${authorProfile?.download_count || 0}</span></div>
+                <div class="gb-author-stat"><span>⭐ Trust</span><span class="gb-author-stat-value">${authorProfile?.trust_score || 0}</span></div>
               </div>
-
               <div class="gb-author-actions">
                 <button onclick="toggleBuddy('${mod.user_id}')" class="gb-btn ${isBuddy ? 'gb-btn-primary' : 'gb-btn-outline'} gb-btn-block" id="buddyBtn-${mod.user_id}">${isBuddy ? '✓ Buddy' : '+ Add Buddy'}</button>
                 <button onclick="toggleSubscribe('${mod.user_id}')" class="gb-btn ${isSubscribed ? 'gb-btn-primary' : 'gb-btn-outline'} gb-btn-block" id="subBtn-${mod.user_id}">${isSubscribed ? '🔔 Subscribed' : '🔔 Subscribe'}</button>
@@ -1048,53 +1037,39 @@ async function uploadMod() {
               </div>
             </div>
           </div>
-
-          <!-- Main Content -->
           <div class="gb-mod-main">
             <div style="display: flex; align-items: center; gap: 15px; margin-bottom: 15px; flex-wrap: wrap;">
               <h1 class="gb-mod-title" style="margin: 0;">${escapeHTML(mod.title)}</h1>
               ${canEdit ? `<a href="editmod.html?id=${mod.id}" class="gb-btn gb-btn-secondary" style="padding: 8px 16px;">✎ Edit</a>` : ''}
             </div>
-            
             <div class="gb-mod-badges">
               <span class="gb-badge">📦 v${escapeHTML(mod.version || '1.0.0')}</span>
               <span class="gb-badge">🎮 ${escapeHTML(mod.baldi_version || 'Any')}</span>
-              <span class="gb-badge" style="background:${mod.risk_score < 30 ? '#00ff88' : mod.risk_score < 60 ? '#ffaa00' : '#ff4444'};">
-                ${mod.risk_score < 30 ? '✅ Safe' : mod.risk_score < 60 ? '⚠️ Caution' : '❌ Unsafe'}
-              </span>
+              <span class="gb-badge" style="background:${mod.risk_score < 30 ? '#00ff88' : mod.risk_score < 60 ? '#ffaa00' : '#ff4444'};">${mod.risk_score < 30 ? '✅ Safe' : mod.risk_score < 60 ? '⚠️ Caution' : '❌ Unsafe'}</span>
             </div>
-
             <div class="gb-mod-meta-grid">
               <div class="gb-meta-item"><span class="gb-meta-label">Downloads</span><span class="gb-meta-value">📥 ${mod.download_count || 0}</span></div>
               <div class="gb-meta-item"><span class="gb-meta-label">Views</span><span class="gb-meta-value">👁️ ${mod.view_count || 0}</span></div>
               <div class="gb-meta-item"><span class="gb-meta-label">Uploaded</span><span class="gb-meta-value">📅 ${new Date(mod.created_at).toLocaleDateString()}</span></div>
               <div class="gb-meta-item"><span class="gb-meta-label">File Size</span><span class="gb-meta-value">💾 ${formatFileSize(mod.file_size || 0)}</span></div>
             </div>
-
             ${screenshotsHtml}
-
             <div class="gb-mod-description">
               <h2>Description</h2>
               <div class="gb-description-content">${escapeHTML(mod.description).replace(/\n/g, '<br>')}</div>
             </div>
-
             ${mod.tags?.length ? `
               <div class="gb-tag-list">
                 ${mod.tags.map(tag => `<span class="gb-tag">#${escapeHTML(tag)}</span>`).join('')}
               </div>
             ` : ''}
-
-            <!-- Favorite Button -->
             <div class="gb-mod-favorite">
               <button id="favoriteBtn" onclick="toggleFavorite('${mod.id}')" class="gb-btn gb-btn-outline gb-btn-large">🤍 Favorite</button>
             </div>
-
             <div class="gb-mod-actions">
               <a href="${escapeHTML(mod.file_url)}" class="gb-btn gb-btn-primary gb-btn-large" target="_blank" rel="noopener noreferrer" onclick="trackDownload('${mod.id}')">⬇️ Download Mod</a>
               <button onclick="reportMod('${mod.id}')" class="gb-btn gb-btn-secondary gb-btn-large">🚩 Report Mod</button>
             </div>
-
-            <!-- Comments Section -->
             <div class="gb-comments-section">
               <h2>Comments</h2>
               ${user ? `
@@ -1109,7 +1084,6 @@ async function uploadMod() {
         </div>
       `;
 
-      // Load comments and favorite status after rendering
       loadComments(mod.id);
       updateFavoriteButton(mod.id);
 
@@ -1420,7 +1394,7 @@ async function uploadMod() {
     }
   }
 
-  function renderProfile(profile, user) {
+   function renderProfile(profile, user) {
     const container = document.getElementById('profile-content');
     if (!container) return;
     const username = profile?.username || user.email?.split('@')[0] || 'User';
@@ -1454,116 +1428,62 @@ async function uploadMod() {
             <p>${escapeHTML(profile?.bio || 'No bio yet.')}</p>
           </div>
         </div>
-        <div class="gb-tabs">
-          <button class="gb-tab active" onclick="window.switchTab('uploads')">📦 My Mods</button>
-          <button class="gb-tab" onclick="window.switchTab('stats')">📊 Statistics</button>
-          <button class="gb-tab" onclick="window.switchTab('buddies')">👥 Buddies</button>
-          <button class="gb-tab" onclick="window.switchTab('subscribers')">👤 Subscribers</button>
-          <button class="gb-tab" onclick="window.switchTab('tickets')">📋 My Tickets</button>
-          <button class="gb-tab" onclick="window.switchTab('settings')">⚙️ Settings</button>
-        </div>
-
-        <div id="uploads-tab" class="gb-tab-content active">
-          <h3>My Uploaded Mods</h3>
-          <div id="myMods" class="gb-mods-grid"></div>
-        </div>
-
-        <div id="stats-tab" class="gb-tab-content">
-          <h3>Statistics</h3>
-          <div class="gb-stats-detailed">
-            <div class="gb-stat-card">
-              <div class="gb-stat-icon">📤</div>
-              <div class="gb-stat-info">
-                <span class="gb-stat-label">Total Uploads</span>
-                <span class="gb-stat-number" id="statTotalUploads">0</span>
-              </div>
-            </div>
-
-            <div class="gb-stat-card">
-              <div class="gb-stat-icon">✅</div>
-              <div class="gb-stat-info">
-                <span class="gb-stat-label">Approved</span>
-                <span class="gb-stat-number" id="statApprovedMods">0</span>
-              </div>
-            </div>
-
-            <div class="gb-stat-card">
-              <div class="gb-stat-icon">⏳</div>
-              <div class="gb-stat-info">
-                <span class="gb-stat-label">Pending</span>
-                <span class="gb-stat-number" id="statPendingMods">0</span>
-              </div>
-            </div>
-
-            <div class="gb-stat-card">
-              <div class="gb-stat-icon">📥</div>
-              <div class="gb-stat-info">
-                <span class="gb-stat-label">Downloads</span>
-                <span class="gb-stat-number" id="statTotalDownloads">0</span>
-              </div>
+        <div class="gb-profile-main">
+          <div class="gb-tabs">
+            <button class="gb-tab active" onclick="window.switchTab('uploads')">📦 My Mods</button>
+            <button class="gb-tab" onclick="window.switchTab('stats')">📊 Statistics</button>
+            <button class="gb-tab" onclick="window.switchTab('buddies')">👥 Buddies</button>
+            <button class="gb-tab" onclick="window.switchTab('subscribers')">👤 Subscribers</button>
+            <button class="gb-tab" onclick="window.switchTab('settings')">⚙️ Settings</button>
+          </div>
+          <div id="uploads-tab" class="gb-tab-content active">
+            <h3>My Uploaded Mods</h3>
+            <div id="myMods" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px; margin-top: 20px;"></div>
+          </div>
+          <div id="stats-tab" class="gb-tab-content">
+            <h3>Statistics</h3>
+            <div class="gb-stats-detailed">
+              <div class="gb-stat-card"><div class="gb-stat-icon">📤</div><div class="gb-stat-info"><span class="gb-stat-label">Total Uploads</span><span class="gb-stat-number" id="statTotalUploads">0</span></div></div>
+              <div class="gb-stat-card"><div class="gb-stat-icon">✅</div><div class="gb-stat-info"><span class="gb-stat-label">Approved</span><span class="gb-stat-number" id="statApprovedMods">0</span></div></div>
+              <div class="gb-stat-card"><div class="gb-stat-icon">⏳</div><div class="gb-stat-info"><span class="gb-stat-label">Pending</span><span class="gb-stat-number" id="statPendingMods">0</span></div></div>
+              <div class="gb-stat-card"><div class="gb-stat-icon">📥</div><div class="gb-stat-info"><span class="gb-stat-label">Downloads</span><span class="gb-stat-number" id="statTotalDownloads">0</span></div></div>
             </div>
           </div>
+          <div id="buddies-tab" class="gb-tab-content">
+            <h3>Buddies</h3>
+            <div id="profileBuddiesList" class="gb-user-grid" style="grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 15px;"></div>
+          </div>
+          <div id="subscribers-tab" class="gb-tab-content">
+            <h3>Subscribers</h3>
+            <div id="profileSubscribersList" class="gb-user-grid" style="grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 15px;"></div>
+          </div>
+          <div id="settings-tab" class="gb-tab-content">
+            <h3>Profile Settings</h3>
+            <form class="gb-settings-form">
+              <div class="gb-form-group">
+                <label>Display Name</label>
+                <input type="text" id="displayName" value="${escapeHTML(username)}" maxlength="30">
+                <span class="gb-char-counter" id="nameCounter">${username.length}/30</span>
+              </div>
+              <div class="gb-form-group">
+                <label>Bio</label>
+                <textarea id="userBio" rows="4" maxlength="500" placeholder="Tell us about yourself...">${escapeHTML(profile?.bio || '')}</textarea>
+                <span class="gb-char-counter" id="bioCounter">${profile?.bio?.length || 0}/500</span>
+              </div>
+              <div class="gb-form-group">
+                <label>Email</label>
+                <input type="email" value="${escapeHTML(user.email)}" disabled style="background: #333; opacity: 0.7;">
+              </div>
+              <button type="button" onclick="updateProfile()" class="gb-btn gb-btn-primary">💾 Save Changes</button>
+            </form>
+          </div>
         </div>
-
-        <div id="buddies-tab" class="gb-tab-content">
-          <h3>Buddies</h3>
-          <div id="profileBuddiesList" class="gb-user-grid"></div>
-        </div>
-
-        <div id="subscribers-tab" class="gb-tab-content">
-          <h3>Subscribers</h3>
-          <div id="profileSubscribersList" class="gb-user-grid"></div>
-        </div>
-
-        <div id="tickets-tab" class="gb-tab-content">
-          <h3>My Support Tickets</h3>
-          <div id="userTicketsList" class="gb-ticket-list"></div>
-        </div>
-
-        <div id="settings-tab" class="gb-tab-content">
-          <h3>Profile Settings</h3>
-          <form class="gb-settings-form">
-            <div class="gb-form-group">
-              <label>Display Name</label>
-              <input type="text" id="displayName" 
-                value="${escapeHTML(username)}" maxlength="30">
-              <span class="gb-char-counter" id="nameCounter">
-                ${username.length}/30
-              </span>
-            </div>
-
-            <div class="gb-form-group">
-              <label>Bio</label>
-              <textarea id="userBio" rows="4" maxlength="500"
-                placeholder="Tell us about yourself...">
-                ${escapeHTML(profile?.bio || '')}
-              </textarea>
-              <span class="gb-char-counter" id="bioCounter">
-                ${profile?.bio?.length || 0}/500
-              </span>
-            </div>
-
-            <div class="gb-form-group">
-              <label>Email</label>
-              <input type="email" value="${escapeHTML(user.email)}"
-                disabled style="background:#333;opacity:0.7;">
-            </div>
-
-            <button type="button" onclick="updateProfile()" 
-              class="gb-btn gb-btn-primary">
-              💾 Save Changes
-            </button>
-          </form>
-        </div>
-
       </div>
-    </div>
-  </div>
-`;
+    `;
     loadUserStats();
     loadMyMods();
-    // Load tickets when the tickets tab is first activated (handled by switchTab)
   }
+
 
   async function loadMyMods() {
     const box = document.getElementById("myMods");
@@ -3178,7 +3098,6 @@ async function updateAdminNotificationCounts() {
     btn.innerHTML = isFav ? '❤️ Unfavorite' : '🤍 Favorite';
     btn.className = isFav ? 'gb-btn gb-btn-primary gb-btn-large' : 'gb-btn gb-btn-outline gb-btn-large';
   }
-
   /* =========================
      PUBLIC PROFILE
   ========================= */
@@ -3263,7 +3182,6 @@ async function updateAdminNotificationCounts() {
       }
     } catch (err) { console.error(err); container.innerHTML = '<div class="gb-error">Error loading profile</div>'; }
   }
-
   // =========================
   // PROFILE BUDDIES / SUBSCRIBERS (inline)
   // =========================
