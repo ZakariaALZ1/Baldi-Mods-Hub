@@ -1674,6 +1674,7 @@ async function updateProfile() {
     }
   };
 
+
   /* =========================
      ADMIN FUNCTIONS
   ========================= */
@@ -2464,6 +2465,42 @@ async function deleteMod(id) {
       return false;
     }
   }
+
+      async function deleteAccount() {
+  if (!confirm('⚠️ Are you absolutely sure? This will permanently delete your account, all your mods, comments, and data. This action cannot be undone.')) return;
+
+  const user = await getCurrentUser();
+  if (!user) {
+    showNotification('You must be logged in.', 'error');
+    return;
+  }
+
+  const button = event?.target;
+  setLoading(button, true, 'Deleting...');
+
+  try {
+    const accessToken = await getAccessToken();
+    const response = await fetch(`${MEGA_BACKEND_URL}/delete-account`, {
+      method: 'DELETE',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Content-Type': 'application/json'
+      }
+    });
+
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.error || 'Deletion failed');
+
+    showNotification('Your account has been deleted. Goodbye.', 'info');
+    await logout(); // sign out locally
+    window.location.href = 'index.html';
+  } catch (err) {
+    console.error('Account deletion failed:', err);
+    showNotification('Failed to delete account: ' + err.message, 'error');
+  } finally {
+    setLoading(button, false);
+  }
+}
 
   async function loadUserTickets(containerId) {
     const user = await getCurrentUser();
@@ -3376,6 +3413,7 @@ async function updateAdminNotificationCounts() {
   window.showNotification = showNotification;
   window.formatFileSize = formatFileSize;
   window.escapeHTML = escapeHTML;
+  window.deleteAccount = deleteAccount;
   window.setLoading = setLoading;
 
   window.loadAdminStats = loadAdminStats;
