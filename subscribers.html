@@ -34,7 +34,7 @@
     .gb-header { background: linear-gradient(180deg, #1a1a1a 0%, #0f0f0f 100%); border-bottom:3px solid var(--gb-primary); padding:20px 0; position:sticky; top:0; z-index:1000; }
     .gb-header-content { max-width:1400px; margin:0 auto; padding:0 30px; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:15px; }
     .gb-logo { display:flex; align-items:center; gap:15px; }
-    .gb-logo-icon { font-size:48px; filter:drop-shadow(0 0 10px rgba(0,255,136,0.3)); }
+    .gb-logo-icon { font-size:100px; filter:drop-shadow(0 0 10px rgba(0,255,136,0.3)); }
     .gb-logo-text h1 { font-size:28px; font-weight:800; background:linear-gradient(135deg,#fff 0%,#00ff88 100%); -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; margin-bottom:5px; }
     .gb-logo-tagline { color:var(--gb-text-muted); font-size:14px; }
     .gb-nav { background:var(--gb-bg-light); border-bottom:1px solid var(--gb-border); padding:0; position:sticky; top:120px; z-index:999; }
@@ -86,6 +86,18 @@
   min-width: 18px;
   text-align: center;
 }
+                .gb-logo-link {
+  text-decoration: none;
+  color: inherit;        /* keeps the existing text color */
+  display: inline-block;  /* or block, depending on layout */
+}
+
+.logo-image {
+  width: 100px;        /* adjust to your preferred size */
+  height: auto;       /* keeps aspect ratio */
+  display: block;     /* removes extra space below image */
+  filter: drop-shadow(0 0 10px rgba(0,255,136,0.3)); /* optional: keep the glow */
+}
   </style>
 </head>
 <body>
@@ -99,7 +111,6 @@
         <h1>Baldi Mods Hub</h1>
         <span class="gb-logo-tagline">Mods • Secure • Community</span>
       </div>
-    </div>
     </div>
   </header>
   <nav class="gb-nav" id="main-nav">
