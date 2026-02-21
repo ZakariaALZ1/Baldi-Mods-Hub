@@ -62,18 +62,32 @@
     .gb-form-actions { display:flex; gap:20px; justify-content:flex-end; margin-top:30px; }
     .gb-back-link { display:inline-flex; align-items:center; gap:8px; color:var(--gb-text-muted); text-decoration:none; font-weight:600; margin-bottom:20px; transition:color 0.2s; }
     .gb-back-link:hover { color:var(--gb-primary); }
+                .gb-logo-link {
+  text-decoration: none;
+  color: inherit;        /* keeps the existing text color */
+  display: inline-block;  /* or block, depending on layout */
+}
+
+.logo-image {
+  width: 100px;        /* adjust to your preferred size */
+  height: auto;       /* keeps aspect ratio */
+  display: block;     /* removes extra space below image */
+  filter: drop-shadow(0 0 10px rgba(0,255,136,0.3)); /* optional: keep the glow */
+}
   </style>
 </head>
 <body>
   <header class="gb-header">
-    <div class="gb-header-content">
-      <div class="gb-logo">
-        <span class="gb-logo-icon">🎓</span>
-        <div class="gb-logo-text">
-          <h1>BALDI MODS HUB</h1>
-          <span class="gb-logo-tagline">Support Ticket</span>
-        </div>
+  <div class="gb-header-content">
+    <div class="gb-logo">
+      <span class="gb-logo-icon">
+        <img src="logo.png" alt="Baldi Mods Hub" class="logo-image">
+      </span>
+      <div class="gb-logo-text">
+        <h1>Baldi Mods Hub</h1>
+        <span class="gb-logo-tagline">Mods • Secure • Community</span>
       </div>
+    </div>
     </div>
   </header>
 

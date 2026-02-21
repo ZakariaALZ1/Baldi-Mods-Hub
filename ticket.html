@@ -53,18 +53,32 @@
     .gb-modal-close { float:right; font-size:28px; cursor:pointer; color:#ccc; }
     .gb-form-group { margin-bottom:20px; }
     .gb-form-group textarea { width:100%; padding:10px; background:#222; border:1px solid #444; color:white; border-radius:5px; }
+                .gb-logo-link {
+  text-decoration: none;
+  color: inherit;        /* keeps the existing text color */
+  display: inline-block;  /* or block, depending on layout */
+}
+
+.logo-image {
+  width: 100px;        /* adjust to your preferred size */
+  height: auto;       /* keeps aspect ratio */
+  display: block;     /* removes extra space below image */
+  filter: drop-shadow(0 0 10px rgba(0,255,136,0.3)); /* optional: keep the glow */
+}
   </style>
 </head>
 <body>
-  <header class="gb-header">
-    <div class="gb-header-content">
-      <div class="gb-logo">
-        <span class="gb-logo-icon">🎓</span>
-        <div class="gb-logo-text">
-          <h1>BALDI MODS HUB</h1>
-          <span class="gb-logo-tagline">Ticket Details</span>
-        </div>
+<header class="gb-header">
+  <div class="gb-header-content">
+    <div class="gb-logo">
+      <span class="gb-logo-icon">
+        <img src="logo.png" alt="Baldi Mods Hub" class="logo-image">
+      </span>
+      <div class="gb-logo-text">
+        <h1>Baldi Mods Hub</h1>
+        <span class="gb-logo-tagline">Mods • Secure • Community</span>
       </div>
+    </div>
     </div>
   </header>
   <nav class="gb-nav" id="main-nav">
