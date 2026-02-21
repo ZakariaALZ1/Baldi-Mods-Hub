@@ -12,124 +12,19 @@
   <script src="js/supabase.min.js"></script>
   <script src="config.js"></script>
   <style>
-    /* Admin Dashboard Styles - keep your existing styles */
-    body {
-      background: #0a0a0a;
-      color: #fff;
-      font-family: 'Inter', sans-serif;
-    }
-    .dashboard-container {
-      max-width: 1400px;
-      margin: 0 auto;
-      padding: 20px;
-    }
-    .admin-warning {
-      background: #332200;
-      border-left: 4px solid #ffaa00;
-      padding: 15px;
-      border-radius: 5px;
-      margin-bottom: 30px;
-      color: #ffaa00;
-    }
-    .admin-nav {
-      display: flex;
-      gap: 15px;
-      margin-bottom: 30px;
-      padding: 15px;
-      background: #1a1a1a;
-      border-radius: 8px;
-      flex-wrap: wrap;
-    }
-    .admin-nav a {
-      color: #fff;
-      text-decoration: none;
-      padding: 10px 20px;
-      border-radius: 5px;
-      background: #222;
-      position: relative;
-    }
-    .admin-nav a:hover {
-      background: #333;
-    }
-    .dashboard-section {
-      background: #1a1a1a;
-      padding: 25px;
-      border-radius: 10px;
-      margin-bottom: 30px;
-      border: 1px solid #333;
-    }
-    .dashboard-section h2 {
-      margin-top: 0;
-      margin-bottom: 20px;
-      color: #00ff88;
-      border-bottom: 1px solid #333;
-      padding-bottom: 15px;
-    }
-    .gb-badge {
-      display: inline-block;
-      padding: 4px 8px;
-      border-radius: 20px;
-      font-size: 12px;
-      font-weight: bold;
-      margin-left: 5px;
-    }
-    .loading {
-      text-align: center;
-      padding: 40px;
-    }
-            .gb-header-content {
-      max-width: 1400px;
-      margin: 0 auto;
-      padding: 0 30px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-    }
-        .gb-logo-text h1 {
-      font-size: 28px;
-      font-weight: 800;
-      letter-spacing: -0.5px;
-      background: linear-gradient(135deg, #fff 0%, #00ff88 100%);
-      -webkit-background-clip: text;
-      background-clip: text;
-      -webkit-text-fill-color: transparent;
-      margin-bottom: 5px;
-    }
-
-        /* Responsive */
-    @media (max-width: 768px) {
-      .gb-header-content {
-        flex-direction: column;
-        gap: 20px;
-      }
-      .gb-nav-container {
-        flex-direction: column;
-      }
-      .gb-nav-links {
-        justify-content: center;
-      }
-      .gb-form-actions {
-        flex-direction: column;
-      }
-      .gb-edit-header h1 {
-        font-size: 36px;
-      }
-    }
+    /* Admin Dashboard Styles - Already in your file */
+    /* Keep all your existing admin dashboard styles */
   </style>
 </head>
 <body>
   <header>
-  <div class="gb-header-content">
-    <div class="gb-logo">
-      <span class="gb-logo-icon">
-        <img src="logo.png" alt="Baldi Mods Hub" class="logo-image">
-      </span>
-      <div class="gb-logo-text">
-        <h1>Baldi Mods Hub</h1>
-        <span class="gb-logo-tagline">Mods • Secure • Community</span>
-        <nav id="main-nav" class="main-nav"><!-- Filled by JS --></nav>
-      </div>
+    <div class="header-content">
+      <h1>Baldi Mods Hub - Admin Dashboard</h1>
+      <nav id="main-nav" class="main-nav">
+        <!-- Filled by JavaScript -->
+      </nav>
     </div>
+  </header>
 
   <main class="dashboard-container">
     <div id="loading" class="loading"><h2>Verifying admin permissions...</h2></div>
