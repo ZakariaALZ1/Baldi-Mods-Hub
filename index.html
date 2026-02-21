@@ -17,7 +17,6 @@
 <link rel="icon" type="image/png" sizes="16x16" href="favicon-16x16.png">
 <link rel="manifest" href="site.webmanifest">
   
-  
   <!-- Security Headers -->
   <meta http-equiv="X-Content-Type-Options" content="nosniff">
   <meta http-equiv="Referrer-Policy" content="strict-origin-when-cross-origin">
@@ -97,10 +96,17 @@
       flex-wrap: wrap;
     }
 
-    .gb-logo-icon {
-      font-size: 48px;
-      filter: drop-shadow(0 0 10px rgba(0,255,136,0.3));
-    }
+.gb-logo-icon {
+  display: inline-block;
+  width: 32px;
+  height: 32px;
+  background-image: url('your-logo.png');
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center;
+  /* Remove any text content */
+  text-indent: -9999px; /* if you need to hide fallback text */
+}
 
     .gb-logo-text h1 {
       font-size: 28px;
@@ -853,6 +859,17 @@
         min-width: auto;
       }
     }
+    .gb-logo-link {
+  text-decoration: none;
+  color: inherit;        /* keeps the existing text color */
+  display: inline-block;  /* or block, depending on layout */
+}
+
+.logo-image {
+  width: 32px;   /* adjust to your preferred size */
+  height: auto;
+  vertical-align: middle; /* aligns with text if needed */
+}
 
     @media (max-width: 480px) {
       .gb-mod-meta-grid {
@@ -870,16 +887,17 @@
 </head>
 <body>
   <!-- GameBanana Style Header -->
-  <header class="gb-header">
-    <div class="gb-header-content">
-      <div class="gb-logo">
-        <span class="gb-logo-icon">🎓</span>
-        <div class="gb-logo-text">
-          <h1>BALDI MODS HUB</h1>
-          <span class="gb-logo-tagline">GameBanana Style • Secure • Community</span>
-        </div>
+<header class="gb-header">
+  <div class="gb-header-content">
+    <div class="gb-logo">
+      <span class="gb-logo-icon">
+        <img src="logo.png" alt="Baldi Mods Hub" class="logo-image">
+      </span>
+      <div class="gb-logo-text">
+        <h1>Baldi Mods Hub</h1>
+        <span class="gb-logo-tagline">Mods • Secure • Community</span>
       </div>
-      
+    </div>
       <div class="gb-header-stats">
         <div class="gb-header-stat">
           <span class="gb-header-stat-value" id="headerTotalMods">0</span>
