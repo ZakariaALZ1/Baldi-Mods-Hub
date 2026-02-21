@@ -1013,28 +1013,54 @@ margin: 20px auto 16px;
   <h3>My Support Tickets</h3>
   <div id="userTicketsList"></div>
 </div>
-        <div id="settings-tab" class="gb-tab-content">
-          <h3>Profile Settings</h3>
-          <form class="gb-settings-form">
-            <div class="gb-form-group">
-              <label>Display Name</label>
-              <input type="text" id="displayName" value="${escapeHTML(username)}" maxlength="30">
-              <span class="gb-char-counter" id="nameCounter">${username.length}/30</span>
-            </div>
-            <div class="gb-form-group">
-              <label>Bio</label>
-              <textarea id="userBio" rows="4" maxlength="500" placeholder="Tell us about yourself...">${escapeHTML(profile?.bio || '')}</textarea>
-              <span class="gb-char-counter" id="bioCounter">${profile?.bio?.length || 0}/500</span>
-            </div>
-            <div class="gb-form-group">
-              <label>Email</label>
-              <input type="email" value="${escapeHTML(user.email)}" disabled style="background: #333; opacity: 0.7;">
-            </div>
-            <button type="button" onclick="updateProfile()" class="gb-btn gb-btn-primary">💾 Save Changes</button>
-          </form>
-        </div>
-      </div>
+// Inside renderProfile, replace the settings-tab content:
+
+<div id="settings-tab" class="gb-tab-content">
+  <h3>Profile Settings</h3>
+  <form class="gb-settings-form">
+    <div class="gb-form-group">
+      <label>Username (unique, 3-30 characters)</label>
+      <input 
+        type="text" 
+        id="displayName" 
+        value="${escapeHTML(username)}" 
+        maxlength="30"
+        pattern="[a-zA-Z0-9_]+"
+        title="Letters, numbers, and underscore only"
+        required
+      >
+      <span class="gb-char-counter" id="nameCounter">${username.length}/30</span>
+      <span class="gb-hint">
+        ⚠️ Only letters, numbers, and underscores. Must be unique.
+      </span>
     </div>
+
+    <div class="gb-form-group">
+      <label>Bio (max 500 characters)</label>
+      <textarea 
+        id="userBio" 
+        rows="4" 
+        maxlength="500" 
+        placeholder="Tell us about yourself..."
+      >${escapeHTML(profile?.bio || '')}</textarea>
+      <span class="gb-char-counter" id="bioCounter">${profile?.bio?.length || 0}/500</span>
+    </div>
+
+    <div class="gb-form-group">
+      <label>Email (cannot be changed)</label>
+      <input 
+        type="email" 
+        value="${escapeHTML(user.email)}" 
+        disabled 
+        style="background: #333; opacity: 0.7;"
+      >
+    </div>
+
+    <button type="button" onclick="updateProfile()" class="gb-btn gb-btn-primary">
+      💾 Save Changes
+    </button>
+  </form>
+</div>
   `;
   
   loadUserStats();

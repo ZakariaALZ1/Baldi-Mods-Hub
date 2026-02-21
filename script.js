@@ -573,59 +573,98 @@ async function fetchAdminNotificationCounts() {
   /* =========================
      AUTH FUNCTIONS
   ========================= */
-  async function signUp() {
-    const email = val("email");
-    const password = val("password");
-    if (!email || !password) return showNotification("Email and password required", "error");
-    if (password.length < 8) return showNotification("Password must be at least 8 characters", "error");
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return showNotification("Invalid email format", "error");
-    const hasUpperCase = /[A-Z]/.test(password);
-    const hasLowerCase = /[a-z]/.test(password);
-    const hasNumbers = /\d/.test(password);
-    if (!(hasUpperCase && hasLowerCase && hasNumbers)) return showNotification("Password must contain uppercase, lowercase, and numbers", "error");
-    const button = event?.target;
-    setLoading(button, true, 'Creating account...');
-    try {
-      const { data, error } = await supabaseClient.auth.signUp({
-        email,
-        password,
-        options: {
-          emailRedirectTo: window.location.origin,
-          data: { username: email.split('@')[0], join_date: new Date().toISOString() }
-        }
-      });
-      if (error) throw error;
-      if (data.user) {
-        await supabaseClient.from("profiles").upsert({
-          id: data.user.id,
-          username: email.split('@')[0],
-          email: email,
-          role: 'user',
-          trust_score: 100,
-          is_verified: false,
-          join_date: new Date().toISOString(),
-          upload_count: 0,
-          download_count: 0
-        }, { onConflict: 'id' });
-        const { error: signInError } = await supabaseClient.auth.signInWithPassword({ email, password });
-        if (signInError) throw signInError;
-        showNotification("🎉 Account created successfully! Welcome to Baldi Mods Hub!", "success", 6000);
-        setTimeout(() => {
-          checkAuthState();
-          window.location.href = "profile.html";
-        }, 2000);
-      }
-    } catch (err) {
-      console.error("Signup failed:", err);
-      if (err.message.includes('User already registered')) {
-        showNotification("Email already registered. Please login.", "error");
-      } else {
-        showNotification("Signup failed: " + (err.message || "Unknown error"), "error");
-      }
-    } finally {
-      setLoading(button, false);
-    }
+async function signUp() {
+  const email = val("email");
+  const password = val("password");
+  const username = document.getElementById('signupUsername')?.value.trim();
+
+  if (!email || !password || !username) {
+    return showNotification("Email, password and username are required", "error");
   }
+  if (password.length < 8) {
+    return showNotification("Password must be at least 8 characters", "error");
+  }
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    return showNotification("Invalid email format", "error");
+  }
+  const hasUpperCase = /[A-Z]/.test(password);
+  const hasLowerCase = /[a-z]/.test(password);
+  const hasNumbers = /\d/.test(password);
+  if (!(hasUpperCase && hasLowerCase && hasNumbers)) {
+    return showNotification("Password must contain uppercase, lowercase, and numbers", "error");
+  }
+  if (username.length < 3) {
+    return showNotification("Username must be at least 3 characters", "error");
+  }
+  if (!/^[a-zA-Z0-9_]+$/.test(username)) {
+    return showNotification("Username can only contain letters, numbers, and underscores", "error");
+  }
+
+  const button = event?.target;
+  setLoading(button, true, 'Creating account...');
+
+  try {
+    // Check if username already exists
+    const { data: existingUser, error: checkError } = await supabaseClient
+      .from('profiles')
+      .select('id')
+      .eq('username', username)
+      .maybeSingle();
+
+    if (checkError) throw checkError;
+    if (existingUser) {
+      showNotification("Username is already taken. Please choose another.", "error");
+      setLoading(button, false);
+      return;
+    }
+
+    // Create auth user
+    const { data, error } = await supabaseClient.auth.signUp({
+      email,
+      password,
+      options: {
+        emailRedirectTo: window.location.origin,
+        data: { username, join_date: new Date().toISOString() }
+      }
+    });
+
+    if (error) throw error;
+
+    if (data.user) {
+      // Insert profile with chosen username
+      await supabaseClient.from("profiles").upsert({
+        id: data.user.id,
+        username: username,
+        email: email,
+        role: 'user',
+        trust_score: 100,
+        is_verified: false,
+        join_date: new Date().toISOString(),
+        upload_count: 0,
+        download_count: 0
+      }, { onConflict: 'id' });
+
+      // Sign in automatically
+      const { error: signInError } = await supabaseClient.auth.signInWithPassword({ email, password });
+      if (signInError) throw signInError;
+
+      showNotification("🎉 Account created successfully! Welcome to Baldi Mods Hub!", "success", 6000);
+      setTimeout(() => {
+        checkAuthState();
+        window.location.href = "profile.html";
+      }, 2000);
+    }
+  } catch (err) {
+    console.error("Signup failed:", err);
+    if (err.message.includes('User already registered')) {
+      showNotification("Email already registered. Please login.", "error");
+    } else {
+      showNotification("Signup failed: " + (err.message || "Unknown error"), "error");
+    }
+  } finally {
+    setLoading(button, false);
+  }
+}
 
   async function signIn() {
     if (!rateLimiter('signin', 5, 60000)) return showNotification("Too many attempts. Please wait 1 minute.", "error");
@@ -1557,36 +1596,66 @@ async function uploadMod() {
     }
   }
 
-  async function updateProfile() {
-    const user = await getCurrentUser();
-    if (!user) return showNotification('Please login', 'error');
-    const displayName = document.getElementById('displayName')?.value.trim();
-    const bio = document.getElementById('userBio')?.value.trim();
-    if (!displayName || displayName.length < 3) return showNotification('Display name must be at least 3 characters', 'error');
-    const button = document.querySelector('.gb-btn-primary');
-    setLoading(button, true, 'Saving...');
-    try {
-      const { error } = await supabaseClient
-        .from('profiles')
-        .update({
-          username: displayName,
-          bio: bio,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', user.id);
-      if (error) throw error;
-      showNotification('✅ Profile updated successfully!', 'success');
-      const usernameEl = document.querySelector('.gb-profile-sidebar h2');
-      if (usernameEl) usernameEl.textContent = displayName;
-      const avatarEl = document.querySelector('.gb-avatar');
-      if (avatarEl) avatarEl.textContent = displayName.charAt(0).toUpperCase();
-    } catch (err) {
-      console.error('Failed to update profile:', err);
-      showNotification('Failed to update profile', 'error');
-    } finally {
-      setLoading(button, false);
-    }
+async function updateProfile() {
+  const user = await getCurrentUser();
+  if (!user) return showNotification('Please login', 'error');
+
+  const displayName = document.getElementById('displayName')?.value.trim();
+  const bio = document.getElementById('userBio')?.value.trim();
+
+  if (!displayName || displayName.length < 3) {
+    return showNotification('Display name must be at least 3 characters', 'error');
   }
+  if (!/^[a-zA-Z0-9_]+$/.test(displayName)) {
+    return showNotification("Username can only contain letters, numbers, and underscores", "error");
+  }
+
+  const button = document.querySelector('.gb-btn-primary');
+  setLoading(button, true, 'Saving...');
+
+  try {
+    // Check if username is already taken by another user
+    const { data: existing, error: checkError } = await supabaseClient
+      .from('profiles')
+      .select('id')
+      .eq('username', displayName)
+      .neq('id', user.id)   // exclude current user
+      .maybeSingle();
+
+    if (checkError) throw checkError;
+    if (existing) {
+      showNotification('The username is not available. Please choose another.', 'error');
+      setLoading(button, false);
+      return;
+    }
+
+    // Update profile
+    const { error } = await supabaseClient
+      .from('profiles')
+      .update({
+        username: displayName,
+        bio: bio,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', user.id);
+
+    if (error) throw error;
+
+    showNotification('✅ Profile updated successfully!', 'success');
+
+    // Update UI immediately
+    const usernameEl = document.querySelector('.gb-profile-sidebar h2');
+    if (usernameEl) usernameEl.textContent = displayName;
+    const avatarEl = document.querySelector('.gb-avatar');
+    if (avatarEl) avatarEl.textContent = displayName.charAt(0).toUpperCase();
+
+  } catch (err) {
+    console.error('Failed to update profile:', err);
+    showNotification('Failed to update profile', 'error');
+  } finally {
+    setLoading(button, false);
+  }
+}
 
   window.switchTab = function(tabName) {
     document.querySelectorAll('.gb-tab-content').forEach(tab => tab.classList.remove('active'));
