@@ -88,36 +88,36 @@
       flex-wrap: wrap;
       gap: 15px;
     }
+.gb-logo {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  flex-wrap: wrap;
+}
 
-    .gb-logo {
-      display: flex;
-      align-items: center;
-      gap: 15px;
-      flex-wrap: wrap;
-    }
+.logo-image {
+  width: 64px;        /* try 48px, 56px, or 64px */
+  height: auto;
+  display: block;
+  filter: drop-shadow(0 0 10px rgba(0,255,136,0.3));
+}
 
-    .gb-logo-icon {
-      font-size: 48px;
-      filter: drop-shadow(0 0 10px rgba(0,255,136,0.3));
-    }
+.gb-logo-text h1 {
+  font-size: 28px;
+  font-weight: 800;
+  letter-spacing: -0.5px;
+  background: linear-gradient(135deg, #fff 0%, #00ff88 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  margin-bottom: 5px;
+}
 
-    .gb-logo-text h1 {
-      font-size: 28px;
-      font-weight: 800;
-      letter-spacing: -0.5px;
-      background: linear-gradient(135deg, #fff 0%, #00ff88 100%);
-      -webkit-background-clip: text;
-      background-clip: text;
-      -webkit-text-fill-color: transparent;
-      margin-bottom: 5px;
-    }
-
-    .gb-logo-tagline {
-      color: var(--gb-text-muted);
-      font-size: 14px;
-      font-weight: 500;
-    }
-
+.gb-logo-tagline {
+  color: var(--gb-text-muted);
+  font-size: 14px;
+  font-weight: 500;
+}
     .gb-header-stats {
       display: flex;
       gap: 30px;
@@ -859,9 +859,10 @@
 }
 
 .logo-image {
-  width: 32px;   /* adjust to your preferred size */
-  height: auto;
-  vertical-align: middle; /* aligns with text if needed */
+  width: 48px;        /* adjust to your preferred size */
+  height: auto;       /* keeps aspect ratio */
+  display: block;     /* removes extra space below image */
+  filter: drop-shadow(0 0 10px rgba(0,255,136,0.3)); /* optional: keep the glow */
 }
 
     @media (max-width: 480px) {
